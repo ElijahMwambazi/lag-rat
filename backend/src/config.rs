@@ -23,21 +23,13 @@ impl AppConfig {
             database_url: env("DATABASE_URL")?,
             router_ip: env("ROUTER_IP")?,
             router_port: env("ROUTER_PORT")?.parse().context("invalid ROUTER_PORT")?,
-            connectivity_interval_seconds: env("CONNECTIVITY_INTERVAL_SECONDS")?
-                .parse()
-                .context("invalid CONNECTIVITY_INTERVAL_SECONDS")?,
-            dns_interval_seconds: env("DNS_INTERVAL_SECONDS")?
-                .parse()
-                .context("invalid DNS_INTERVAL_SECONDS")?,
-            device_interval_seconds: env("DEVICE_INTERVAL_SECONDS")?
-                .parse()
-                .context("invalid DEVICE_INTERVAL_SECONDS")?,
+            connectivity_interval_seconds: env("CONNECTIVITY_INTERVAL_SECONDS")?.parse().context("invalid CONNECTIVITY_INTERVAL_SECONDS")?,
+            dns_interval_seconds: env("DNS_INTERVAL_SECONDS")?.parse().context("invalid DNS_INTERVAL_SECONDS")?,
+            device_interval_seconds: env("DEVICE_INTERVAL_SECONDS")?.parse().context("invalid DEVICE_INTERVAL_SECONDS")?,
             dns_test_domain: env("DNS_TEST_DOMAIN")?,
             dns_resolver: env("DNS_RESOLVER")?,
             public_probe_url: env("PUBLIC_PROBE_URL")?,
-            request_timeout_ms: env("REQUEST_TIMEOUT_MS")?
-                .parse()
-                .context("invalid REQUEST_TIMEOUT_MS")?,
+            request_timeout_ms: env("REQUEST_TIMEOUT_MS")?.parse().context("invalid REQUEST_TIMEOUT_MS")?,
             arp_table_path: env("ARP_TABLE_PATH")?,
         })
     }

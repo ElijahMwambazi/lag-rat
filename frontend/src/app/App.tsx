@@ -16,27 +16,16 @@ export default function App() {
     <div className="min-h-screen">
       <header className="border-b border-zinc-800 bg-zinc-900/80 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-xl font-semibold">Lag Rat</h1>
-            <p className="text-sm text-zinc-400">Home network observability dashboard</p>
-          </div>
+          <div><h1 className="text-xl font-semibold">Lag Rat</h1><p className="text-sm text-zinc-400">Home network observability dashboard</p></div>
           <nav className="flex gap-2">
             {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 text-sm ${isActive ? "bg-zinc-100 text-zinc-900" : "text-zinc-300 hover:bg-zinc-800"}`
-                }
-              >
+              <NavLink key={item.to} to={item.to} end={item.to === "/"} className={({ isActive }) => `rounded-lg px-3 py-2 text-sm ${isActive ? "bg-zinc-100 text-zinc-900" : "text-zinc-300 hover:bg-zinc-800"}`}>
                 {item.label}
               </NavLink>
             ))}
           </nav>
         </div>
       </header>
-
       <main className="mx-auto max-w-7xl px-6 py-8">
         <Routes>
           <Route path="/" element={<OverviewPage />} />

@@ -4,9 +4,7 @@ use tracing::{error, info};
 use crate::{monitors, state::AppState};
 
 pub async fn start(state: AppState) {
-    let mut connectivity_tick = interval(Duration::from_secs(
-        state.config.connectivity_interval_seconds,
-    ));
+    let mut connectivity_tick = interval(Duration::from_secs(state.config.connectivity_interval_seconds));
     let mut dns_tick = interval(Duration::from_secs(state.config.dns_interval_seconds));
     let mut device_tick = interval(Duration::from_secs(state.config.device_interval_seconds));
 

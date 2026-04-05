@@ -1,0 +1,4 @@
+import type { Alert } from "../services/api";
+export default function AlertsPanel({ alerts }: { alerts: Alert[] }) {
+  return <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5"><h3 className="text-lg font-medium">Alerts</h3>{alerts.length === 0 ? <p className="mt-3 text-sm text-zinc-400">No alerts recorded yet.</p> : <div className="mt-4 space-y-3">{alerts.map((alert) => <div key={alert.id} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4"><div className="flex items-center justify-between gap-3"><p className="font-medium">{alert.message}</p><span className={`rounded-full border px-2.5 py-1 text-xs ${alert.is_active ? "border-red-800 bg-red-950 text-red-300" : "border-zinc-700 bg-zinc-800 text-zinc-300"}`}>{alert.is_active ? "Active" : "Resolved"}</span></div><p className="mt-1 text-sm text-zinc-400">{alert.entity_type} · {alert.severity} · {new Date(alert.created_at).toLocaleString()}</p></div>)}</div>}</div>;
+}

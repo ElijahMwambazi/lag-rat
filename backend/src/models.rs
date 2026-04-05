@@ -36,6 +36,30 @@ pub struct Device {
 }
 
 #[derive(Debug, Serialize, FromRow, Clone)]
+pub struct KnownDevice {
+    pub id: i64,
+    pub ip_address: Option<String>,
+    pub mac_address: Option<String>,
+    pub label: String,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, FromRow, Clone)]
+pub struct Alert {
+    pub id: i64,
+    pub alert_type: String,
+    pub severity: String,
+    pub entity_type: String,
+    pub entity_key: String,
+    pub message: String,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub resolved_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, FromRow, Clone)]
 pub struct Outage {
     pub id: i64,
     pub outage_type: String,
@@ -45,15 +69,6 @@ pub struct Outage {
     pub is_active: bool,
     pub start_error: Option<String>,
     pub end_note: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct HealthCurrentResponse {
-    pub router_ip: String,
-    pub router_reachable: bool,
-    pub internet_reachable: bool,
-    pub dns_healthy: bool,
-    pub checked_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
@@ -123,4 +138,33 @@ pub struct OutageReportItem {
     pub end_note: Option<String>,
     pub duration_seconds: Option<i64>,
     pub status: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EnrichedDevice {
+    pub id: i64,
+    pub ip_address: String,
+    pub mac_address: Option<String>,
+    pub hostname: Option<String>,
+    pub display_name: String,
+    pub label: Option<String>,
+    pub notes: Option<String>,
+    pub first_seen: Option<DateTime<Utc>>,
+    pub last_seen: Option<DateTime<Utc>>,
+    pub is_recent: bool,
+    pub is_gateway: bool,
+    pub is_known: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AlertView {
+    pub id: i64,
+    pub alert_type: String,
+    pub severity: String,
+    pub entity_type: String,
+    pub entity_key: String,
+    pub message: String,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub resolved_at: Option<DateTime<Utc>>,
 }

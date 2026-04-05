@@ -10,32 +10,17 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
     let router_latest = db::latest_connectivity_check(&state.db, "router").await?;
     let router_last_success = db::last_successful_connectivity_check(&state.db, "router").await?;
     let router_last_failure = db::last_failed_connectivity_check(&state.db, "router").await?;
-    let router_active_outage = db::active_outage_exists(
-        &state.db,
-        "router",
-        &format!("{}:{}", state.config.router_ip, state.config.router_port),
-    )
-    .await?;
+    let router_active_outage = db::active_outage_exists(&state.db, "router", &format!("{}:{}", state.config.router_ip, state.config.router_port)).await?;
 
     let internet_latest = db::latest_connectivity_check(&state.db, "internet").await?;
     let internet_last_success = db::last_successful_connectivity_check(&state.db, "internet").await?;
     let internet_last_failure = db::last_failed_connectivity_check(&state.db, "internet").await?;
-    let internet_active_outage = db::active_outage_exists(
-        &state.db,
-        "internet",
-        &state.config.public_probe_url,
-    )
-    .await?;
+    let internet_active_outage = db::active_outage_exists(&state.db, "internet", &state.config.public_probe_url).await?;
 
     let dns_latest = db::latest_dns_check(&state.db).await?;
     let dns_last_success = db::last_successful_dns_check(&state.db).await?;
     let dns_last_failure = db::last_failed_dns_check(&state.db).await?;
-    let dns_active_outage = db::active_outage_exists(
-        &state.db,
-        "dns",
-        &state.config.dns_test_domain,
-    )
-    .await?;
+    let dns_active_outage = db::active_outage_exists(&state.db, "dns", &state.config.dns_test_domain).await?;
 
     let active_count_24h = db::device_count_seen_since_hours(&state.db, 24).await?;
     let most_recent_seen_at = db::most_recent_device_seen(&state.db).await?;
@@ -47,11 +32,7 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
         internet_latest.as_ref().map(|row| row.timestamp),
         dns_latest.as_ref().map(|row| row.timestamp),
         most_recent_seen_at,
-    ]
-    .into_iter()
-    .flatten()
-    .max()
-    .unwrap_or_else(Utc::now);
+    ].into_iter().flatten().max().unwrap_or_else(Utc::now);
 
     Ok(StatusOverviewResponse {
         checked_at,
@@ -79,13 +60,7 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
             latest_error_message: dns_latest.and_then(|row| row.error_message),
             active_outage: dns_active_outage,
         },
-        devices: DeviceOverview {
-            active_count_24h,
-            most_recent_seen_at,
-        },
-        outages: OutageOverview {
-            active_count: active_outage_count,
-            last_24h_count,
-        },
+        devices: DeviceOverview { active_count_24h, most_recent_seen_at },
+        outages: OutageOverview { active_count: active_outage_count, last_24h_count },
     })
 }
