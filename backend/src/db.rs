@@ -7,6 +7,17 @@ use sqlx::{Row, SqlitePool};
 use crate::models::{ConnectivityCheck, Device, DnsCheck, Outage, SummaryResponse, TimeseriesPoint};
 
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
     let migrations_dir = Path::new("migrations");
     let mut entries = fs::read_dir(migrations_dir)?
         .collect::<Result<Vec<_>, _>>()?;
@@ -17,10 +28,39 @@ pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
         if path.extension().and_then(|ext| ext.to_str()) != Some("sql") {
             continue;
         }
-        let sql = fs::read_to_string(&path)?;
-        for statement in sql.split(';').map(str::trim).filter(|s| !s.is_empty()) {
-            sqlx::query(statement).execute(pool).await?;
+
+        let version = match path.file_name().and_then(|n| n.to_str()) {
+            Some(v) => v.to_string(),
+            None => continue,
+        };
+
+        let already_applied = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM schema_migrations WHERE version = ?1",
+        )
+        .bind(&version)
+        .fetch_one(pool)
+        .await?;
+
+        if already_applied > 0 {
+            continue;
         }
+
+        let sql = fs::read_to_string(&path)?;
+        let mut tx = pool.begin().await?;
+
+        for statement in sql.split(';').map(str::trim).filter(|s| !s.is_empty()) {
+            sqlx::query(statement).execute(&mut *tx).await?;
+        }
+
+        sqlx::query(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",
+        )
+        .bind(&version)
+        .bind(Utc::now())
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
     }
 
     Ok(())
