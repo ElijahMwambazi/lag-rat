@@ -24,8 +24,8 @@ async fn main() -> anyhow::Result<()> {
 
     let config = AppConfig::from_env()?;
 
-    let connect_options = SqliteConnectOptions::from_str(&config.database_url)?
-        .create_if_missing(true);
+    let connect_options =
+        SqliteConnectOptions::from_str(&config.database_url)?.create_if_missing(true);
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
@@ -34,6 +34,7 @@ async fn main() -> anyhow::Result<()> {
         .with_context(|| format!("failed to connect to database: {}", config.database_url))?;
 
     db::run_migrations(&pool).await?;
+    db::seed_default_known_devices(&pool, &config.router_ip).await?;
 
     let state = AppState::new(config.clone(), pool);
 

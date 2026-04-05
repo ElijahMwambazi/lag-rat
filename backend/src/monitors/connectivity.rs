@@ -14,15 +14,20 @@ pub struct ProbeResult {
 
 pub async fn run(state: &AppState) -> anyhow::Result<()> {
     let now = Utc::now();
+
     let router_target = format!("{}:{}", state.config.router_ip, state.config.router_port);
     let router_probe = tcp_probe(&router_target, state.config.request_timeout_ms).await;
+    db::insert_connectivity_check(&state.db, now, &router_target, "router", "router_tcp", router_probe.success, router_probe.latency_ms, router_probe.error_message.as_deref()).await?;
+    alerts::evaluate_connectivity(state, "router_tcp", &router_target, &router_probe).await?;
 
-    db::insert_connectivity_check(&state.db, now, &router_target, "router", router_probe.success, router_probe.latency_ms, router_probe.error_message.as_deref()).await?;
-    alerts::evaluate_connectivity(state, "router", &router_target, &router_probe).await?;
+    let internet_tcp_target = format!("{}:{}", state.config.internet_tcp_host, state.config.internet_tcp_port);
+    let internet_tcp_probe = tcp_probe(&internet_tcp_target, state.config.request_timeout_ms).await;
+    db::insert_connectivity_check(&state.db, now, &internet_tcp_target, "internet", "internet_tcp", internet_tcp_probe.success, internet_tcp_probe.latency_ms, internet_tcp_probe.error_message.as_deref()).await?;
+    alerts::evaluate_connectivity(state, "internet_tcp", &internet_tcp_target, &internet_tcp_probe).await?;
 
-    let internet_probe = http_probe(&state.config.public_probe_url, state.config.request_timeout_ms).await;
-    db::insert_connectivity_check(&state.db, now, &state.config.public_probe_url, "internet", internet_probe.success, internet_probe.latency_ms, internet_probe.error_message.as_deref()).await?;
-    alerts::evaluate_connectivity(state, "internet", &state.config.public_probe_url, &internet_probe).await?;
+    let internet_http_probe = http_probe(&state.config.public_probe_url, state.config.request_timeout_ms).await;
+    db::insert_connectivity_check(&state.db, now, &state.config.public_probe_url, "internet", "internet_http", internet_http_probe.success, internet_http_probe.latency_ms, internet_http_probe.error_message.as_deref()).await?;
+    alerts::evaluate_connectivity(state, "internet_http", &state.config.public_probe_url, &internet_http_probe).await?;
 
     Ok(())
 }
@@ -43,8 +48,12 @@ async fn http_probe(url: &str, timeout_ms: u64) -> ProbeResult {
     };
     let start = Instant::now();
     match client.get(url).send().await {
-        Ok(response) if response.status().is_success() => ProbeResult { success: true, latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0), error_message: None },
-        Ok(response) => ProbeResult { success: false, latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0), error_message: Some(format!("unexpected status {}", response.status())) },
+        Ok(response) if response.status().is_success() || response.status().as_u16() == 204 => ProbeResult {
+            success: true, latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0), error_message: None
+        },
+        Ok(response) => ProbeResult {
+            success: false, latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0), error_message: Some(format!("unexpected status {}", response.status()))
+        },
         Err(err) => ProbeResult { success: false, latency_ms: None, error_message: Some(err.to_string()) },
     }
 }

@@ -57,6 +57,8 @@ impl TestHarness {
             public_probe_url: "https://google.com".to_string(),
             request_timeout_ms: 3000,
             arp_table_path: "/proc/net/arp".to_string(),
+            internet_tcp_host: "1.1.1.1".to_string(),
+            internet_tcp_port: 443,
         };
 
         db::seed_default_known_devices(&pool, &config.router_ip).await?;

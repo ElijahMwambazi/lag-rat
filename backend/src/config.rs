@@ -12,6 +12,8 @@ pub struct AppConfig {
     pub dns_test_domain: String,
     pub dns_resolver: String,
     pub public_probe_url: String,
+    pub internet_tcp_host: String,
+    pub internet_tcp_port: u16,
     pub request_timeout_ms: u64,
     pub arp_table_path: String,
 }
@@ -29,6 +31,8 @@ impl AppConfig {
             dns_test_domain: env("DNS_TEST_DOMAIN")?,
             dns_resolver: env("DNS_RESOLVER")?,
             public_probe_url: env("PUBLIC_PROBE_URL")?,
+            internet_tcp_host: env("INTERNET_TCP_HOST")?,
+            internet_tcp_port: env("INTERNET_TCP_PORT")?.parse().context("invalid INTERNET_TCP_PORT")?,
             request_timeout_ms: env("REQUEST_TIMEOUT_MS")?.parse().context("invalid REQUEST_TIMEOUT_MS")?,
             arp_table_path: env("ARP_TABLE_PATH")?,
         })

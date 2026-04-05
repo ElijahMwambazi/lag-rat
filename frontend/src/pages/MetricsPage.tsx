@@ -4,18 +4,11 @@ import QueryState from "../components/QueryState";
 import { api } from "../services/api";
 
 export default function MetricsPage() {
-  const healthHistoryQuery = useQuery({
-    queryKey: ["health-history"],
-    queryFn: api.getHealthHistory,
-    refetchInterval: 30000,
-  });
-  const dnsHistoryQuery = useQuery({
-    queryKey: ["dns-history"],
-    queryFn: api.getDnsHistory,
-    refetchInterval: 30000,
-  });
+  const httpQuery = useQuery({ queryKey: ["health-history"], queryFn: api.getHealthHistory, refetchInterval: 30000 });
+  const tcpQuery = useQuery({ queryKey: ["health-history-tcp"], queryFn: api.getHealthHistoryTcp, refetchInterval: 30000 });
+  const dnsQuery = useQuery({ queryKey: ["dns-history"], queryFn: api.getDnsHistory, refetchInterval: 30000 });
 
-  const allFailed = healthHistoryQuery.isError && dnsHistoryQuery.isError;
+  const allFailed = httpQuery.isError && tcpQuery.isError && dnsQuery.isError;
 
   return (
     <div className="space-y-8">
@@ -24,37 +17,11 @@ export default function MetricsPage() {
         <p className="mt-2 text-zinc-400">Latency and DNS response trends from SQLite-backed probe data.</p>
       </section>
 
-      {allFailed ? (
-        <QueryState
-          title="Metrics requests failed"
-          tone="error"
-          message="Both metrics endpoints failed. Check the backend and API base URL."
-        />
-      ) : null}
+      {allFailed ? <QueryState title="Metrics requests failed" tone="error" message="All metrics endpoints failed. Check the backend and API base URL." /> : null}
 
-      <ChartCard
-        title="Internet Latency (ms)"
-        data={healthHistoryQuery.data ?? []}
-        isLoading={healthHistoryQuery.isLoading}
-        isError={healthHistoryQuery.isError}
-        errorMessage={
-          healthHistoryQuery.error instanceof Error
-            ? healthHistoryQuery.error.message
-            : "Internet latency request failed."
-        }
-      />
-
-      <ChartCard
-        title="DNS Response Time (ms)"
-        data={dnsHistoryQuery.data ?? []}
-        isLoading={dnsHistoryQuery.isLoading}
-        isError={dnsHistoryQuery.isError}
-        errorMessage={
-          dnsHistoryQuery.error instanceof Error
-            ? dnsHistoryQuery.error.message
-            : "DNS history request failed."
-        }
-      />
+      <ChartCard title="Internet HTTP Latency (ms)" data={httpQuery.data ?? []} isLoading={httpQuery.isLoading} isError={httpQuery.isError} errorMessage={httpQuery.error instanceof Error ? httpQuery.error.message : "Internet HTTP request failed."} />
+      <ChartCard title="Internet TCP Latency (ms)" data={tcpQuery.data ?? []} isLoading={tcpQuery.isLoading} isError={tcpQuery.isError} errorMessage={tcpQuery.error instanceof Error ? tcpQuery.error.message : "Internet TCP request failed."} />
+      <ChartCard title="DNS Response Time (ms)" data={dnsQuery.data ?? []} isLoading={dnsQuery.isLoading} isError={dnsQuery.isError} errorMessage={dnsQuery.error instanceof Error ? dnsQuery.error.message : "DNS history request failed."} />
     </div>
   );
 }

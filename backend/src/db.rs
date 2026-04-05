@@ -72,15 +72,27 @@ pub async fn insert_connectivity_check(
     timestamp: DateTime<Utc>,
     target: &str,
     target_type: &str,
+    probe_kind: &str,
     success: bool,
     latency_ms: Option<f64>,
     error_message: Option<&str>,
 ) -> anyhow::Result<()> {
-    sqlx::query("INSERT INTO connectivity_checks (timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)")
-        .bind(timestamp).bind(target).bind(target_type).bind(success).bind(latency_ms)
-        .bind(if success { Some(0.0) } else { Some(100.0) }).bind(error_message)
-        .execute(pool).await?;
-    upsert_outage_state(pool, target_type, target, success, timestamp, error_message).await?;
+    sqlx::query(
+    "INSERT INTO connectivity_checks (
+        timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message, probe_kind
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
+)
+.bind(timestamp)
+.bind(target)
+.bind(target_type)
+.bind(success)
+.bind(latency_ms)
+.bind(if success { Some(0.0) } else { Some(100.0) })
+.bind(error_message)
+.bind(probe_kind)
+.execute(pool)
+.await?;
+    upsert_outage_state(pool, probe_kind, target, success, timestamp, error_message).await?;
     Ok(())
 }
 
@@ -175,11 +187,22 @@ async fn upsert_outage_state(
 
 pub async fn connectivity_timeseries(
     pool: &SqlitePool,
-    target_type: &str,
+    probe_kind: &str,
     minutes: i64,
 ) -> anyhow::Result<Vec<TimeseriesPoint>> {
-    let rows = sqlx::query("SELECT timestamp, latency_ms FROM connectivity_checks WHERE target_type = ?1 AND latency_ms IS NOT NULL AND timestamp >= datetime('now', '-' || ?2 || ' minutes') ORDER BY timestamp DESC")
-        .bind(target_type).bind(minutes).fetch_all(pool).await?;
+    let rows = sqlx::query(
+        "SELECT timestamp, latency_ms
+         FROM connectivity_checks
+         WHERE probe_kind = ?1
+           AND latency_ms IS NOT NULL
+           AND timestamp >= datetime('now', '-' || ?2 || ' minutes')
+         ORDER BY timestamp DESC",
+    )
+    .bind(probe_kind)
+    .bind(minutes)
+    .fetch_all(pool)
+    .await?;
+
     Ok(rows
         .into_iter()
         .map(|row| TimeseriesPoint {
@@ -210,8 +233,16 @@ pub async fn list_outages(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<O
 }
 
 pub async fn summary_24h(pool: &SqlitePool) -> anyhow::Result<SummaryResponse> {
-    let total_row = sqlx::query("SELECT COUNT(*) AS total, SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successes, AVG(latency_ms) AS avg_latency FROM connectivity_checks WHERE target_type = 'internet' AND timestamp >= datetime('now', '-24 hours')")
-        .fetch_one(pool).await?;
+    let total_row = sqlx::query(
+        "SELECT COUNT(*) AS total,
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successes,
+            AVG(latency_ms) AS avg_latency
+     FROM connectivity_checks
+     WHERE probe_kind = 'internet_http'
+       AND timestamp >= datetime('now', '-24 hours')",
+    )
+    .fetch_one(pool)
+    .await?;
     let total: i64 = total_row.get("total");
     let successes: Option<i64> = total_row.try_get("successes").ok();
     let avg_latency: Option<f64> = total_row.try_get("avg_latency").ok();
@@ -253,26 +284,50 @@ pub async fn list_devices(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<D
 
 pub async fn latest_connectivity_check(
     pool: &SqlitePool,
-    target_type: &str,
+    probe_kind: &str,
 ) -> anyhow::Result<Option<ConnectivityCheck>> {
-    Ok(sqlx::query_as::<_, ConnectivityCheck>("SELECT id, timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message FROM connectivity_checks WHERE target_type = ?1 ORDER BY timestamp DESC LIMIT 1")
-        .bind(target_type).fetch_optional(pool).await?)
+    Ok(sqlx::query_as::<_, ConnectivityCheck>(
+        "SELECT id, timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message, probe_kind
+         FROM connectivity_checks
+         WHERE probe_kind = ?1
+         ORDER BY timestamp DESC
+         LIMIT 1",
+    )
+    .bind(probe_kind)
+    .fetch_optional(pool)
+    .await?)
 }
 
 pub async fn last_successful_connectivity_check(
     pool: &SqlitePool,
-    target_type: &str,
+    probe_kind: &str,
 ) -> anyhow::Result<Option<ConnectivityCheck>> {
-    Ok(sqlx::query_as::<_, ConnectivityCheck>("SELECT id, timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message FROM connectivity_checks WHERE target_type = ?1 AND success = 1 ORDER BY timestamp DESC LIMIT 1")
-        .bind(target_type).fetch_optional(pool).await?)
+    Ok(sqlx::query_as::<_, ConnectivityCheck>(
+        "SELECT id, timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message, probe_kind
+         FROM connectivity_checks
+         WHERE probe_kind = ?1 AND success = 1
+         ORDER BY timestamp DESC
+         LIMIT 1",
+    )
+    .bind(probe_kind)
+    .fetch_optional(pool)
+    .await?)
 }
 
 pub async fn last_failed_connectivity_check(
     pool: &SqlitePool,
-    target_type: &str,
+    probe_kind: &str,
 ) -> anyhow::Result<Option<ConnectivityCheck>> {
-    Ok(sqlx::query_as::<_, ConnectivityCheck>("SELECT id, timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message FROM connectivity_checks WHERE target_type = ?1 AND success = 0 ORDER BY timestamp DESC LIMIT 1")
-        .bind(target_type).fetch_optional(pool).await?)
+    Ok(sqlx::query_as::<_, ConnectivityCheck>(
+        "SELECT id, timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message, probe_kind
+         FROM connectivity_checks
+         WHERE probe_kind = ?1 AND success = 0
+         ORDER BY timestamp DESC
+         LIMIT 1",
+    )
+    .bind(probe_kind)
+    .fetch_optional(pool)
+    .await?)
 }
 
 pub async fn latest_dns_check(pool: &SqlitePool) -> anyhow::Result<Option<DnsCheck>> {
