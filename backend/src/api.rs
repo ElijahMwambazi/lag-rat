@@ -1,7 +1,7 @@
 use axum::{
     extract::{Query, State},
     http::StatusCode,
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use chrono::Utc;
@@ -11,7 +11,8 @@ use serde_json::json;
 use crate::{
     db,
     models::{
-        EnrichedDevice, HealthCurrentResponse, OutageReportItem, SummaryResponse, TimeseriesPoint,
+        EnrichedDevice, HealthCurrentResponse, KnownDeviceView, OutageReportItem,
+        SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -41,6 +42,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/alerts", get(get_alerts))
         .route("/api/outages", get(get_outages))
         .route("/api/devices", get(get_devices))
+        .route("/api/devices/known", post(save_known_device))
         .with_state(state)
 }
 
@@ -203,6 +205,48 @@ async fn get_devices(
         .map_err(internal_error)?;
 
     Ok(Json(devices))
+}
+
+async fn save_known_device(
+    State(state): State<AppState>,
+    Json(payload): Json<SaveKnownDeviceRequest>,
+) -> Result<Json<KnownDeviceView>, (StatusCode, Json<serde_json::Value>)> {
+    let label = payload.label.trim();
+    if label.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "label is required" })),
+        ));
+    }
+
+    if payload.ip_address.as_deref().unwrap_or("").is_empty()
+        && payload.mac_address.as_deref().unwrap_or("").is_empty()
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "ip_address or mac_address is required" })),
+        ));
+    }
+
+    let saved = db::save_known_device(
+        &state.db,
+        payload.ip_address.as_deref(),
+        payload.mac_address.as_deref(),
+        label,
+        payload.notes.as_deref(),
+    )
+    .await
+    .map_err(internal_error)?;
+
+    Ok(Json(KnownDeviceView {
+        id: saved.id,
+        ip_address: saved.ip_address,
+        mac_address: saved.mac_address,
+        label: saved.label,
+        notes: saved.notes,
+        created_at: saved.created_at,
+        updated_at: saved.updated_at,
+    }))
 }
 
 fn internal_error(err: anyhow::Error) -> (StatusCode, Json<serde_json::Value>) {

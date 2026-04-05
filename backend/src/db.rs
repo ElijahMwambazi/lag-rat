@@ -433,3 +433,98 @@ pub async fn upsert_alert_state(
     }
     Ok(())
 }
+
+pub async fn find_known_device_by_identity(
+    pool: &SqlitePool,
+    ip_address: Option<&str>,
+    mac_address: Option<&str>,
+) -> anyhow::Result<Option<KnownDevice>> {
+    let row = sqlx::query_as::<_, KnownDevice>(
+        r#"
+        SELECT id, ip_address, mac_address, label, notes, created_at, updated_at
+        FROM known_devices
+        WHERE (?1 IS NOT NULL AND ip_address = ?1)
+           OR (?2 IS NOT NULL AND mac_address = ?2)
+        ORDER BY updated_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(ip_address)
+    .bind(mac_address)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
+}
+
+pub async fn save_known_device(
+    pool: &SqlitePool,
+    ip_address: Option<&str>,
+    mac_address: Option<&str>,
+    label: &str,
+    notes: Option<&str>,
+) -> anyhow::Result<KnownDevice> {
+    let now = Utc::now();
+
+    if let Some(existing) = find_known_device_by_identity(pool, ip_address, mac_address).await? {
+        sqlx::query(
+            r#"
+            UPDATE known_devices
+            SET ip_address = COALESCE(?1, ip_address),
+                mac_address = COALESCE(?2, mac_address),
+                label = ?3,
+                notes = ?4,
+                updated_at = ?5
+            WHERE id = ?6
+            "#,
+        )
+        .bind(ip_address)
+        .bind(mac_address)
+        .bind(label)
+        .bind(notes)
+        .bind(now)
+        .bind(existing.id)
+        .execute(pool)
+        .await?;
+
+        let updated = sqlx::query_as::<_, KnownDevice>(
+            r#"
+            SELECT id, ip_address, mac_address, label, notes, created_at, updated_at
+            FROM known_devices
+            WHERE id = ?1
+            "#,
+        )
+        .bind(existing.id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(updated)
+    } else {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO known_devices (ip_address, mac_address, label, notes, created_at, updated_at)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+            "#,
+        )
+        .bind(ip_address)
+        .bind(mac_address)
+        .bind(label)
+        .bind(notes)
+        .bind(now)
+        .execute(pool)
+        .await?;
+
+        let inserted = sqlx::query_as::<_, KnownDevice>(
+            r#"
+            SELECT id, ip_address, mac_address, label, notes, created_at, updated_at
+            FROM known_devices
+            WHERE id = ?1
+            "#,
+        )
+        .bind(result.last_insert_rowid())
+        .fetch_one(pool)
+        .await?;
+
+        Ok(inserted)
+    }
+}

@@ -138,6 +138,20 @@ pub struct Outage {
     pub end_note: Option<String>,
 }
 
+#[derive(Debug, serde::Serialize)]
+pub struct OutageReportItem {
+    pub id: i64,
+    pub outage_type: String,
+    pub target: String,
+    pub started_at: chrono::DateTime<chrono::Utc>,
+    pub ended_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub is_active: bool,
+    pub start_error: Option<String>,
+    pub end_note: Option<String>,
+    pub duration_seconds: Option<i64>,
+    pub status: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct EnrichedDevice {
     pub id: i64,
@@ -154,16 +168,21 @@ pub struct EnrichedDevice {
     pub is_known: bool,
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct SaveKnownDeviceRequest {
+    pub ip_address: Option<String>,
+    pub mac_address: Option<String>,
+    pub label: String,
+    pub notes: Option<String>,
+}
+
 #[derive(Debug, serde::Serialize)]
-pub struct OutageReportItem {
+pub struct KnownDeviceView {
     pub id: i64,
-    pub outage_type: String,
-    pub target: String,
-    pub started_at: chrono::DateTime<chrono::Utc>,
-    pub ended_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub is_active: bool,
-    pub start_error: Option<String>,
-    pub end_note: Option<String>,
-    pub duration_seconds: Option<i64>,
-    pub status: String,
+    pub ip_address: Option<String>,
+    pub mac_address: Option<String>,
+    pub label: String,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

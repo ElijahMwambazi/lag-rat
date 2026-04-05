@@ -84,6 +84,13 @@ export type Outage = {
   status: string;
 };
 
+export type SaveKnownDeviceRequest = {
+  ip_address?: string | null;
+  mac_address?: string | null;
+  label: string;
+  notes?: string | null;
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -98,6 +105,30 @@ async function getJson<T>(
     );
   }
   return response.json() as Promise<T>;
+}
+
+async function postJson<TResponse, TBody>(
+  path: string,
+  body: TBody,
+): Promise<TResponse> {
+  const response = await fetch(
+    `${API_BASE}${path}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Request failed: ${response.status}`,
+    );
+  }
+
+  return response.json() as Promise<TResponse>;
 }
 
 export const api = {
@@ -127,4 +158,7 @@ export const api = {
     getJson<Device[]>("/api/devices"),
   getOutages: () =>
     getJson<Outage[]>("/api/outages"),
+  saveKnownDevice: (
+    body: SaveKnownDeviceRequest,
+  ) => postJson("/api/devices/known", body),
 };
