@@ -3,13 +3,13 @@
 A home-network observability suite built with a **Rust backend** and a **React + TypeScript dashboard**.
 
 ## Current MVP status
-- SQLite schema bootstraps through SQL migration files
+- SQLite schema is applied through tracked SQL migration files
 - Connectivity probe persists router and internet checks
 - DNS probe persists lookup checks
 - Outages are tracked as first-class records
-- Device inventory performs a first LAN pass from the local ARP table
-- Local REST API reads real data from SQLite
-- React dashboard consumes the real API
+- Device inventory runs cross-platform
+- Status overview endpoint aggregates current network state
+- React dashboard shows current issues, devices, outages, and summaries
 
 ## Getting started
 

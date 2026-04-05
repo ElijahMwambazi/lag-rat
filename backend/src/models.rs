@@ -68,3 +68,59 @@ pub struct SummaryResponse {
     pub avg_latency_ms_24h: f64,
     pub outage_count_24h: u32,
 }
+
+#[derive(Debug, Serialize)]
+pub struct ServiceStatus {
+    pub is_healthy: bool,
+    pub last_success_at: Option<DateTime<Utc>>,
+    pub last_failure_at: Option<DateTime<Utc>>,
+    pub latest_latency_ms: Option<f64>,
+    pub latest_error_message: Option<String>,
+    pub active_outage: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DnsStatus {
+    pub is_healthy: bool,
+    pub last_success_at: Option<DateTime<Utc>>,
+    pub last_failure_at: Option<DateTime<Utc>>,
+    pub latest_response_time_ms: Option<f64>,
+    pub latest_error_message: Option<String>,
+    pub active_outage: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeviceOverview {
+    pub active_count_24h: u32,
+    pub most_recent_seen_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OutageOverview {
+    pub active_count: u32,
+    pub last_24h_count: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StatusOverviewResponse {
+    pub checked_at: DateTime<Utc>,
+    pub router: ServiceStatus,
+    pub internet: ServiceStatus,
+    pub dns: DnsStatus,
+    pub devices: DeviceOverview,
+    pub outages: OutageOverview,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OutageReportItem {
+    pub id: i64,
+    pub outage_type: String,
+    pub target: String,
+    pub started_at: DateTime<Utc>,
+    pub ended_at: Option<DateTime<Utc>>,
+    pub is_active: bool,
+    pub start_error: Option<String>,
+    pub end_note: Option<String>,
+    pub duration_seconds: Option<i64>,
+    pub status: String,
+}

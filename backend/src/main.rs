@@ -4,6 +4,7 @@ mod db;
 mod models;
 mod monitors;
 mod scheduler;
+mod services;
 mod state;
 
 use std::{net::SocketAddr, str::FromStr};

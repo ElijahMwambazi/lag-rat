@@ -11,3 +11,6 @@ CREATE TABLE IF NOT EXISTS outages (
 
 CREATE INDEX IF NOT EXISTS idx_outages_active
 ON outages (outage_type, target, is_active);
+
+CREATE INDEX IF NOT EXISTS idx_outages_started_at
+ON outages (started_at DESC, is_active);

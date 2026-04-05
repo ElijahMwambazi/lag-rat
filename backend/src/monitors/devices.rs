@@ -97,10 +97,7 @@ fn parse_unix_arp(line: &str) -> Option<(String, Option<String>, Option<String>)
     let lower = line.to_ascii_lowercase();
     let at_idx = lower.find(" at ")?;
     let after_at = &line[at_idx + 4..];
-    let mac = after_at
-        .split_whitespace()
-        .next()
-        .and_then(normalize_mac);
+    let mac = after_at.split_whitespace().next().and_then(normalize_mac);
 
     Some((ip.to_string(), mac, hostname))
 }

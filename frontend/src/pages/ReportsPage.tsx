@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../services/api";
 
+function formatDuration(seconds?: number | null) {
+  if (seconds === null || seconds === undefined) return "—";
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
 export default function ReportsPage() {
   const outagesQuery = useQuery({
     queryKey: ["outages"],
@@ -21,13 +28,15 @@ export default function ReportsPage() {
               <th className="px-4 py-3 text-left">Target</th>
               <th className="px-4 py-3 text-left">Started</th>
               <th className="px-4 py-3 text-left">Ended</th>
+              <th className="px-4 py-3 text-left">Duration</th>
               <th className="px-4 py-3 text-left">Status</th>
+              <th className="px-4 py-3 text-left">Error</th>
             </tr>
           </thead>
           <tbody>
             {outages.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-zinc-400">No outages recorded yet.</td>
+                <td colSpan={7} className="px-4 py-6 text-zinc-400">No outages recorded yet.</td>
               </tr>
             ) : (
               outages.map((outage) => (
@@ -36,7 +45,9 @@ export default function ReportsPage() {
                   <td className="px-4 py-3">{outage.target}</td>
                   <td className="px-4 py-3">{new Date(outage.started_at).toLocaleString()}</td>
                   <td className="px-4 py-3">{outage.ended_at ? new Date(outage.ended_at).toLocaleString() : "—"}</td>
-                  <td className="px-4 py-3">{outage.is_active ? "Active" : "Resolved"}</td>
+                  <td className="px-4 py-3">{formatDuration(outage.duration_seconds)}</td>
+                  <td className="px-4 py-3">{outage.status}</td>
+                  <td className="px-4 py-3">{outage.start_error ?? "—"}</td>
                 </tr>
               ))
             )}

@@ -10,12 +10,14 @@ use serde_json::json;
 
 use crate::{
     db,
-    models::{Device, HealthCurrentResponse, Outage, SummaryResponse, TimeseriesPoint},
+    models::{Device, HealthCurrentResponse, OutageReportItem, SummaryResponse, TimeseriesPoint},
+    services::status_overview,
     state::AppState,
 };
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/api/status/overview", get(get_status_overview))
         .route("/api/health/current", get(get_current_health))
         .route("/api/health/history", get(get_health_history))
         .route("/api/dns/history", get(get_dns_history))
@@ -28,6 +30,15 @@ pub fn router(state: AppState) -> Router {
 #[derive(Deserialize)]
 pub struct HistoryQuery {
     pub minutes: Option<u32>,
+}
+
+async fn get_status_overview(
+    State(state): State<AppState>,
+) -> Result<Json<crate::models::StatusOverviewResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let overview = status_overview::build(&state)
+        .await
+        .map_err(internal_error)?;
+    Ok(Json(overview))
 }
 
 async fn get_current_health(
@@ -86,11 +97,34 @@ async fn get_dns_history(
 
 async fn get_outages(
     State(state): State<AppState>,
-) -> Result<Json<Vec<Outage>>, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<Json<Vec<OutageReportItem>>, (StatusCode, Json<serde_json::Value>)> {
     let outages = db::list_outages(&state.db, 100)
         .await
         .map_err(internal_error)?;
-    Ok(Json(outages))
+
+    let items = outages
+        .into_iter()
+        .map(|outage| {
+            let duration_seconds = outage
+                .ended_at
+                .map(|ended_at| (ended_at - outage.started_at).num_seconds());
+
+            OutageReportItem {
+                id: outage.id,
+                outage_type: outage.outage_type,
+                target: outage.target,
+                started_at: outage.started_at,
+                ended_at: outage.ended_at,
+                is_active: outage.is_active,
+                start_error: outage.start_error,
+                end_note: outage.end_note,
+                duration_seconds,
+                status: if outage.is_active { "active".to_string() } else { "resolved".to_string() },
+            }
+        })
+        .collect();
+
+    Ok(Json(items))
 }
 
 async fn get_devices(

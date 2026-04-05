@@ -52,13 +52,11 @@ pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
             sqlx::query(statement).execute(&mut *tx).await?;
         }
 
-        sqlx::query(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",
-        )
-        .bind(&version)
-        .bind(Utc::now())
-        .execute(&mut *tx)
-        .await?;
+        sqlx::query("INSERT INTO schema_migrations (version, applied_at) VALUES (?1, ?2)")
+            .bind(&version)
+            .bind(Utc::now())
+            .execute(&mut *tx)
+            .await?;
 
         tx.commit().await?;
     }
@@ -243,10 +241,13 @@ pub async fn connectivity_timeseries(
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|row| TimeseriesPoint {
-        timestamp: row.get("timestamp"),
-        value: row.get("latency_ms"),
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|row| TimeseriesPoint {
+            timestamp: row.get("timestamp"),
+            value: row.get("latency_ms"),
+        })
+        .collect())
 }
 
 pub async fn dns_timeseries(pool: &SqlitePool, minutes: i64) -> anyhow::Result<Vec<TimeseriesPoint>> {
@@ -263,10 +264,13 @@ pub async fn dns_timeseries(pool: &SqlitePool, minutes: i64) -> anyhow::Result<V
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|row| TimeseriesPoint {
-        timestamp: row.get("timestamp"),
-        value: row.get("response_time_ms"),
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|row| TimeseriesPoint {
+            timestamp: row.get("timestamp"),
+            value: row.get("response_time_ms"),
+        })
+        .collect())
 }
 
 pub async fn list_outages(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<Outage>> {
@@ -370,4 +374,195 @@ pub async fn list_devices(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<D
     .await?;
 
     Ok(rows)
+}
+
+pub async fn latest_connectivity_check(
+    pool: &SqlitePool,
+    target_type: &str,
+) -> anyhow::Result<Option<ConnectivityCheck>> {
+    let row = sqlx::query_as::<_, ConnectivityCheck>(
+        r#"
+        SELECT id, timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message
+        FROM connectivity_checks
+        WHERE target_type = ?1
+        ORDER BY timestamp DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(target_type)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
+}
+
+pub async fn last_successful_connectivity_check(
+    pool: &SqlitePool,
+    target_type: &str,
+) -> anyhow::Result<Option<ConnectivityCheck>> {
+    let row = sqlx::query_as::<_, ConnectivityCheck>(
+        r#"
+        SELECT id, timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message
+        FROM connectivity_checks
+        WHERE target_type = ?1 AND success = 1
+        ORDER BY timestamp DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(target_type)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
+}
+
+pub async fn last_failed_connectivity_check(
+    pool: &SqlitePool,
+    target_type: &str,
+) -> anyhow::Result<Option<ConnectivityCheck>> {
+    let row = sqlx::query_as::<_, ConnectivityCheck>(
+        r#"
+        SELECT id, timestamp, target, target_type, success, latency_ms, packet_loss_pct, error_message
+        FROM connectivity_checks
+        WHERE target_type = ?1 AND success = 0
+        ORDER BY timestamp DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(target_type)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
+}
+
+pub async fn latest_dns_check(pool: &SqlitePool) -> anyhow::Result<Option<DnsCheck>> {
+    let row = sqlx::query_as::<_, DnsCheck>(
+        r#"
+        SELECT id, timestamp, domain, resolver, success, response_time_ms, error_message
+        FROM dns_checks
+        ORDER BY timestamp DESC
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
+}
+
+pub async fn last_successful_dns_check(pool: &SqlitePool) -> anyhow::Result<Option<DnsCheck>> {
+    let row = sqlx::query_as::<_, DnsCheck>(
+        r#"
+        SELECT id, timestamp, domain, resolver, success, response_time_ms, error_message
+        FROM dns_checks
+        WHERE success = 1
+        ORDER BY timestamp DESC
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
+}
+
+pub async fn last_failed_dns_check(pool: &SqlitePool) -> anyhow::Result<Option<DnsCheck>> {
+    let row = sqlx::query_as::<_, DnsCheck>(
+        r#"
+        SELECT id, timestamp, domain, resolver, success, response_time_ms, error_message
+        FROM dns_checks
+        WHERE success = 0
+        ORDER BY timestamp DESC
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
+}
+
+pub async fn active_outages_count(pool: &SqlitePool) -> anyhow::Result<u32> {
+    let count = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT COUNT(*)
+        FROM outages
+        WHERE is_active = 1
+        "#,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(count as u32)
+}
+
+pub async fn active_outage_exists(
+    pool: &SqlitePool,
+    outage_type: &str,
+    target: &str,
+) -> anyhow::Result<bool> {
+    let count = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT COUNT(*)
+        FROM outages
+        WHERE outage_type = ?1 AND target = ?2 AND is_active = 1
+        "#,
+    )
+    .bind(outage_type)
+    .bind(target)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(count > 0)
+}
+
+pub async fn outage_count_since_hours(pool: &SqlitePool, hours: i64) -> anyhow::Result<u32> {
+    let count = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT COUNT(*)
+        FROM outages
+        WHERE started_at >= datetime('now', '-' || ?1 || ' hours')
+        "#,
+    )
+    .bind(hours)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(count as u32)
+}
+
+pub async fn device_count_seen_since_hours(pool: &SqlitePool, hours: i64) -> anyhow::Result<u32> {
+    let count = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT COUNT(*)
+        FROM devices
+        WHERE last_seen IS NOT NULL
+          AND last_seen >= datetime('now', '-' || ?1 || ' hours')
+        "#,
+    )
+    .bind(hours)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(count as u32)
+}
+
+pub async fn most_recent_device_seen(pool: &SqlitePool) -> anyhow::Result<Option<DateTime<Utc>>> {
+    let row = sqlx::query(
+        r#"
+        SELECT last_seen
+        FROM devices
+        WHERE last_seen IS NOT NULL
+        ORDER BY last_seen DESC
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    match row {
+        Some(row) => Ok(Some(row.get("last_seen"))),
+        None => Ok(None),
+    }
 }

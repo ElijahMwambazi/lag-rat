@@ -1,5 +1,8 @@
 # API Draft
 
+## Status
+- `GET /api/status/overview`
+
 ## Health
 - `GET /api/health/current`
 - `GET /api/health/history?minutes=60`
