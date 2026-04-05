@@ -52,9 +52,9 @@ impl TestHarness {
             connectivity_interval_seconds: 30,
             dns_interval_seconds: 60,
             device_interval_seconds: 120,
-            dns_test_domain: "example.com".to_string(),
+            dns_test_domain: "google.com".to_string(),
             dns_resolver: "1.1.1.1".to_string(),
-            public_probe_url: "https://example.com".to_string(),
+            public_probe_url: "https://google.com".to_string(),
             request_timeout_ms: 3000,
             arp_table_path: "/proc/net/arp".to_string(),
         };

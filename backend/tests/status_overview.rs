@@ -22,7 +22,7 @@ async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Resu
     lag_rat_backend::db::insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(1),
-        "https://example.com",
+        "https://google.com",
         "internet",
         false,
         None,
@@ -33,7 +33,7 @@ async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Resu
     lag_rat_backend::db::insert_dns_check(
         &harness.state.db,
         now,
-        "example.com",
+        "google.com",
         "1.1.1.1",
         true,
         Some(18.0),

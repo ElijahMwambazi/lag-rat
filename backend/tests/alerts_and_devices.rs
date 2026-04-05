@@ -12,11 +12,12 @@ async fn alert_opens_and_resolves() -> anyhow::Result<()> {
         "service_health",
         "critical",
         "internet",
-        "https://example.com",
+        "https://google.com",
         "internet check failed: timeout",
         true,
         Utc::now(),
-    ).await?;
+    )
+    .await?;
 
     let alerts = lag_rat_backend::db::list_alerts(&harness.state.db, 10).await?;
     assert_eq!(alerts.len(), 1);
@@ -27,11 +28,12 @@ async fn alert_opens_and_resolves() -> anyhow::Result<()> {
         "service_health",
         "info",
         "internet",
-        "https://example.com",
+        "https://google.com",
         "internet recovered",
         false,
         Utc::now(),
-    ).await?;
+    )
+    .await?;
 
     let alerts = lag_rat_backend::db::list_alerts(&harness.state.db, 10).await?;
     assert!(!alerts[0].is_active);
@@ -50,10 +52,14 @@ async fn enriched_devices_include_labels_and_gateway_flag() -> anyhow::Result<()
         Some("aa:bb:cc:dd:ee:ff"),
         Some("router-host"),
         Utc::now(),
-    ).await?;
+    )
+    .await?;
 
     let enriched = lag_rat_backend::services::devices::list_enriched(&harness.state).await?;
-    let router = enriched.iter().find(|d| d.ip_address == "192.168.1.1").unwrap();
+    let router = enriched
+        .iter()
+        .find(|d| d.ip_address == "192.168.1.1")
+        .unwrap();
 
     assert!(router.is_gateway);
     assert!(router.is_known);

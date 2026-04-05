@@ -12,7 +12,7 @@ async fn outage_opens_on_failure_and_closes_on_recovery() -> anyhow::Result<()> 
     lag_rat_backend::db::insert_connectivity_check(
         &harness.state.db,
         t1,
-        "https://example.com",
+        "https://google.com",
         "internet",
         false,
         None,
@@ -28,7 +28,7 @@ async fn outage_opens_on_failure_and_closes_on_recovery() -> anyhow::Result<()> 
     lag_rat_backend::db::insert_connectivity_check(
         &harness.state.db,
         t2,
-        "https://example.com",
+        "https://google.com",
         "internet",
         true,
         Some(12.4),
