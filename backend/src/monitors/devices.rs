@@ -58,13 +58,13 @@ async fn collect_inventory_lines(arp_table_path: &str) -> Vec<String> {
     lines
 }
 
-fn parse_inventory_line(line: &str) -> Option<(String, Option<String>, Option<String>)> {
+pub fn parse_inventory_line(line: &str) -> Option<(String, Option<String>, Option<String>)> {
     parse_linux_proc_arp(line)
         .or_else(|| parse_unix_arp(line))
         .or_else(|| parse_windows_arp(line))
 }
 
-fn parse_linux_proc_arp(line: &str) -> Option<(String, Option<String>, Option<String>)> {
+pub fn parse_linux_proc_arp(line: &str) -> Option<(String, Option<String>, Option<String>)> {
     let columns: Vec<&str> = line.split_whitespace().collect();
     if columns.len() < 6 {
         return None;
@@ -81,7 +81,7 @@ fn parse_linux_proc_arp(line: &str) -> Option<(String, Option<String>, Option<St
     Some((ip.to_string(), mac, hostname))
 }
 
-fn parse_unix_arp(line: &str) -> Option<(String, Option<String>, Option<String>)> {
+pub fn parse_unix_arp(line: &str) -> Option<(String, Option<String>, Option<String>)> {
     let line = line.trim();
     let open = line.find('(')?;
     let close = line[open + 1..].find(')')? + open + 1;
@@ -102,7 +102,7 @@ fn parse_unix_arp(line: &str) -> Option<(String, Option<String>, Option<String>)
     Some((ip.to_string(), mac, hostname))
 }
 
-fn parse_windows_arp(line: &str) -> Option<(String, Option<String>, Option<String>)> {
+pub fn parse_windows_arp(line: &str) -> Option<(String, Option<String>, Option<String>)> {
     let columns: Vec<&str> = line.split_whitespace().collect();
     if columns.len() < 2 {
         return None;

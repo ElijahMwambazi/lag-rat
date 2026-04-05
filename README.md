@@ -10,6 +10,11 @@ A home-network observability suite built with a **Rust backend** and a **React +
 - Device inventory runs cross-platform
 - Status overview endpoint aggregates current network state
 - React dashboard shows current issues, devices, outages, and summaries
+- Backend test coverage now targets:
+  - migrations
+  - outage lifecycle
+  - status overview aggregation
+  - device parsing
 
 ## Getting started
 
@@ -18,6 +23,12 @@ A home-network observability suite built with a **Rust backend** and a **React +
 cd backend
 cp .env.example .env
 cargo run
+```
+
+### Run tests
+```bash
+cd backend
+cargo test
 ```
 
 ### Frontend
