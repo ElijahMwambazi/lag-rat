@@ -168,3 +168,12 @@ pub struct AlertView {
     pub created_at: DateTime<Utc>,
     pub resolved_at: Option<DateTime<Utc>>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct HealthCurrentResponse {
+    pub router_ip: String,
+    pub router_reachable: bool,
+    pub internet_reachable: bool,
+    pub dns_healthy: bool,
+    pub checked_at: DateTime<Utc>,
+}
