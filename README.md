@@ -2,7 +2,8 @@
 
 A home-network observability suite built with a Rust backend and a React + TypeScript dashboard.
 
-## Included in v7
+## Included
+
 - tracked SQLite migrations
 - first-class outages
 - cross-platform device discovery
@@ -11,16 +12,24 @@ A home-network observability suite built with a Rust backend and a React + TypeS
 - known device labels and enriched `/api/devices`
 - dashboard alerts panel
 - backend tests for alerting and device enrichment
+- frontend debug states for:
+  - loading
+  - request failures
+  - empty data
+  - API connectivity summary
 
 ## Run
+
 ```bash
 cd backend
 cp .env.example .env
 cargo run
 ```
 
-## Tests
+## Frontend
+
 ```bash
-cd backend
-cargo test
+cd frontend
+npm install
+npm run dev
 ```
