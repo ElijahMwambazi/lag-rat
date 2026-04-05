@@ -10,7 +10,7 @@ async fn migrations_are_tracked_and_applied_once() -> anyhow::Result<()> {
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM schema_migrations")
         .fetch_one(&harness.state.db)
         .await?;
-    assert_eq!(count, 2);
+    assert_eq!(count, 4); // 0001_initial, 0002_outages, 0003_alerts_and_known_devices, 0004_multi_probe
 
     let old_dir = std::env::current_dir()?;
     std::env::set_current_dir(harness.root.join("backend"))?;
