@@ -30,7 +30,7 @@ export default function DeviceRow({
 
   return (
     <tr
-      className="border-t border-zinc-800"
+      className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
       onClick={() => onOpenDetails(device)}
     >
       <td className="w-[28%] px-4 py-3 align-top">
@@ -79,15 +79,9 @@ export default function DeviceRow({
           </div>
         ) : (
           <div className="space-y-1">
-            <button
-              className="block w-full text-left font-medium text-zinc-100 hover:underline"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenDetails(device);
-              }}
-            >
+            <div className="font-medium text-zinc-100">
               {device.display_name}
-            </button>
+            </div>
 
             {device.notes ? (
               <div className="text-xs text-zinc-400">
