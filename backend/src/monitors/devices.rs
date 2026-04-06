@@ -13,6 +13,15 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
     let lines = collect_inventory_lines(&state.config.arp_table_path).await;
     for line in lines {
         if let Some((ip, mac, host)) = parse_inventory_line(&line) {
+            if !should_persist_device_entry(
+                &ip,
+                mac.as_deref(),
+                host.as_deref(),
+                &state.config.router_ip,
+            ) {
+                continue;
+            }
+
             db::upsert_device(&state.db, &ip, mac.as_deref(), host.as_deref(), Utc::now()).await?;
         }
     }
@@ -27,7 +36,7 @@ async fn active_discovery_pass(state: &AppState) {
     }
 
     let timeout_ms = state.config.active_discovery_timeout_ms;
-   let concurrency_limit = Arc::new(Semaphore::new(8));
+    let concurrency_limit = Arc::new(Semaphore::new(8));
     let mut tasks = Vec::with_capacity(ips.len());
 
     for ip in ips {
@@ -247,6 +256,30 @@ pub fn parse_windows_arp(line: &str) -> Option<(String, Option<String>, Option<S
 
     let mac = normalize_mac(columns[1]);
     Some((ip.to_string(), mac, None))
+}
+
+pub fn should_persist_device_entry(
+    ip: &str,
+    mac: Option<&str>,
+    host: Option<&str>,
+    router_ip: &str,
+) -> bool {
+    if ip == router_ip {
+        return true;
+    }
+
+    if mac.is_some() {
+        return true;
+    }
+
+    if let Some(host) = host {
+        let trimmed = host.trim();
+        if !trimmed.is_empty() && trimmed != ip {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn normalize_mac(value: &str) -> Option<String> {

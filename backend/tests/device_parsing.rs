@@ -1,6 +1,6 @@
 use lag_rat_backend::monitors::devices::{
     expand_ipv4_cidr, parse_inventory_line, parse_linux_ip_neigh, parse_linux_proc_arp,
-    parse_unix_arp, parse_windows_arp,
+    parse_unix_arp, parse_windows_arp, should_persist_device_entry,
 };
 
 #[test]
@@ -59,4 +59,34 @@ fn expands_24_bit_cidr_without_network_and_broadcast() {
     assert!(ips.contains(&"192.168.1.254".to_string()));
     assert!(!ips.contains(&"192.168.1.0".to_string()));
     assert!(!ips.contains(&"192.168.1.255".to_string()));
+}
+
+#[test]
+fn skips_low_confidence_ip_only_entries() {
+    assert!(!should_persist_device_entry(
+        "192.168.1.50",
+        None,
+        None,
+        "192.168.1.1",
+    ));
+}
+
+#[test]
+fn keeps_router_even_without_mac_or_hostname() {
+    assert!(should_persist_device_entry(
+        "192.168.1.1",
+        None,
+        None,
+        "192.168.1.1",
+    ));
+}
+
+#[test]
+fn keeps_entries_with_mac() {
+    assert!(should_persist_device_entry(
+        "192.168.1.50",
+        Some("aa:bb:cc:dd:ee:ff"),
+        None,
+        "192.168.1.1",
+    ));
 }
