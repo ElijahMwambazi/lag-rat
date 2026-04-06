@@ -20,7 +20,7 @@ async fn migrations_are_tracked_and_applied_once() -> anyhow::Result<()> {
     let count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM schema_migrations")
         .fetch_one(&harness.state.db)
         .await?;
-    assert_eq!(count_after, 2);
+    assert_eq!(count_after, 4);
 
     let row = sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name='outages'")
         .fetch_one(&harness.state.db)

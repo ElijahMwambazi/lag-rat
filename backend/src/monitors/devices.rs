@@ -27,7 +27,7 @@ async fn active_discovery_pass(state: &AppState) {
     }
 
     let timeout_ms = state.config.active_discovery_timeout_ms;
-    let concurrency_limit = Arc::new(Semaphore::new(32));
+    let concurrency_limit = Arc::new(Semaphore::new(8));
     let mut tasks = Vec::with_capacity(ips.len());
 
     for ip in ips {
@@ -161,8 +161,8 @@ async fn collect_inventory_lines(arp_table_path: &str) -> Vec<String> {
 }
 
 pub fn parse_inventory_line(line: &str) -> Option<(String, Option<String>, Option<String>)> {
-    parse_linux_proc_arp(line)
-        .or_else(|| parse_linux_ip_neigh(line))
+    parse_linux_ip_neigh(line)
+        .or_else(|| parse_linux_proc_arp(line))
         .or_else(|| parse_unix_arp(line))
         .or_else(|| parse_windows_arp(line))
 }
@@ -174,12 +174,18 @@ pub fn parse_linux_proc_arp(line: &str) -> Option<(String, Option<String>, Optio
     }
 
     let ip = columns[0];
-    let mac = normalize_mac(columns[3]);
-    let hostname = normalize_host(columns[5]);
-
     if !looks_like_ipv4(ip) {
         return None;
     }
+
+    // /proc/net/arp shape:
+    // IP address | HW type | Flags | HW address | Mask | Device
+    if !columns[1].starts_with("0x") || !columns[2].starts_with("0x") {
+        return None;
+    }
+
+    let mac = normalize_mac(columns[3]);
+    let hostname = normalize_host(columns[5]);
 
     Some((ip.to_string(), mac, hostname))
 }
@@ -263,10 +269,45 @@ fn normalize_mac(value: &str) -> Option<String> {
 fn normalize_host(value: &str) -> Option<String> {
     let value = value.trim();
     if value.is_empty() || value == "?" || value == "on" {
-        None
-    } else {
-        Some(value.to_string())
+        return None;
     }
+
+    let lower = value.to_ascii_lowercase();
+
+    let blocked_exact = [
+        "lladdr",
+        "reachable",
+        "stale",
+        "delay",
+        "failed",
+        "incomplete",
+        "probe",
+        "router",
+        "permanent",
+        "dev",
+    ];
+
+    if blocked_exact.contains(&lower.as_str()) {
+        return None;
+    }
+
+    if lower.starts_with("wl")
+        || lower.starts_with("wlan")
+        || lower.starts_with("eth")
+        || lower.starts_with("enp")
+        || lower.starts_with("eno")
+        || lower.starts_with("ens")
+        || lower.starts_with("lo")
+        || lower.starts_with("br-")
+        || lower.starts_with("docker")
+        || lower.starts_with("tun")
+        || lower.starts_with("tap")
+        || lower.starts_with("veth")
+    {
+        return None;
+    }
+
+    Some(value.to_string())
 }
 
 fn looks_like_ipv4(value: &str) -> bool {

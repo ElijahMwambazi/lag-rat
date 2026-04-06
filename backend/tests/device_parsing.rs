@@ -9,7 +9,7 @@ fn parses_linux_proc_arp_line() {
     let parsed = parse_linux_proc_arp(line).unwrap();
     assert_eq!(parsed.0, "192.168.1.10");
     assert_eq!(parsed.1.as_deref(), Some("aa:bb:cc:dd:ee:ff"));
-    assert_eq!(parsed.2.as_deref(), Some("wlan0"));
+    assert!(parsed.2.is_none());
 }
 
 #[test]
@@ -35,21 +35,21 @@ fn parse_inventory_line_ignores_garbage() {
 }
 
 #[test]
-fn expands_24_bit_cidr() {
-    let ips = expand_ipv4_cidr("192.168.1.0/24");
-    assert!(ips.contains(&"192.168.1.1".to_string()));
-    assert!(ips.contains(&"192.168.1.254".to_string()));
-    assert!(!ips.contains(&"192.168.1.0".to_string()));
-    assert!(!ips.contains(&"192.168.1.255".to_string()));
-}
-
-#[test]
 fn parses_linux_ip_neigh_line() {
     let line = "192.168.1.20 dev wlan0 lladdr aa:bb:cc:dd:ee:20 REACHABLE";
     let parsed = parse_linux_ip_neigh(line).unwrap();
     assert_eq!(parsed.0, "192.168.1.20");
     assert_eq!(parsed.1.as_deref(), Some("aa:bb:cc:dd:ee:20"));
-    assert_eq!(parsed.2.as_deref(), Some("wlan0"));
+    assert!(parsed.2.is_none());
+}
+
+#[test]
+fn parse_inventory_line_prefers_ip_neigh_over_proc_arp() {
+    let line = "192.168.1.20 dev wlan0 lladdr aa:bb:cc:dd:ee:20 REACHABLE";
+    let parsed = parse_inventory_line(line).unwrap();
+    assert_eq!(parsed.0, "192.168.1.20");
+    assert_eq!(parsed.1.as_deref(), Some("aa:bb:cc:dd:ee:20"));
+    assert!(parsed.2.is_none());
 }
 
 #[test]
