@@ -6,6 +6,8 @@ use std::{net::Ipv4Addr, sync::Arc, time::Duration};
 use crate::{db, state::AppState};
 
 pub async fn run(state: &AppState) -> anyhow::Result<()> {
+    register_local_host(state).await?;
+
     if state.config.active_discovery_enabled {
         active_discovery_pass(state).await;
     }
@@ -57,6 +59,138 @@ async fn active_discovery_pass(state: &AppState) {
     for task in tasks {
         let _ = task.await;
     }
+}
+
+async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
+    let hostname = local_hostname();
+    let now = Utc::now();
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(output) = Command::new("ip")
+            .args(["-o", "-4", "addr", "show"])
+            .output()
+            .await
+        {
+            if output.status.success() {
+                if let Ok(text) = String::from_utf8(output.stdout) {
+                    for line in text.lines() {
+                        if let Some((ip, iface)) = parse_linux_ip_addr_line(line) {
+                            if ip == state.config.router_ip {
+                                continue;
+                            }
+
+                            let host = hostname.clone().or_else(|| normalize_host(&iface));
+                            db::upsert_device(&state.db, &ip, None, host.as_deref(), now).await?;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(output) = Command::new("ifconfig").output().await {
+            if output.status.success() {
+                if let Ok(text) = String::from_utf8(output.stdout) {
+                    for ip in parse_macos_ipv4_addrs(&text) {
+                        if ip == state.config.router_ip {
+                            continue;
+                        }
+
+                        db::upsert_device(&state.db, &ip, None, hostname.as_deref(), now).await?;
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(output) = Command::new("ipconfig").output().await {
+            if output.status.success() {
+                if let Ok(text) = String::from_utf8(output.stdout) {
+                    for ip in parse_windows_ipv4_addrs(&text) {
+                        if ip == state.config.router_ip {
+                            continue;
+                        }
+
+                        db::upsert_device(&state.db, &ip, None, hostname.as_deref(), now).await?;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn local_hostname() -> Option<String> {
+    std::env::var("HOSTNAME")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .or_else(|| {
+            std::env::var("COMPUTERNAME")
+                .ok()
+                .filter(|s| !s.trim().is_empty())
+        })
+}
+
+fn parse_linux_ip_addr_line(line: &str) -> Option<(String, String)> {
+    let columns: Vec<&str> = line.split_whitespace().collect();
+    if columns.len() < 4 {
+        return None;
+    }
+
+    let iface = columns.get(1)?.trim_end_matches(':').to_string();
+    let inet_index = columns.iter().position(|part| *part == "inet")?;
+    let cidr = *columns.get(inet_index + 1)?;
+    let ip = cidr.split('/').next()?.to_string();
+
+    if !looks_like_ipv4(&ip) || ip.starts_with("127.") {
+        return None;
+    }
+
+    Some((ip, iface))
+}
+
+#[cfg(target_os = "macos")]
+fn parse_macos_ipv4_addrs(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if !trimmed.starts_with("inet ") {
+                return None;
+            }
+
+            let ip = trimmed.split_whitespace().nth(1)?.to_string();
+            if ip.starts_with("127.") || !looks_like_ipv4(&ip) {
+                return None;
+            }
+
+            Some(ip)
+        })
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_ipv4_addrs(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|line| {
+            let lower = line.to_ascii_lowercase();
+            if !lower.contains("ipv4") {
+                return None;
+            }
+
+            let ip = line.split(':').nth(1)?.trim().to_string();
+            if ip.starts_with("127.") || !looks_like_ipv4(&ip) {
+                return None;
+            }
+
+            Some(ip)
+        })
+        .collect()
 }
 
 pub fn expand_ipv4_cidr(cidr: &str) -> Vec<String> {
