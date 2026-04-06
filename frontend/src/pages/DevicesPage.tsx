@@ -1,5 +1,6 @@
 import QueryState from "../components/QueryState";
 import DeviceRow from "../components/devices/DeviceRow";
+import DeviceDetailDrawer from "../components/devices/DeviceDetailDrawer";
 import { api } from "../services/api";
 import {
   useMutation,
@@ -35,6 +36,11 @@ export default function DevicesPage() {
   const [label, setLabel] = useState("");
   const [notes, setNotes] = useState("");
 
+  const [selectedDevice, setSelectedDevice] =
+    useState<(typeof devices)[number] | null>(
+      null,
+    );
+
   const saveKnownDeviceMutation = useMutation({
     mutationFn: api.saveKnownDevice,
     onSuccess: async () => {
@@ -50,6 +56,7 @@ export default function DevicesPage() {
   function startEdit(
     device: (typeof devices)[number],
   ) {
+    setSelectedDevice(device);
     setEditingId(device.id);
     setLabel(
       device.label ?? device.display_name ?? "",
@@ -196,12 +203,22 @@ export default function DevicesPage() {
                   }
                   onLabelChange={setLabel}
                   onNotesChange={setNotes}
+                  onOpenDetails={
+                    setSelectedDevice
+                  }
                 />
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      <DeviceDetailDrawer
+        device={selectedDevice}
+        open={selectedDevice !== null}
+        onClose={() => setSelectedDevice(null)}
+        onEdit={startEdit}
+      />
     </div>
   );
 }

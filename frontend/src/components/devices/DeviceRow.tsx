@@ -11,6 +11,7 @@ type Props = {
   onSave: (device: Device) => void;
   onLabelChange: (value: string) => void;
   onNotesChange: (value: string) => void;
+  onOpenDetails: (device: Device) => void;
 };
 
 export default function DeviceRow({
@@ -23,12 +24,13 @@ export default function DeviceRow({
   onSave,
   onLabelChange,
   onNotesChange,
+  onOpenDetails,
 }: Props) {
   const isEditing = editingId === device.id;
 
   return (
     <tr className="border-t border-zinc-800">
-      <td className="px-4 py-3">
+      <td className="w-[28%] px-4 py-3 align-top">
         {isEditing ? (
           <div className="space-y-2">
             <input
@@ -63,17 +65,24 @@ export default function DeviceRow({
             </div>
           </div>
         ) : (
-          <div>
-            <div className="font-medium">
+          <div className="space-y-1">
+            <button
+              className="block w-full text-left font-medium text-zinc-100 hover:underline"
+              onClick={() =>
+                onOpenDetails(device)
+              }
+            >
               {device.display_name}
-            </div>
+            </button>
+
             {device.notes ? (
               <div className="text-xs text-zinc-400">
                 {device.notes}
               </div>
             ) : null}
+
             <button
-              className="mt-2 text-xs text-zinc-400 underline underline-offset-2"
+              className="block text-left text-xs text-zinc-400 underline underline-offset-2"
               onClick={() => onStartEdit(device)}
             >
               {device.is_known
