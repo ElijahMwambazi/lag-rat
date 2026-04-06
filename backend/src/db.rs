@@ -528,3 +528,23 @@ pub async fn save_known_device(
         Ok(inserted)
     }
 }
+
+pub async fn prune_stale_devices(pool: &SqlitePool, older_than_hours: i64) -> anyhow::Result<u64> {
+    let result = sqlx::query(
+        r#"
+        DELETE FROM devices
+        WHERE last_seen IS NOT NULL
+          AND last_seen < datetime('now', '-' || ?1 || ' hours')
+          AND ip_address NOT IN (
+              SELECT ip_address
+              FROM known_devices
+              WHERE ip_address IS NOT NULL
+          )
+        "#,
+    )
+    .bind(older_than_hours)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}

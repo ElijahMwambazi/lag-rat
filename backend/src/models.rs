@@ -166,6 +166,7 @@ pub struct EnrichedDevice {
     pub is_recent: bool,
     pub is_gateway: bool,
     pub is_known: bool,
+    pub confidence: String,
 }
 
 #[derive(Debug, serde::Deserialize)]

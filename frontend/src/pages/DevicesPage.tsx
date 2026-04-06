@@ -16,6 +16,17 @@ export default function DevicesPage() {
 
   const devices = devicesQuery.data ?? [];
 
+  const [
+    showLowConfidence,
+    setShowLowConfidence,
+  ] = useState(false);
+
+  const visibleDevices = devices.filter(
+    (device) =>
+      showLowConfidence ||
+      device.confidence !== "low",
+  );
+
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<
     number | null
@@ -47,15 +58,43 @@ export default function DevicesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold">
-          Devices
-        </h2>
-        <p className="text-sm text-zinc-400">
-          {devicesQuery.isLoading
-            ? "Loading..."
-            : `${devices.length} devices`}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold">
+            Devices
+          </h2>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <label className="flex items-center gap-2 text-sm text-zinc-400">
+            <input
+              type="checkbox"
+              checked={showLowConfidence}
+              onChange={(e) =>
+                setShowLowConfidence(
+                  e.target.checked,
+                )
+              }
+            />
+            Show low-confidence
+          </label>
+
+          {!showLowConfidence &&
+          devices.length !==
+            visibleDevices.length ? (
+            <p className="text-sm text-zinc-500">
+              {devices.length -
+                visibleDevices.length}{" "}
+              low-confidence devices hidden
+            </p>
+          ) : null}
+
+          <p className="text-sm text-zinc-400">
+            {devicesQuery.isLoading
+              ? "Loading..."
+              : `${visibleDevices.length} shown · ${devices.length} total`}
+          </p>
+        </div>
       </div>
 
       {devicesQuery.isError ? (
@@ -129,7 +168,7 @@ export default function DevicesPage() {
                 </td>
               </tr>
             ) : (
-              devices.map((device) => (
+              visibleDevices.map((device) => (
                 <tr
                   key={device.id}
                   className="border-t border-zinc-800"
@@ -228,16 +267,34 @@ export default function DevicesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
+                      {device.confidence ===
+                      "high" ? (
+                        <span className="rounded-full border border-emerald-800 bg-emerald-950 px-2 py-0.5 text-xs text-emerald-300">
+                          High confidence
+                        </span>
+                      ) : device.confidence ===
+                        "medium" ? (
+                        <span className="rounded-full border border-sky-800 bg-sky-950 px-2 py-0.5 text-xs text-sky-300">
+                          Medium confidence
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-400">
+                          Low confidence
+                        </span>
+                      )}
+
                       {device.is_gateway ? (
                         <span className="rounded-full border border-sky-800 bg-sky-950 px-2 py-0.5 text-xs text-sky-300">
                           Gateway
                         </span>
                       ) : null}
+
                       {device.is_known ? (
                         <span className="rounded-full border border-emerald-800 bg-emerald-950 px-2 py-0.5 text-xs text-emerald-300">
                           Known
                         </span>
                       ) : null}
+
                       {device.is_recent ? (
                         <span className="rounded-full border border-amber-800 bg-amber-950 px-2 py-0.5 text-xs text-amber-300">
                           Recent

@@ -28,6 +28,8 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
         }
     }
 
+    db::prune_stale_devices(&state.db, 24 * 14).await?;
+
     Ok(())
 }
 

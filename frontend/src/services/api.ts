@@ -69,6 +69,7 @@ export type Device = {
   is_recent: boolean;
   is_gateway: boolean;
   is_known: boolean;
+  confidence: "high" | "medium" | "low";
 };
 
 export type Outage = {
