@@ -6,7 +6,7 @@ use tempfile::TempDir;
 
 pub struct TestHarness {
     pub _tmpdir: TempDir,
-    pub root: PathBuf,
+    pub _root: PathBuf,
     pub state: AppState,
 }
 
@@ -58,7 +58,7 @@ impl TestHarness {
             active_discovery_timeout_ms: 200,
             dns_test_domain: "google.com".to_string(),
             dns_resolver: "1.1.1.1".to_string(),
-            public_probe_url: "https://google.com".to_string(),
+            public_probe_url: "https://www.google.com/generate_204".to_string(),
             request_timeout_ms: 3000,
             arp_table_path: "/proc/net/arp".to_string(),
             internet_tcp_host: "1.1.1.1".to_string(),
@@ -71,7 +71,7 @@ impl TestHarness {
 
         Ok(Self {
             _tmpdir: tmpdir,
-            root,
+            _root: root,
             state,
         })
     }

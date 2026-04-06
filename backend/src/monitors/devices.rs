@@ -27,7 +27,7 @@ async fn active_discovery_pass(state: &AppState) {
     }
 
     let timeout_ms = state.config.active_discovery_timeout_ms;
-    let concurrency_limit = Arc::new(Semaphore::new(8));
+   let concurrency_limit = Arc::new(Semaphore::new(8));
     let mut tasks = Vec::with_capacity(ips.len());
 
     for ip in ips {
@@ -178,8 +178,6 @@ pub fn parse_linux_proc_arp(line: &str) -> Option<(String, Option<String>, Optio
         return None;
     }
 
-    // /proc/net/arp shape:
-    // IP address | HW type | Flags | HW address | Mask | Device
     if !columns[1].starts_with("0x") || !columns[2].starts_with("0x") {
         return None;
     }
