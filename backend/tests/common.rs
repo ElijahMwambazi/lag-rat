@@ -4,9 +4,10 @@ use lag_rat_backend::{config::AppConfig, db, state::AppState};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tempfile::TempDir;
 
+#[allow(dead_code)]
 pub struct TestHarness {
     pub _tmpdir: TempDir,
-    pub _root: PathBuf,
+    pub root: PathBuf,
     pub state: AppState,
 }
 
@@ -71,7 +72,7 @@ impl TestHarness {
 
         Ok(Self {
             _tmpdir: tmpdir,
-            _root: root,
+            root,
             state,
         })
     }
