@@ -80,6 +80,10 @@ async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
                                 continue;
                             }
 
+                            if !ip_is_in_cidr(&ip, &state.config.local_subnet_cidr) {
+                                continue;
+                            }
+
                             let host = hostname.clone().or_else(|| normalize_host(&iface));
                             db::upsert_device(&state.db, &ip, None, host.as_deref(), now).await?;
                         }
@@ -99,6 +103,10 @@ async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
                             continue;
                         }
 
+                        if !ip_is_in_cidr(&ip, &state.config.local_subnet_cidr) {
+                            continue;
+                        }
+
                         db::upsert_device(&state.db, &ip, None, hostname.as_deref(), now).await?;
                     }
                 }
@@ -113,6 +121,10 @@ async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
                 if let Ok(text) = String::from_utf8(output.stdout) {
                     for ip in parse_windows_ipv4_addrs(&text) {
                         if ip == state.config.router_ip {
+                            continue;
+                        }
+
+                        if !ip_is_in_cidr(&ip, &state.config.local_subnet_cidr) {
                             continue;
                         }
 
@@ -414,6 +426,26 @@ pub fn should_persist_device_entry(
     }
 
     false
+}
+
+pub fn ip_is_in_cidr(ip: &str, cidr: &str) -> bool {
+    let ip_num = match ipv4_to_u32(ip) {
+        Some(value) => value,
+        None => return false,
+    };
+
+    let (base_ip, prefix_len) = match parse_cidr(cidr) {
+        Some(value) => value,
+        None => return false,
+    };
+
+    let mask = if prefix_len == 0 {
+        0
+    } else {
+        !0u32 << (32 - prefix_len)
+    };
+
+    (ip_num & mask) == (base_ip & mask)
 }
 
 fn normalize_mac(value: &str) -> Option<String> {

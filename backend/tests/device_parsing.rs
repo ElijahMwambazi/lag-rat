@@ -1,6 +1,6 @@
 use lag_rat_backend::monitors::devices::{
-    expand_ipv4_cidr, parse_inventory_line, parse_linux_ip_neigh, parse_linux_proc_arp,
-    parse_unix_arp, parse_windows_arp, should_persist_device_entry,
+    expand_ipv4_cidr, ip_is_in_cidr, parse_inventory_line, parse_linux_ip_neigh,
+    parse_linux_proc_arp, parse_unix_arp, parse_windows_arp, should_persist_device_entry,
 };
 
 #[test]
@@ -59,6 +59,16 @@ fn expands_24_bit_cidr_without_network_and_broadcast() {
     assert!(ips.contains(&"192.168.1.254".to_string()));
     assert!(!ips.contains(&"192.168.1.0".to_string()));
     assert!(!ips.contains(&"192.168.1.255".to_string()));
+}
+
+#[test]
+fn detects_ip_inside_cidr() {
+    assert!(ip_is_in_cidr("192.168.1.109", "192.168.1.0/24"));
+}
+
+#[test]
+fn rejects_ip_outside_cidr() {
+    assert!(!ip_is_in_cidr("172.17.0.1", "192.168.1.0/24"));
 }
 
 #[test]
