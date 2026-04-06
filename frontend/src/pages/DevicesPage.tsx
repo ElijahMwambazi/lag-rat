@@ -7,7 +7,20 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+type SortKey =
+  | "last_seen"
+  | "name"
+  | "confidence";
+
+function confidenceRank(
+  value: "high" | "medium" | "low",
+) {
+  if (value === "high") return 0;
+  if (value === "medium") return 1;
+  return 2;
+}
 
 export default function DevicesPage() {
   const devicesQuery = useQuery({
@@ -22,12 +35,9 @@ export default function DevicesPage() {
     showLowConfidence,
     setShowLowConfidence,
   ] = useState(false);
-
-  const visibleDevices = devices.filter(
-    (device) =>
-      showLowConfidence ||
-      device.confidence !== "low",
-  );
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] =
+    useState<SortKey>("last_seen");
 
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<
@@ -64,6 +74,71 @@ export default function DevicesPage() {
     setNotes(device.notes ?? "");
   }
 
+  const visibleDevices = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+
+    const filtered = devices.filter((device) => {
+      if (
+        !showLowConfidence &&
+        device.confidence === "low"
+      ) {
+        return false;
+      }
+
+      if (!needle) {
+        return true;
+      }
+
+      const haystack = [
+        device.display_name,
+        device.label,
+        device.hostname,
+        device.ip_address,
+        device.mac_address,
+        device.notes,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(needle);
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === "name") {
+        return a.display_name.localeCompare(
+          b.display_name,
+        );
+      }
+
+      if (sortBy === "confidence") {
+        return (
+          confidenceRank(a.confidence) -
+            confidenceRank(b.confidence) ||
+          a.display_name.localeCompare(
+            b.display_name,
+          )
+        );
+      }
+
+      const aTime = a.last_seen
+        ? new Date(a.last_seen).getTime()
+        : 0;
+      const bTime = b.last_seen
+        ? new Date(b.last_seen).getTime()
+        : 0;
+
+      return bTime - aTime;
+    });
+
+    return sorted;
+  }, [
+    devices,
+    search,
+    showLowConfidence,
+    sortBy,
+  ]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
@@ -89,10 +164,15 @@ export default function DevicesPage() {
 
           {!showLowConfidence &&
           devices.length !==
-            visibleDevices.length ? (
+            devices.filter(
+              (d) => d.confidence !== "low",
+            ).length ? (
             <p className="text-sm text-zinc-500">
-              {devices.length -
-                visibleDevices.length}{" "}
+              {
+                devices.filter(
+                  (d) => d.confidence === "low",
+                ).length
+              }{" "}
               low-confidence devices hidden
             </p>
           ) : null}
@@ -103,6 +183,33 @@ export default function DevicesPage() {
               : `${visibleDevices.length} shown · ${devices.length} total`}
           </p>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <input
+          value={search}
+          onChange={(e) =>
+            setSearch(e.target.value)
+          }
+          placeholder="Search label, host, IP, MAC..."
+          className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:max-w-md"
+        />
+
+        <select
+          value={sortBy}
+          onChange={(e) =>
+            setSortBy(e.target.value as SortKey)
+          }
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+        >
+          <option value="last_seen">
+            Sort: Last seen
+          </option>
+          <option value="name">Sort: Name</option>
+          <option value="confidence">
+            Sort: Confidence
+          </option>
+        </select>
       </div>
 
       {devicesQuery.isError ? (
@@ -166,13 +273,13 @@ export default function DevicesPage() {
                   Loading devices...
                 </td>
               </tr>
-            ) : devices.length === 0 ? (
+            ) : visibleDevices.length === 0 ? (
               <tr>
                 <td
                   colSpan={6}
                   className="px-4 py-6 text-zinc-400"
                 >
-                  No devices observed yet.
+                  No matching devices.
                 </td>
               </tr>
             ) : (
