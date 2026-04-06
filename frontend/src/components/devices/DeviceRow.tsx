@@ -29,7 +29,10 @@ export default function DeviceRow({
   const isEditing = editingId === device.id;
 
   return (
-    <tr className="border-t border-zinc-800">
+    <tr
+      className="border-t border-zinc-800"
+      onClick={() => onOpenDetails(device)}
+    >
       <td className="w-[28%] px-4 py-3 align-top">
         {isEditing ? (
           <div className="space-y-2">
@@ -38,27 +41,37 @@ export default function DeviceRow({
               onChange={(e) =>
                 onLabelChange(e.target.value)
               }
+              onClick={(e) => e.stopPropagation()}
               className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
               placeholder="Device label"
             />
+
             <input
               value={notes}
               onChange={(e) =>
                 onNotesChange(e.target.value)
               }
+              onClick={(e) => e.stopPropagation()}
               className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
               placeholder="Notes"
             />
             <div className="flex gap-2">
               <button
                 className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-900"
-                onClick={() => onSave(device)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSave(device);
+                }}
               >
                 Save
               </button>
+
               <button
                 className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs"
-                onClick={onCancelEdit}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCancelEdit();
+                }}
               >
                 Cancel
               </button>
@@ -68,9 +81,10 @@ export default function DeviceRow({
           <div className="space-y-1">
             <button
               className="block w-full text-left font-medium text-zinc-100 hover:underline"
-              onClick={() =>
-                onOpenDetails(device)
-              }
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDetails(device);
+              }}
             >
               {device.display_name}
             </button>
@@ -83,7 +97,10 @@ export default function DeviceRow({
 
             <button
               className="block text-left text-xs text-zinc-400 underline underline-offset-2"
-              onClick={() => onStartEdit(device)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartEdit(device);
+              }}
             >
               {device.is_known
                 ? "Edit label"

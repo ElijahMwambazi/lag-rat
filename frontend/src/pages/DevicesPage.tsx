@@ -56,7 +56,7 @@ export default function DevicesPage() {
   function startEdit(
     device: (typeof devices)[number],
   ) {
-    setSelectedDevice(device);
+    setSelectedDevice(null);
     setEditingId(device.id);
     setLabel(
       device.label ?? device.display_name ?? "",
