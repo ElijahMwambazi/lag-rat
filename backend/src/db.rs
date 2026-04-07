@@ -340,8 +340,22 @@ pub async fn upsert_device(
                 .await?;
             }
 
-            insert_device_history_event(pool, ip_address, "seen_again", None, None, observed_at)
+            let should_emit_seen_again = device
+                .last_seen
+                .map(|last_seen| (observed_at - last_seen).num_hours() >= 12)
+                .unwrap_or(false);
+
+            if should_emit_seen_again {
+                insert_device_history_event(
+                    pool,
+                    ip_address,
+                    "seen_again",
+                    None,
+                    None,
+                    observed_at,
+                )
                 .await?;
+            }
         }
     }
 
@@ -558,6 +572,38 @@ pub async fn save_known_device(
         .execute(pool)
         .await?;
 
+        if existing.label != label {
+            insert_device_history_event(
+                pool,
+                existing
+                    .ip_address
+                    .as_deref()
+                    .or(ip_address)
+                    .unwrap_or("unknown"),
+                "label_changed",
+                Some(existing.label.as_str()),
+                Some(label),
+                now,
+            )
+            .await?;
+        }
+
+        if existing.notes.as_deref() != notes {
+            insert_device_history_event(
+                pool,
+                existing
+                    .ip_address
+                    .as_deref()
+                    .or(ip_address)
+                    .unwrap_or("unknown"),
+                "notes_changed",
+                existing.notes.as_deref(),
+                notes,
+                now,
+            )
+            .await?;
+        }
+
         let updated = sqlx::query_as::<_, KnownDevice>(
             r#"
             SELECT id, ip_address, mac_address, label, notes, created_at, updated_at
@@ -595,6 +641,18 @@ pub async fn save_known_device(
         .bind(result.last_insert_rowid())
         .fetch_one(pool)
         .await?;
+
+        if let Some(ip) = inserted.ip_address.as_deref().or(ip_address) {
+            insert_device_history_event(
+                pool,
+                ip,
+                "label_added",
+                None,
+                Some(inserted.label.as_str()),
+                now,
+            )
+            .await?;
+        }
 
         Ok(inserted)
     }
