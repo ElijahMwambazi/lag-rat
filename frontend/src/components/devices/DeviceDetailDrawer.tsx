@@ -137,15 +137,19 @@ export default function DeviceDetailDrawer({
                 Could not load history.
               </div>
             ) : historyQuery.data?.length ? (
-              <div className="space-y-2">
+              <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
                 {historyQuery.data.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3"
+                    className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2"
                   >
                     <div className="text-sm text-zinc-100">
-                      {item.event_type}
+                      {item.event_type.replace(
+                        /_/g,
+                        " ",
+                      )}
                     </div>
+
                     {item.previous_value ||
                     item.new_value ? (
                       <div className="mt-1 text-xs text-zinc-400">
@@ -154,6 +158,7 @@ export default function DeviceDetailDrawer({
                         → {item.new_value ?? "—"}
                       </div>
                     ) : null}
+
                     <div className="mt-1 text-xs text-zinc-500">
                       {new Date(
                         item.created_at,
