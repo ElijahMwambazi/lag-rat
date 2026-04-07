@@ -1,13 +1,29 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QueryState from "../components/QueryState";
 import { api } from "../services/api";
+
+type StatusFilter = "all" | "active" | "resolved";
+type TypeFilter =
+  | "all"
+  | "internet_http"
+  | "internet_tcp"
+  | "dns"
+  | "router";
+
+type SortKey =
+  | "started_desc"
+  | "started_asc"
+  | "duration_desc"
+  | "duration_asc";
 
 function formatDuration(seconds?: number | null) {
   if (seconds === null || seconds === undefined)
     return "—";
   if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600)
+  if (seconds < 3600) {
     return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  }
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 }
 
@@ -28,11 +44,181 @@ export default function ReportsPage() {
 
   const outages = outagesQuery.data ?? [];
 
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] =
+    useState<TypeFilter>("all");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>(
+    "started_desc",
+  );
+
+  const filteredOutages = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+
+    const filtered = outages.filter((outage) => {
+      if (
+        statusFilter !== "all" &&
+        outage.status !== statusFilter
+      ) {
+        return false;
+      }
+
+      if (
+        typeFilter !== "all" &&
+        outage.outage_type !== typeFilter
+      ) {
+        return false;
+      }
+
+      if (!needle) {
+        return true;
+      }
+
+      const haystack = [
+        outage.outage_type,
+        outage.target,
+        outage.status,
+        outage.start_error,
+        outage.end_note,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(needle);
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === "started_asc") {
+        return (
+          new Date(a.started_at).getTime() -
+          new Date(b.started_at).getTime()
+        );
+      }
+
+      if (sortBy === "duration_desc") {
+        return (
+          (b.duration_seconds ?? -1) -
+          (a.duration_seconds ?? -1)
+        );
+      }
+
+      if (sortBy === "duration_asc") {
+        return (
+          (a.duration_seconds ??
+            Number.MAX_SAFE_INTEGER) -
+          (b.duration_seconds ??
+            Number.MAX_SAFE_INTEGER)
+        );
+      }
+
+      return (
+        new Date(b.started_at).getTime() -
+        new Date(a.started_at).getTime()
+      );
+    });
+
+    return sorted;
+  }, [
+    outages,
+    search,
+    statusFilter,
+    typeFilter,
+    sortBy,
+  ]);
+
+  const activeCount = outages.filter(
+    (outage) => outage.status === "active",
+  ).length;
+
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold">
-        Reports
-      </h2>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold">
+            Reports
+          </h2>
+        </div>
+
+        <p className="text-sm text-zinc-400">
+          {outagesQuery.isLoading
+            ? "Loading..."
+            : `${filteredOutages.length} shown · ${outages.length} total · ${activeCount} active`}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
+            placeholder="Search target, type, status, error..."
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:min-w-[320px]"
+          />
+
+          <select
+            value={typeFilter}
+            onChange={(e) =>
+              setTypeFilter(
+                e.target.value as TypeFilter,
+              )
+            }
+            className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+          >
+            <option value="all">All types</option>
+            <option value="internet_http">
+              internet_http
+            </option>
+            <option value="internet_tcp">
+              internet_tcp
+            </option>
+            <option value="dns">dns</option>
+            <option value="router">router</option>
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(
+                e.target.value as StatusFilter,
+              )
+            }
+            className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+          >
+            <option value="all">
+              All statuses
+            </option>
+            <option value="active">Active</option>
+            <option value="resolved">
+              Resolved
+            </option>
+          </select>
+
+          <select
+            value={sortBy}
+            onChange={(e) =>
+              setSortBy(e.target.value as SortKey)
+            }
+            className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+          >
+            <option value="started_desc">
+              Newest first
+            </option>
+            <option value="started_asc">
+              Oldest first
+            </option>
+            <option value="duration_desc">
+              Longest duration
+            </option>
+            <option value="duration_asc">
+              Shortest duration
+            </option>
+          </select>
+        </div>
+      </div>
 
       {outagesQuery.isError ? (
         <QueryState
@@ -84,17 +270,18 @@ export default function ReportsPage() {
                   Loading outages...
                 </td>
               </tr>
-            ) : outages.length === 0 ? (
+            ) : filteredOutages.length === 0 ? (
               <tr>
                 <td
                   colSpan={7}
                   className="px-4 py-6 text-zinc-400"
                 >
-                  No outages recorded yet.
+                  No reports match the current
+                  filters.
                 </td>
               </tr>
             ) : (
-              outages.map((outage) => (
+              filteredOutages.map((outage) => (
                 <tr
                   key={`${outage.id}-${outage.started_at}-${outage.target}`}
                   className="border-t border-zinc-800"
@@ -119,10 +306,25 @@ export default function ReportsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {outage.status}
+                    <span
+                      className={
+                        outage.status === "active"
+                          ? "rounded-full border border-red-800 bg-red-950 px-2 py-0.5 text-xs text-red-300"
+                          : "rounded-full border border-emerald-800 bg-emerald-950 px-2 py-0.5 text-xs text-emerald-300"
+                      }
+                    >
+                      {outage.status}
+                    </span>
                   </td>
-                  <td className="px-4 py-3">
-                    {outage.start_error ?? "—"}
+                  <td className="max-w-[420px] px-4 py-3 text-zinc-300">
+                    <div
+                      className="truncate"
+                      title={
+                        outage.start_error ?? "—"
+                      }
+                    >
+                      {outage.start_error ?? "—"}
+                    </div>
                   </td>
                 </tr>
               ))
