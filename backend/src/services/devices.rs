@@ -33,9 +33,13 @@ pub async fn list_enriched(state: &AppState) -> anyhow::Result<Vec<EnrichedDevic
                 .or_else(|| device.hostname.clone())
                 .unwrap_or_else(|| device.ip_address.clone());
 
-            let confidence = if is_gateway || device.mac_address.is_some() {
+            let confidence = if is_gateway {
                 "high"
-            } else if known.is_some() || device.hostname.is_some() {
+            } else if device.mac_address.is_some() {
+                "high"
+            } else if known.is_some() {
+                "medium"
+            } else if device.hostname.is_some() {
                 "medium"
             } else {
                 "low"

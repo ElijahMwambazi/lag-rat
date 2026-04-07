@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import DeviceFlags from "./DeviceFlags";
 import DeviceMetaItem from "./DeviceMetaItem";
+import { api } from "../../services/api";
 import type { Device } from "../../services/api";
 
 type Props = {
@@ -27,6 +29,16 @@ export default function DeviceDetailDrawer({
       // ignore clipboard failures for now
     }
   }
+
+  const historyQuery = useQuery({
+    queryKey: [
+      "device-history",
+      device?.ip_address,
+    ],
+    queryFn: () =>
+      api.getDeviceHistory(device!.ip_address),
+    enabled: open && !!device?.ip_address,
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
@@ -109,6 +121,48 @@ export default function DeviceDetailDrawer({
               label="Confidence"
               value={device.confidence}
             />
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-zinc-200">
+              Recent activity
+            </div>
+
+            {historyQuery.isLoading ? (
+              <div className="text-sm text-zinc-400">
+                Loading history...
+              </div>
+            ) : historyQuery.data?.length ? (
+              <div className="space-y-2">
+                {historyQuery.data.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3"
+                  >
+                    <div className="text-sm text-zinc-100">
+                      {item.event_type}
+                    </div>
+                    {item.previous_value ||
+                    item.new_value ? (
+                      <div className="mt-1 text-xs text-zinc-400">
+                        {item.previous_value ??
+                          "—"}{" "}
+                        → {item.new_value ?? "—"}
+                      </div>
+                    ) : null}
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {new Date(
+                        item.created_at,
+                      ).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-zinc-400">
+                No history yet.
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-3">

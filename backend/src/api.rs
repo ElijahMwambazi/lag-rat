@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     routing::{get, post},
     Json, Router,
@@ -11,8 +11,8 @@ use serde_json::json;
 use crate::{
     db,
     models::{
-        EnrichedDevice, HealthCurrentResponse, KnownDeviceView, OutageReportItem,
-        SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
+        DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse, KnownDeviceView,
+        OutageReportItem, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -43,6 +43,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/outages", get(get_outages))
         .route("/api/devices", get(get_devices))
         .route("/api/devices/known", post(save_known_device))
+        .route("/api/devices/{ip}/history", get(get_device_history))
         .with_state(state)
 }
 
@@ -247,6 +248,26 @@ async fn save_known_device(
         created_at: saved.created_at,
         updated_at: saved.updated_at,
     }))
+}
+
+async fn get_device_history(
+    State(state): State<AppState>,
+    Path(ip): Path<String>,
+) -> Result<Json<Vec<DeviceHistoryItem>>, (StatusCode, Json<serde_json::Value>)> {
+    let items = db::list_device_history(&state.db, &ip, 20)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|event| DeviceHistoryItem {
+            id: event.id,
+            event_type: event.event_type,
+            previous_value: event.previous_value,
+            new_value: event.new_value,
+            created_at: event.created_at,
+        })
+        .collect();
+
+    Ok(Json(items))
 }
 
 fn internal_error(err: anyhow::Error) -> (StatusCode, Json<serde_json::Value>) {

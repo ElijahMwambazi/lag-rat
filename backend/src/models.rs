@@ -187,3 +187,22 @@ pub struct KnownDeviceView {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Serialize, FromRow, Clone)]
+pub struct DeviceHistoryEvent {
+    pub id: i64,
+    pub device_ip_address: String,
+    pub event_type: String,
+    pub previous_value: Option<String>,
+    pub new_value: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeviceHistoryItem {
+    pub id: i64,
+    pub event_type: String,
+    pub previous_value: Option<String>,
+    pub new_value: Option<String>,
+    pub created_at: DateTime<Utc>,
+}

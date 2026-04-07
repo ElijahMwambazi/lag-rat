@@ -92,6 +92,14 @@ export type SaveKnownDeviceRequest = {
   notes?: string | null;
 };
 
+export type DeviceHistoryItem = {
+  id: number;
+  event_type: string;
+  previous_value?: string | null;
+  new_value?: string | null;
+  created_at: string;
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -162,4 +170,8 @@ export const api = {
   saveKnownDevice: (
     body: SaveKnownDeviceRequest,
   ) => postJson("/api/devices/known", body),
+  getDeviceHistory: (ip: string) =>
+    getJson<DeviceHistoryItem[]>(
+      `/api/devices/${encodeURIComponent(ip)}/history`,
+    ),
 };

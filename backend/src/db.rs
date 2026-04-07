@@ -5,8 +5,8 @@ use chrono::{DateTime, Utc};
 use sqlx::{Row, SqlitePool};
 
 use crate::models::{
-    Alert, ConnectivityCheck, Device, DnsCheck, KnownDevice, Outage, SummaryResponse,
-    TimeseriesPoint,
+    Alert, ConnectivityCheck, Device, DeviceHistoryEvent, DnsCheck, KnownDevice, Outage,
+    SummaryResponse, TimeseriesPoint,
 };
 
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
@@ -272,8 +272,79 @@ pub async fn upsert_device(
     hostname: Option<&str>,
     observed_at: DateTime<Utc>,
 ) -> anyhow::Result<()> {
-    sqlx::query("INSERT INTO devices (ip_address, mac_address, hostname, first_seen, last_seen) VALUES (?1, ?2, ?3, ?4, ?4) ON CONFLICT(ip_address) DO UPDATE SET mac_address = COALESCE(excluded.mac_address, devices.mac_address), hostname = COALESCE(excluded.hostname, devices.hostname), last_seen = excluded.last_seen")
-        .bind(ip_address).bind(mac_address).bind(hostname).bind(observed_at).execute(pool).await?;
+    let existing = get_device_by_ip(pool, ip_address).await?;
+
+    match existing {
+        None => {
+            sqlx::query(
+                "INSERT INTO devices (ip_address, mac_address, hostname, first_seen, last_seen)
+                 VALUES (?1, ?2, ?3, ?4, ?4)",
+            )
+            .bind(ip_address)
+            .bind(mac_address)
+            .bind(hostname)
+            .bind(observed_at)
+            .execute(pool)
+            .await?;
+
+            insert_device_history_event(
+                pool,
+                ip_address,
+                "first_seen",
+                None,
+                hostname.or(mac_address).or(Some(ip_address)),
+                observed_at,
+            )
+            .await?;
+        }
+        Some(device) => {
+            let old_mac = device.mac_address.clone();
+            let old_hostname = device.hostname.clone();
+
+            sqlx::query(
+                "INSERT INTO devices (ip_address, mac_address, hostname, first_seen, last_seen)
+                 VALUES (?1, ?2, ?3, ?4, ?4)
+                 ON CONFLICT(ip_address) DO UPDATE SET
+                    mac_address = COALESCE(excluded.mac_address, devices.mac_address),
+                    hostname = COALESCE(excluded.hostname, devices.hostname),
+                    last_seen = excluded.last_seen",
+            )
+            .bind(ip_address)
+            .bind(mac_address)
+            .bind(hostname)
+            .bind(observed_at)
+            .execute(pool)
+            .await?;
+
+            if old_mac.as_deref() != mac_address && mac_address.is_some() {
+                insert_device_history_event(
+                    pool,
+                    ip_address,
+                    "mac_changed",
+                    old_mac.as_deref(),
+                    mac_address,
+                    observed_at,
+                )
+                .await?;
+            }
+
+            if old_hostname.as_deref() != hostname && hostname.is_some() {
+                insert_device_history_event(
+                    pool,
+                    ip_address,
+                    "hostname_changed",
+                    old_hostname.as_deref(),
+                    hostname,
+                    observed_at,
+                )
+                .await?;
+            }
+
+            insert_device_history_event(pool, ip_address, "seen_again", None, None, observed_at)
+                .await?;
+        }
+    }
+
     Ok(())
 }
 
@@ -547,4 +618,71 @@ pub async fn prune_stale_devices(pool: &SqlitePool, older_than_hours: i64) -> an
     .await?;
 
     Ok(result.rows_affected())
+}
+
+pub async fn insert_device_history_event(
+    pool: &SqlitePool,
+    device_ip_address: &str,
+    event_type: &str,
+    previous_value: Option<&str>,
+    new_value: Option<&str>,
+    created_at: DateTime<Utc>,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO device_history (
+            device_ip_address,
+            event_type,
+            previous_value,
+            new_value,
+            created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5)
+        "#,
+    )
+    .bind(device_ip_address)
+    .bind(event_type)
+    .bind(previous_value)
+    .bind(new_value)
+    .bind(created_at)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn get_device_by_ip(
+    pool: &SqlitePool,
+    ip_address: &str,
+) -> anyhow::Result<Option<Device>> {
+    Ok(sqlx::query_as::<_, Device>(
+        r#"
+        SELECT id, ip_address, mac_address, hostname, first_seen, last_seen
+        FROM devices
+        WHERE ip_address = ?1
+        LIMIT 1
+        "#,
+    )
+    .bind(ip_address)
+    .fetch_optional(pool)
+    .await?)
+}
+
+pub async fn list_device_history(
+    pool: &SqlitePool,
+    ip_address: &str,
+    limit: i64,
+) -> anyhow::Result<Vec<DeviceHistoryEvent>> {
+    Ok(sqlx::query_as::<_, DeviceHistoryEvent>(
+        r#"
+        SELECT id, device_ip_address, event_type, previous_value, new_value, created_at
+        FROM device_history
+        WHERE device_ip_address = ?1
+        ORDER BY created_at DESC
+        LIMIT ?2
+        "#,
+    )
+    .bind(ip_address)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?)
 }
