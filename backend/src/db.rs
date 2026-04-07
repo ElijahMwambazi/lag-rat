@@ -588,7 +588,14 @@ pub async fn save_known_device(
             .await?;
         }
 
-        if existing.notes.as_deref() != notes {
+        let old_notes = existing
+            .notes
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let new_notes = notes.map(str::trim).filter(|s| !s.is_empty());
+
+        if old_notes != new_notes {
             insert_device_history_event(
                 pool,
                 existing
@@ -597,8 +604,8 @@ pub async fn save_known_device(
                     .or(ip_address)
                     .unwrap_or("unknown"),
                 "notes_changed",
-                existing.notes.as_deref(),
-                notes,
+                old_notes,
+                new_notes,
                 now,
             )
             .await?;

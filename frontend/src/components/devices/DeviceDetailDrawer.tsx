@@ -40,6 +40,70 @@ export default function DeviceDetailDrawer({
     return null;
   }
 
+  function formatEventType(eventType: string) {
+    switch (eventType) {
+      case "first_seen":
+        return "First seen";
+      case "seen_again":
+        return "Seen again";
+      case "mac_changed":
+        return "MAC address changed";
+      case "hostname_changed":
+        return "Hostname changed";
+      case "label_changed":
+        return "Label changed";
+      case "label_added":
+        return "Label added";
+      case "notes_changed":
+        return "Notes changed";
+      default:
+        return eventType.replace(/_/g, " ");
+    }
+  }
+
+  function formatEventValues(
+    eventType: string,
+    previousValue?: string | null,
+    newValue?: string | null,
+  ) {
+    if (!previousValue && !newValue) {
+      return null;
+    }
+
+    if (
+      eventType === "first_seen" ||
+      eventType === "label_added"
+    ) {
+      return newValue ?? null;
+    }
+
+    if (
+      eventType === "notes_changed" &&
+      !previousValue &&
+      newValue
+    ) {
+      return `Added: ${newValue}`;
+    }
+
+    if (
+      eventType === "notes_changed" &&
+      previousValue &&
+      !newValue
+    ) {
+      return `Cleared: ${previousValue}`;
+    }
+
+    if (!previousValue && newValue) {
+      return `Set to ${newValue}`;
+    }
+
+    if (previousValue && !newValue) {
+      return `Removed: ${previousValue}`;
+    }
+
+    return `${previousValue} → ${newValue}`;
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
       <div className="h-full w-full max-w-xl overflow-y-auto border-l border-zinc-800 bg-zinc-900 shadow-2xl">
@@ -144,18 +208,22 @@ export default function DeviceDetailDrawer({
                     className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2"
                   >
                     <div className="text-sm text-zinc-100">
-                      {item.event_type.replace(
-                        /_/g,
-                        " ",
+                      {formatEventType(
+                        item.event_type,
                       )}
                     </div>
 
-                    {item.previous_value ||
-                    item.new_value ? (
+                    {formatEventValues(
+                      item.event_type,
+                      item.previous_value,
+                      item.new_value,
+                    ) ? (
                       <div className="mt-1 text-xs text-zinc-400">
-                        {item.previous_value ??
-                          "—"}{" "}
-                        → {item.new_value ?? "—"}
+                        {formatEventValues(
+                          item.event_type,
+                          item.previous_value,
+                          item.new_value,
+                        )}
                       </div>
                     ) : null}
 
