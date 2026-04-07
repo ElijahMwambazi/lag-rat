@@ -232,6 +232,44 @@ pub async fn list_outages(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<O
         .bind(limit).fetch_all(pool).await?)
 }
 
+pub async fn list_outages_filtered(
+    pool: &SqlitePool,
+    status: Option<&str>,
+    outage_type: Option<&str>,
+    search: Option<&str>,
+    limit: i64,
+) -> anyhow::Result<Vec<Outage>> {
+    let search_term = search
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("%{}%", s));
+
+    Ok(sqlx::query_as::<_, Outage>(
+        r#"
+            SELECT id, outage_type, target, started_at, ended_at, is_active, start_error, end_note
+            FROM outages
+            WHERE (?1 IS NULL
+                   OR (?1 = 'active' AND is_active = 1)
+                   OR (?1 = 'resolved' AND is_active = 0))
+              AND (?2 IS NULL OR outage_type = ?2)
+              AND (
+                    ?3 IS NULL
+                    OR target LIKE ?3
+                    OR start_error LIKE ?3
+                    OR end_note LIKE ?3
+                  )
+            ORDER BY started_at DESC
+            LIMIT ?4
+            "#,
+    )
+    .bind(status)
+    .bind(outage_type)
+    .bind(search_term.as_deref())
+    .bind(limit)
+    .fetch_all(pool)
+    .await?)
+}
+
 pub async fn summary_24h(pool: &SqlitePool) -> anyhow::Result<SummaryResponse> {
     let total_row = sqlx::query(
         "SELECT COUNT(*) AS total,

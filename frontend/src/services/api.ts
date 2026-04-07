@@ -165,8 +165,31 @@ export const api = {
     ),
   getDevices: () =>
     getJson<Device[]>("/api/devices"),
-  getOutages: () =>
-    getJson<Outage[]>("/api/outages"),
+  getOutages: (params?: {
+    status?: "active" | "resolved";
+    outage_type?: string;
+    search?: string;
+    limit?: number;
+  }) => {
+    const query = new URLSearchParams();
+
+    if (params?.status)
+      query.set("status", params.status);
+    if (params?.outage_type)
+      query.set(
+        "outage_type",
+        params.outage_type,
+      );
+    if (params?.search?.trim())
+      query.set("search", params.search.trim());
+    if (params?.limit)
+      query.set("limit", String(params.limit));
+
+    const suffix = query.toString();
+    return getJson<Outage[]>(
+      `/api/outages${suffix ? `?${suffix}` : ""}`,
+    );
+  },
   saveKnownDevice: (
     body: SaveKnownDeviceRequest,
   ) => postJson("/api/devices/known", body),

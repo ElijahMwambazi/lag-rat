@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QueryState from "../components/QueryState";
-import { api } from "../services/api";
+import { api, Outage } from "../services/api";
 
 type StatusFilter = "all" | "active" | "resolved";
 type TypeFilter =
@@ -36,13 +36,8 @@ function formatDate(value?: string | null) {
 }
 
 export default function ReportsPage() {
-  const outagesQuery = useQuery({
-    queryKey: ["outages"],
-    queryFn: api.getOutages,
-    refetchInterval: 60000,
-  });
-
-  const outages = outagesQuery.data ?? [];
+  const [selectedOutage, setSelectedOutage] =
+    useState<Outage | null>(null);
 
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter>("all");
@@ -52,6 +47,64 @@ export default function ReportsPage() {
   const [sortBy, setSortBy] = useState<SortKey>(
     "started_desc",
   );
+
+  const outagesQuery = useQuery({
+    queryKey: [
+      "outages",
+      statusFilter,
+      typeFilter,
+      search,
+      sortBy,
+    ],
+    queryFn: () =>
+      api.getOutages({
+        status:
+          statusFilter === "all"
+            ? undefined
+            : statusFilter,
+        outage_type:
+          typeFilter === "all"
+            ? undefined
+            : typeFilter,
+        search: search.trim() || undefined,
+        limit: 200,
+      }),
+    refetchInterval: 60000,
+  });
+
+  const outages = outagesQuery.data ?? [];
+
+  const visibleOutages = useMemo(() => {
+    return [...outages].sort((a, b) => {
+      if (sortBy === "started_asc") {
+        return (
+          new Date(a.started_at).getTime() -
+          new Date(b.started_at).getTime()
+        );
+      }
+
+      if (sortBy === "duration_desc") {
+        return (
+          (b.duration_seconds ?? -1) -
+          (a.duration_seconds ?? -1)
+        );
+      }
+
+      if (sortBy === "duration_asc") {
+        return (
+          (a.duration_seconds ??
+            Number.MAX_SAFE_INTEGER) -
+          (b.duration_seconds ??
+            Number.MAX_SAFE_INTEGER)
+        );
+      }
+
+      return (
+        new Date(b.started_at).getTime() -
+        new Date(a.started_at).getTime()
+      );
+    });
+  }, [outages, sortBy]);
 
   const filteredOutages = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -284,7 +337,10 @@ export default function ReportsPage() {
               filteredOutages.map((outage) => (
                 <tr
                   key={`${outage.id}-${outage.started_at}-${outage.target}`}
-                  className="border-t border-zinc-800"
+                  className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
+                  onClick={() =>
+                    setSelectedOutage(outage)
+                  }
                 >
                   <td className="px-4 py-3">
                     {outage.outage_type || "—"}
@@ -332,6 +388,105 @@ export default function ReportsPage() {
           </tbody>
         </table>
       </div>
+      {selectedOutage ? (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
+          <div className="h-full w-full max-w-xl overflow-y-auto border-l border-zinc-800 bg-zinc-900 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-zinc-800 px-6 py-5">
+              <div>
+                <h3 className="text-xl font-semibold text-zinc-100">
+                  {selectedOutage.outage_type}
+                </h3>
+                <p className="mt-1 text-sm text-zinc-400">
+                  Outage details
+                </p>
+              </div>
+
+              <button
+                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
+                onClick={() =>
+                  setSelectedOutage(null)
+                }
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-5 text-sm">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Target
+                </div>
+                <div className="mt-2 text-zinc-100 break-all">
+                  {selectedOutage.target}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Started
+                  </div>
+                  <div className="mt-2 text-zinc-100">
+                    {formatDate(
+                      selectedOutage.started_at,
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Ended
+                  </div>
+                  <div className="mt-2 text-zinc-100">
+                    {formatDate(
+                      selectedOutage.ended_at,
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Duration
+                  </div>
+                  <div className="mt-2 text-zinc-100">
+                    {formatDuration(
+                      selectedOutage.duration_seconds,
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Status
+                  </div>
+                  <div className="mt-2 text-zinc-100">
+                    {selectedOutage.status}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Error
+                </div>
+                <div className="mt-2 whitespace-pre-wrap break-words text-zinc-100">
+                  {selectedOutage.start_error ??
+                    "—"}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Recovery note
+                </div>
+                <div className="mt-2 whitespace-pre-wrap break-words text-zinc-100">
+                  {selectedOutage.end_note ?? "—"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

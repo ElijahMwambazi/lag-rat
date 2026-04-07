@@ -31,6 +31,14 @@ pub struct AlertView {
     pub resolved_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+#[derive(Deserialize)]
+pub struct OutageQuery {
+    pub status: Option<String>,
+    pub outage_type: Option<String>,
+    pub search: Option<String>,
+    pub limit: Option<u32>,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/status/overview", get(get_status_overview))
@@ -164,10 +172,19 @@ async fn get_alerts(
 
 async fn get_outages(
     State(state): State<AppState>,
+    Query(query): Query<OutageQuery>,
 ) -> Result<Json<Vec<OutageReportItem>>, (StatusCode, Json<serde_json::Value>)> {
-    let outages = db::list_outages(&state.db, 100)
-        .await
-        .map_err(internal_error)?;
+    let limit = query.limit.unwrap_or(100).min(500) as i64;
+
+    let outages = db::list_outages_filtered(
+        &state.db,
+        query.status.as_deref(),
+        query.outage_type.as_deref(),
+        query.search.as_deref(),
+        limit,
+    )
+    .await
+    .map_err(internal_error)?;
 
     let items = outages
         .into_iter()
