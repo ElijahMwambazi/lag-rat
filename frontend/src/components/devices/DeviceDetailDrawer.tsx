@@ -17,10 +17,6 @@ export default function DeviceDetailDrawer({
   onClose,
   onEdit,
 }: Props) {
-  if (!open || !device) {
-    return null;
-  }
-
   async function copyText(value?: string | null) {
     if (!value) return;
     try {
@@ -39,6 +35,10 @@ export default function DeviceDetailDrawer({
       api.getDeviceHistory(device!.ip_address),
     enabled: open && !!device?.ip_address,
   });
+
+  if (!open || !device) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
@@ -131,6 +131,10 @@ export default function DeviceDetailDrawer({
             {historyQuery.isLoading ? (
               <div className="text-sm text-zinc-400">
                 Loading history...
+              </div>
+            ) : historyQuery.isError ? (
+              <div className="text-sm text-red-400">
+                Could not load history.
               </div>
             ) : historyQuery.data?.length ? (
               <div className="space-y-2">
