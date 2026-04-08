@@ -533,6 +533,26 @@ pub async fn trailing_dns_result_count(
     Ok(count)
 }
 
+pub async fn get_active_outage(
+    pool: &SqlitePool,
+    outage_type: &str,
+    target: &str,
+) -> anyhow::Result<Option<Outage>> {
+    Ok(sqlx::query_as::<_, Outage>(
+        r#"
+            SELECT id, outage_type, target, started_at, ended_at, is_active, start_error, end_note
+            FROM outages
+            WHERE outage_type = ?1 AND target = ?2 AND is_active = 1
+            ORDER BY started_at DESC
+            LIMIT 1
+            "#,
+    )
+    .bind(outage_type)
+    .bind(target)
+    .fetch_optional(pool)
+    .await?)
+}
+
 pub async fn active_outages_count(pool: &SqlitePool) -> anyhow::Result<u32> {
     Ok(
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM outages WHERE is_active = 1")
@@ -645,23 +665,62 @@ pub async fn upsert_alert_state(
     is_active: bool,
     timestamp: DateTime<Utc>,
 ) -> anyhow::Result<()> {
-    let existing = sqlx::query_as::<_, Alert>("SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at FROM alerts WHERE entity_type = ?1 AND entity_key = ?2 AND alert_type = ?3 AND is_active = 1 ORDER BY created_at DESC LIMIT 1")
-        .bind(entity_type).bind(entity_key).bind(alert_type).fetch_optional(pool).await?;
+    let existing = sqlx::query_as::<_, Alert>(
+        "SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at
+         FROM alerts
+         WHERE entity_type = ?1 AND entity_key = ?2 AND alert_type = ?3 AND is_active = 1
+         ORDER BY created_at DESC
+         LIMIT 1",
+    )
+    .bind(entity_type)
+    .bind(entity_key)
+    .bind(alert_type)
+    .fetch_optional(pool)
+    .await?;
+
     match (is_active, existing) {
         (true, None) => {
-            sqlx::query("INSERT INTO alerts (alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at) VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, NULL)")
-                .bind(alert_type).bind(severity).bind(entity_type).bind(entity_key).bind(message).bind(timestamp)
-                .execute(pool).await?;
+            sqlx::query(
+                "INSERT INTO alerts (alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, NULL)",
+            )
+            .bind(alert_type)
+            .bind(severity)
+            .bind(entity_type)
+            .bind(entity_key)
+            .bind(message)
+            .bind(timestamp)
+            .execute(pool)
+            .await?;
         }
-        (false, Some(alert)) => {
-            sqlx::query("UPDATE alerts SET is_active = 0, resolved_at = ?1 WHERE id = ?2")
-                .bind(timestamp)
+        (true, Some(alert)) => {
+            if alert.severity != severity || alert.message != message {
+                sqlx::query(
+                    "UPDATE alerts
+                     SET severity = ?1, message = ?2
+                     WHERE id = ?3",
+                )
+                .bind(severity)
+                .bind(message)
                 .bind(alert.id)
                 .execute(pool)
                 .await?;
+            }
         }
-        _ => {}
+        (false, Some(alert)) => {
+            sqlx::query(
+                "UPDATE alerts
+                 SET is_active = 0, resolved_at = ?1
+                 WHERE id = ?2",
+            )
+            .bind(timestamp)
+            .bind(alert.id)
+            .execute(pool)
+            .await?;
+        }
+        (false, None) => {}
     }
+
     Ok(())
 }
 
