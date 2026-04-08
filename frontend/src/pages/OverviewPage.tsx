@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AlertsPanel from "../components/AlertsPanel";
 import DebugPanel from "../components/DebugPanel";
@@ -58,6 +59,30 @@ export default function OverviewPage() {
   const overview = overviewQuery.data;
   const summary = summaryQuery.data;
 
+  const alertsSectionRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const criticalAlertsQuery = useQuery({
+    queryKey: [
+      "alerts",
+      "critical",
+      "active",
+      "overview",
+    ],
+    queryFn: () =>
+      api.getAlerts({
+        status: "active",
+        severity: "critical",
+        limit: 5,
+      }),
+    refetchInterval: 15000,
+  });
+
+  const criticalAlerts =
+    criticalAlertsQuery.data ?? [];
+  const topCriticalAlert =
+    criticalAlerts[0] ?? null;
+
   const issues = [];
   if (overview && !overview.router.is_healthy) {
     issues.push({
@@ -111,8 +136,15 @@ export default function OverviewPage() {
     },
     {
       name: "/api/alerts",
-      status: "ok" as const,
-      detail: "Alerts handled in panel",
+      ...getQueryStatus(
+        criticalAlertsQuery.isLoading,
+        criticalAlertsQuery.isError,
+        `${criticalAlerts.length} active critical alerts`,
+        "Waiting for critical alerts payload",
+        criticalAlertsQuery.error instanceof Error
+          ? criticalAlertsQuery.error.message
+          : "Alerts request failed",
+      ),
     },
   ];
 
@@ -150,6 +182,50 @@ export default function OverviewPage() {
               : "The overview endpoint failed."
           }
         />
+      ) : null}
+
+      {topCriticalAlert ? (
+        <section className="rounded-2xl border border-red-900 bg-red-950/40 px-5 py-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-red-300">
+                Active critical alert
+              </h3>
+              <p className="mt-1 text-base font-medium text-zinc-100">
+                {topCriticalAlert.message}
+              </p>
+              <p className="mt-1 text-sm text-zinc-300">
+                {topCriticalAlert.entity_type} ·{" "}
+                {topCriticalAlert.alert_type} ·{" "}
+                {formatDate(
+                  topCriticalAlert.created_at,
+                )}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="rounded-full border border-red-800 bg-red-950 px-2.5 py-1 text-xs text-red-300">
+                {criticalAlerts.length} critical
+                active
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  alertsSectionRef.current?.scrollIntoView(
+                    {
+                      behavior: "smooth",
+                      block: "start",
+                    },
+                  )
+                }
+                className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+              >
+                View alerts
+              </button>
+            </div>
+          </div>
+        </section>
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -384,7 +460,10 @@ export default function OverviewPage() {
         />
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div
+        ref={alertsSectionRef}
+        className="grid gap-4 lg:grid-cols-2"
+      >
         <IssuePanel issues={issues} />
         <AlertsPanel />
       </div>
