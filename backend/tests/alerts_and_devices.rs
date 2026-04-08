@@ -43,6 +43,7 @@ async fn alert_opens_and_resolves() -> anyhow::Result<()> {
             .await?;
     assert!(!alerts[0].is_active);
     assert!(alerts[0].resolved_at.is_some());
+    assert!(alerts[0].acknowledged_at.is_none());
 
     Ok(())
 }
@@ -345,6 +346,112 @@ async fn enriched_devices_include_labels_and_gateway_flag() -> anyhow::Result<()
     assert!(router.is_known);
     assert_eq!(router.label.as_deref(), Some("Router"));
     assert_eq!(router.display_name, "Router");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn acknowledge_active_alert_sets_acknowledged_at() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "critical",
+        "internet",
+        "https://www.google.com/generate_204",
+        "internet check failed: timeout",
+        true,
+        now,
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    assert_eq!(alerts.len(), 1);
+    assert!(alerts[0].acknowledged_at.is_none());
+
+    let acknowledged = lag_rat_backend::db::acknowledge_alert(
+        &harness.state.db,
+        alerts[0].id,
+        now + Duration::seconds(10),
+    )
+    .await?;
+
+    assert!(acknowledged.is_some());
+    assert!(acknowledged.unwrap().acknowledged_at.is_some());
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    assert!(alerts[0].acknowledged_at.is_some());
+    assert!(alerts[0].is_active);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn acknowledging_unknown_alert_returns_none() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+
+    let acknowledged =
+        lag_rat_backend::db::acknowledge_alert(&harness.state.db, 999_999, Utc::now()).await?;
+
+    assert!(acknowledged.is_none());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn alert_update_clears_acknowledged_at() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "warning",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http check failed: timeout",
+        true,
+        now,
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    let alert_id = alerts[0].id;
+
+    let acknowledged = lag_rat_backend::db::acknowledge_alert(
+        &harness.state.db,
+        alert_id,
+        now + Duration::seconds(5),
+    )
+    .await?;
+    assert!(acknowledged.unwrap().acknowledged_at.is_some());
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "critical",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http still failing after 5m: timeout",
+        true,
+        now + Duration::minutes(5),
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    assert_eq!(alerts.len(), 1);
+    assert_eq!(alerts[0].severity, "critical");
+    assert!(alerts[0].acknowledged_at.is_none());
 
     Ok(())
 }
