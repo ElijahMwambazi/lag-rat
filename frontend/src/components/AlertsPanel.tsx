@@ -198,14 +198,13 @@ export default function AlertsPanel({
       api.acknowledgeAlert(id),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["alerts"],
-      });
-      queryClient.invalidateQueries({
         queryKey: [
           "alerts",
           "critical",
           "active",
           "overview",
+          "alert-history",
+          selectedAlert?.id,
         ],
       });
     },
@@ -636,7 +635,7 @@ export default function AlertsPanel({
                         item.new_value ? (
                           <p className="mt-1 text-xs text-zinc-400">
                             {item.previous_value ??
-                              "—"}{" "}
+                              " "}
                             →{" "}
                             {item.new_value ??
                               "—"}

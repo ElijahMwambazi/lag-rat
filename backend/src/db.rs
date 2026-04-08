@@ -839,7 +839,7 @@ pub async fn list_alert_history(
             SELECT id, alert_id, event_type, previous_value, new_value, created_at
             FROM alert_history
             WHERE alert_id = ?1
-            ORDER BY created_at DESC
+            ORDER BY created_at DESC, id DESC
             LIMIT ?2
             "#,
     )

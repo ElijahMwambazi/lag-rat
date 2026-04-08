@@ -456,3 +456,147 @@ async fn alert_update_clears_acknowledged_at() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn alert_history_records_opened_and_resolved() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "warning",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http check failed: timeout",
+        true,
+        now,
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    assert_eq!(alerts.len(), 1);
+
+    let history =
+        lag_rat_backend::db::list_alert_history(&harness.state.db, alerts[0].id, 20).await?;
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].event_type, "opened");
+    assert_eq!(history[0].previous_value, None);
+    assert_eq!(history[0].new_value.as_deref(), Some("warning"));
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "info",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http recovered",
+        false,
+        now + Duration::minutes(1),
+    )
+    .await?;
+
+    let history =
+        lag_rat_backend::db::list_alert_history(&harness.state.db, alerts[0].id, 20).await?;
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[0].event_type, "resolved");
+    assert_eq!(history[0].previous_value.as_deref(), Some("active"));
+    assert_eq!(history[0].new_value.as_deref(), Some("resolved"));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn alert_history_records_acknowledged_event() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "critical",
+        "internet",
+        "https://www.google.com/generate_204",
+        "internet check failed: timeout",
+        true,
+        now,
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    let alert_id = alerts[0].id;
+
+    lag_rat_backend::db::acknowledge_alert(
+        &harness.state.db,
+        alert_id,
+        now + Duration::seconds(10),
+    )
+    .await?;
+
+    let history = lag_rat_backend::db::list_alert_history(&harness.state.db, alert_id, 20).await?;
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[0].event_type, "acknowledged");
+    assert_eq!(history[0].new_value.as_deref(), Some("acknowledged"));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn alert_history_records_severity_and_message_changes() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "warning",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http check failed: timeout",
+        true,
+        now,
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    let alert_id = alerts[0].id;
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "critical",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http still failing after 5m: timeout",
+        true,
+        now + Duration::minutes(5),
+    )
+    .await?;
+
+    let history = lag_rat_backend::db::list_alert_history(&harness.state.db, alert_id, 20).await?;
+    assert_eq!(history.len(), 3);
+
+    assert_eq!(history[0].event_type, "message_changed");
+    assert_eq!(
+        history[0].previous_value.as_deref(),
+        Some("internet_http check failed: timeout")
+    );
+    assert_eq!(
+        history[0].new_value.as_deref(),
+        Some("internet_http still failing after 5m: timeout")
+    );
+
+    assert_eq!(history[1].event_type, "severity_changed");
+    assert_eq!(history[1].previous_value.as_deref(), Some("warning"));
+    assert_eq!(history[1].new_value.as_deref(), Some("critical"));
+
+    assert_eq!(history[2].event_type, "opened");
+
+    Ok(())
+}
