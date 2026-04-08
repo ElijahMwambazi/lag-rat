@@ -30,6 +30,7 @@ impl TestHarness {
             "0003_alerts_and_known_devices.sql",
             "0004_multi_probe.sql",
             "0005_device_history.sql",
+            "0006_alert_acknowledgement.sql",
         ] {
             fs::copy(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR"))

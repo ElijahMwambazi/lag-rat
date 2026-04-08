@@ -78,8 +78,9 @@ export default function OverviewPage() {
     refetchInterval: 15000,
   });
 
-  const criticalAlerts =
-    criticalAlertsQuery.data ?? [];
+  const criticalAlerts = (
+    criticalAlertsQuery.data ?? []
+  ).filter((alert) => !alert.acknowledged_at);
   const topCriticalAlert =
     criticalAlerts[0] ?? null;
 

@@ -124,6 +124,7 @@ pub struct Alert {
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub resolved_at: Option<DateTime<Utc>>,
+    pub acknowledged_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize, FromRow, Clone)]

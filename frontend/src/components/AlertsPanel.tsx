@@ -4,7 +4,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { api, type Alert } from "../services/api";
 
 type StatusFilter = "all" | "active" | "resolved";
@@ -156,6 +160,26 @@ export default function AlertsPanel({
         .length,
     [alerts],
   );
+
+  const queryClient = useQueryClient();
+
+  const acknowledgeMutation = useMutation({
+    mutationFn: (id: number) =>
+      api.acknowledgeAlert(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["alerts"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [
+          "alerts",
+          "critical",
+          "active",
+          "overview",
+        ],
+      });
+    },
+  });
 
   useEffect(() => {
     if (focusMode === "active-critical") {
@@ -408,6 +432,12 @@ export default function AlertsPanel({
                           ? "Active"
                           : "Resolved"}
                       </span>
+                      {alert.is_active &&
+                      alert.acknowledged_at ? (
+                        <span className="rounded-full border border-amber-800 bg-amber-950 px-2.5 py-1 text-xs text-amber-300">
+                          Acknowledged
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </button>
@@ -510,6 +540,30 @@ export default function AlertsPanel({
                     )}
                   </div>
                 </div>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Acknowledged
+                  </div>
+                  <div className="mt-2 text-zinc-100">
+                    {formatDate(
+                      selectedAlert.acknowledged_at,
+                    )}
+                  </div>
+                </div>
+                {selectedAlert.is_active &&
+                !selectedAlert.acknowledged_at ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      acknowledgeMutation.mutate(
+                        selectedAlert.id,
+                      )
+                    }
+                    className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900"
+                  >
+                    Acknowledge
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>

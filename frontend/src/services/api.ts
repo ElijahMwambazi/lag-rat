@@ -19,6 +19,7 @@ export type Alert = {
   is_active: boolean;
   created_at: string;
   resolved_at?: string | null;
+  acknowledged_at?: string | null;
 };
 
 export type ServiceStatus = {
@@ -173,6 +174,11 @@ export const api = {
       `/api/alerts${suffix ? `?${suffix}` : ""}`,
     );
   },
+  acknowledgeAlert: (id: number) =>
+    postJson<Alert, Record<string, never>>(
+      `/api/alerts/${id}/acknowledge`,
+      {},
+    ),
   getHealthHistory: () =>
     getJson<TimeseriesPoint[]>(
       "/api/health/history?minutes=60",

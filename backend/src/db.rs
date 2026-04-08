@@ -618,7 +618,7 @@ pub async fn list_alerts_filtered(
     Ok(
         sqlx::query_as::<_, Alert>(
             r#"
-            SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at
+            SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at, acknowledged_at
             FROM alerts
             WHERE (?1 IS NULL
                    OR (?1 = 'active' AND is_active = 1)
@@ -656,7 +656,7 @@ pub async fn upsert_alert_state(
     timestamp: DateTime<Utc>,
 ) -> anyhow::Result<()> {
     let existing = sqlx::query_as::<_, Alert>(
-        "SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at
+        "SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at, acknowledged_at
          FROM alerts
          WHERE entity_type = ?1 AND entity_key = ?2 AND alert_type = ?3 AND is_active = 1
          ORDER BY created_at DESC
@@ -671,8 +671,10 @@ pub async fn upsert_alert_state(
     match (is_active, existing) {
         (true, None) => {
             sqlx::query(
-                "INSERT INTO alerts (alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, NULL)",
+                "INSERT INTO alerts (
+                alert_type, severity, entity_type, entity_key, message,
+                is_active, created_at, resolved_at, acknowledged_at
+                ) VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, NULL, NULL)",
             )
             .bind(alert_type)
             .bind(severity)
@@ -687,8 +689,10 @@ pub async fn upsert_alert_state(
             if alert.severity != severity || alert.message != message {
                 sqlx::query(
                     "UPDATE alerts
-                     SET severity = ?1, message = ?2
-                     WHERE id = ?3",
+                    SET severity = ?1,
+                    message = ?2,
+                    acknowledged_at = NULL
+                    WHERE id = ?3",
                 )
                 .bind(severity)
                 .bind(message)
@@ -712,6 +716,34 @@ pub async fn upsert_alert_state(
     }
 
     Ok(())
+}
+
+pub async fn acknowledge_alert(
+    pool: &SqlitePool,
+    alert_id: i64,
+    acknowledged_at: DateTime<Utc>,
+) -> anyhow::Result<Option<Alert>> {
+    sqlx::query(
+        "UPDATE alerts
+         SET acknowledged_at = ?1
+         WHERE id = ?2 AND is_active = 1",
+    )
+    .bind(acknowledged_at)
+    .bind(alert_id)
+    .execute(pool)
+    .await?;
+
+    let alert = sqlx::query_as::<_, Alert>(
+        "SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at, acknowledged_at
+         FROM alerts
+         WHERE id = ?1
+         LIMIT 1",
+    )
+    .bind(alert_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(alert)
 }
 
 pub async fn find_known_device_by_identity(

@@ -37,6 +37,7 @@ pub struct AlertView {
     pub is_active: bool,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub resolved_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub acknowledged_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Deserialize)]
@@ -61,6 +62,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/devices", get(get_devices))
         .route("/api/devices/known", post(save_known_device))
         .route("/api/devices/{ip}/history", get(get_device_history))
+        .route("/api/alerts/{id}/acknowledge", post(acknowledge_alert))
         .with_state(state)
 }
 
@@ -183,10 +185,43 @@ async fn get_alerts(
             is_active: alert.is_active,
             created_at: alert.created_at,
             resolved_at: alert.resolved_at,
+            acknowledged_at: alert.acknowledged_at,
         })
         .collect();
 
     Ok(Json(views))
+}
+
+async fn acknowledge_alert(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<AlertView>, (StatusCode, Json<serde_json::Value>)> {
+    let acknowledged = db::acknowledge_alert(&state.db, id, Utc::now())
+        .await
+        .map_err(internal_error)?;
+
+    let alert = match acknowledged {
+        Some(alert) => alert,
+        None => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({ "error": "alert not found" })),
+            ))
+        }
+    };
+
+    Ok(Json(AlertView {
+        id: alert.id as i32,
+        alert_type: alert.alert_type,
+        severity: alert.severity,
+        entity_type: alert.entity_type,
+        entity_key: alert.entity_key,
+        message: alert.message,
+        is_active: alert.is_active,
+        created_at: alert.created_at,
+        resolved_at: alert.resolved_at,
+        acknowledged_at: alert.acknowledged_at,
+    }))
 }
 
 async fn get_outages(
