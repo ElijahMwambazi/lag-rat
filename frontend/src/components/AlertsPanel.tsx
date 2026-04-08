@@ -19,6 +19,10 @@ type EntityFilter =
   | "internet"
   | "dns";
 
+const NOTIFIED_ALERT_IDS_STORAGE_KEY =
+  "lag-rat:notified-critical-alert-ids";
+const MAX_STORED_ALERT_IDS = 500;
+
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const parsed = new Date(value);
@@ -40,6 +44,53 @@ function severityClasses(severity: string) {
   return "border-zinc-700 bg-zinc-800 text-zinc-300";
 }
 
+function readNotifiedAlertIds(): number[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(
+      NOTIFIED_ALERT_IDS_STORAGE_KEY,
+    );
+
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value));
+  } catch {
+    return [];
+  }
+}
+
+function writeNotifiedAlertIds(ids: Set<number>) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const trimmed = Array.from(ids).slice(
+      -MAX_STORED_ALERT_IDS,
+    );
+
+    window.localStorage.setItem(
+      NOTIFIED_ALERT_IDS_STORAGE_KEY,
+      JSON.stringify(trimmed),
+    );
+  } catch {
+    // ignore storage failures
+  }
+}
+
 export default function AlertsPanel() {
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter>("all");
@@ -50,9 +101,10 @@ export default function AlertsPanel() {
   const [search, setSearch] = useState("");
   const [selectedAlert, setSelectedAlert] =
     useState<Alert | null>(null);
-  const seenAlertIdsRef = useRef<Set<number>>(
-    new Set(),
+  const notifiedAlertIdsRef = useRef<Set<number>>(
+    new Set(readNotifiedAlertIds()),
   );
+
   const [
     notificationsEnabled,
     setNotificationsEnabled,
@@ -122,24 +174,33 @@ export default function AlertsPanel() {
         alert.severity === "critical",
     );
 
+    let didPersist = false;
+
     for (const alert of activeCriticalAlerts) {
-      const alreadySeen =
-        seenAlertIdsRef.current.has(alert.id);
+      const alreadyNotified =
+        notifiedAlertIdsRef.current.has(alert.id);
 
-      if (!alreadySeen) {
-        seenAlertIdsRef.current.add(alert.id);
-
-        if (
-          Notification.permission === "granted"
-        ) {
-          new Notification(
-            "Lag Rat critical alert",
-            {
-              body: `${alert.entity_type}: ${alert.message}`,
-            },
-          );
-        }
+      if (alreadyNotified) {
+        continue;
       }
+
+      notifiedAlertIdsRef.current.add(alert.id);
+      didPersist = true;
+
+      if (Notification.permission === "granted") {
+        new Notification(
+          "Lag Rat critical alert",
+          {
+            body: `${alert.entity_type}: ${alert.message}`,
+          },
+        );
+      }
+    }
+
+    if (didPersist) {
+      writeNotifiedAlertIds(
+        notifiedAlertIdsRef.current,
+      );
     }
   }, [alerts]);
 
