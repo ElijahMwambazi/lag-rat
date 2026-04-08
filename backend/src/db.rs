@@ -468,6 +468,71 @@ pub async fn last_failed_dns_check(pool: &SqlitePool) -> anyhow::Result<Option<D
         .fetch_optional(pool).await?)
 }
 
+pub async fn trailing_connectivity_result_count(
+    pool: &SqlitePool,
+    probe_kind: &str,
+    success: bool,
+    limit: i64,
+) -> anyhow::Result<i64> {
+    let rows = sqlx::query(
+        r#"
+        SELECT success
+        FROM connectivity_checks
+        WHERE probe_kind = ?1
+        ORDER BY timestamp DESC
+        LIMIT ?2
+        "#,
+    )
+    .bind(probe_kind)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    let mut count = 0;
+
+    for row in rows {
+        let row_success: bool = row.get("success");
+        if row_success == success {
+            count += 1;
+        } else {
+            break;
+        }
+    }
+
+    Ok(count)
+}
+
+pub async fn trailing_dns_result_count(
+    pool: &SqlitePool,
+    success: bool,
+    limit: i64,
+) -> anyhow::Result<i64> {
+    let rows = sqlx::query(
+        r#"
+        SELECT success
+        FROM dns_checks
+        ORDER BY timestamp DESC
+        LIMIT ?1
+        "#,
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    let mut count = 0;
+
+    for row in rows {
+        let row_success: bool = row.get("success");
+        if row_success == success {
+            count += 1;
+        } else {
+            break;
+        }
+    }
+
+    Ok(count)
+}
+
 pub async fn active_outages_count(pool: &SqlitePool) -> anyhow::Result<u32> {
     Ok(
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM outages WHERE is_active = 1")
