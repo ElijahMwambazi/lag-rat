@@ -1,4 +1,9 @@
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Alert } from "../services/api";
 
@@ -45,6 +50,16 @@ export default function AlertsPanel() {
   const [search, setSearch] = useState("");
   const [selectedAlert, setSelectedAlert] =
     useState<Alert | null>(null);
+  const seenAlertIdsRef = useRef<Set<number>>(
+    new Set(),
+  );
+  const [
+    notificationsEnabled,
+    setNotificationsEnabled,
+  ] = useState<boolean>(
+    typeof Notification !== "undefined" &&
+      Notification.permission === "granted",
+  );
 
   const alertsQuery = useQuery({
     queryKey: [
@@ -96,6 +111,53 @@ export default function AlertsPanel() {
     });
   }, [alerts]);
 
+  useEffect(() => {
+    if (typeof Notification === "undefined") {
+      return;
+    }
+
+    const activeCriticalAlerts = alerts.filter(
+      (alert) =>
+        alert.is_active &&
+        alert.severity === "critical",
+    );
+
+    for (const alert of activeCriticalAlerts) {
+      const alreadySeen =
+        seenAlertIdsRef.current.has(alert.id);
+
+      if (!alreadySeen) {
+        seenAlertIdsRef.current.add(alert.id);
+
+        if (
+          Notification.permission === "granted"
+        ) {
+          new Notification(
+            "Lag Rat critical alert",
+            {
+              body: `${alert.entity_type}: ${alert.message}`,
+            },
+          );
+        }
+      }
+    }
+  }, [alerts]);
+
+  async function enableNotifications() {
+    if (typeof Notification === "undefined") {
+      return;
+    }
+
+    const permission =
+      Notification.permission === "granted"
+        ? "granted"
+        : await Notification.requestPermission();
+
+    setNotificationsEnabled(
+      permission === "granted",
+    );
+  }
+
   return (
     <>
       <section className="flex h-[32rem] min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
@@ -106,11 +168,30 @@ export default function AlertsPanel() {
             </h3>
           </div>
 
-          <p className="text-sm text-zinc-400">
-            {alertsQuery.isLoading
-              ? "Loading..."
-              : `${visibleAlerts.length} shown · ${activeCount} active`}
-          </p>
+          <div className="flex items-center gap-3">
+            {typeof Notification !==
+              "undefined" &&
+            Notification.permission !==
+              "granted" ? (
+              <button
+                type="button"
+                onClick={enableNotifications}
+                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+              >
+                Enable notifications
+              </button>
+            ) : notificationsEnabled ? (
+              <span className="rounded-full border border-emerald-800 bg-emerald-950 px-2.5 py-1 text-xs text-emerald-300">
+                Notifications on
+              </span>
+            ) : null}
+
+            <p className="text-sm text-zinc-400">
+              {alertsQuery.isLoading
+                ? "Loading..."
+                : `${visibleAlerts.length} shown · ${activeCount} active`}
+            </p>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-col gap-3">
