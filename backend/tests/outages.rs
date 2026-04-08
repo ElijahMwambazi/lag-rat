@@ -21,7 +21,8 @@ async fn outage_opens_on_failure_and_closes_on_recovery() -> anyhow::Result<()> 
     )
     .await?;
 
-    let outages = lag_rat_backend::db::list_outages(&harness.state.db, 10).await?;
+    let outages =
+        lag_rat_backend::db::list_outages_filtered(&harness.state.db, None, None, None, 10).await?;
     assert_eq!(outages.len(), 1);
     assert!(outages[0].is_active);
     assert_eq!(outages[0].outage_type, "internet_http");
@@ -39,7 +40,8 @@ async fn outage_opens_on_failure_and_closes_on_recovery() -> anyhow::Result<()> 
     )
     .await?;
 
-    let outages = lag_rat_backend::db::list_outages(&harness.state.db, 10).await?;
+    let outages =
+        lag_rat_backend::db::list_outages_filtered(&harness.state.db, None, None, None, 10).await?;
     assert_eq!(outages.len(), 1);
     assert!(!outages[0].is_active);
     assert_eq!(outages[0].outage_type, "internet_http");

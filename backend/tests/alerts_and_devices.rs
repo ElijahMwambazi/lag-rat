@@ -19,7 +19,9 @@ async fn alert_opens_and_resolves() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts = lag_rat_backend::db::list_alerts(&harness.state.db, 10).await?;
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
     assert_eq!(alerts.len(), 1);
     assert!(alerts[0].is_active);
 
@@ -35,7 +37,9 @@ async fn alert_opens_and_resolves() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts = lag_rat_backend::db::list_alerts(&harness.state.db, 10).await?;
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
     assert!(!alerts[0].is_active);
     assert!(alerts[0].resolved_at.is_some());
 

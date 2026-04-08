@@ -227,11 +227,6 @@ pub async fn dns_timeseries(
         .collect())
 }
 
-pub async fn list_outages(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<Outage>> {
-    Ok(sqlx::query_as::<_, Outage>("SELECT id, outage_type, target, started_at, ended_at, is_active, start_error, end_note FROM outages ORDER BY started_at DESC LIMIT ?1")
-        .bind(limit).fetch_all(pool).await?)
-}
-
 pub async fn list_outages_filtered(
     pool: &SqlitePool,
     status: Option<&str>,
@@ -605,11 +600,6 @@ pub async fn most_recent_device_seen(pool: &SqlitePool) -> anyhow::Result<Option
 pub async fn list_known_devices(pool: &SqlitePool) -> anyhow::Result<Vec<KnownDevice>> {
     Ok(sqlx::query_as::<_, KnownDevice>("SELECT id, ip_address, mac_address, label, notes, created_at, updated_at FROM known_devices ORDER BY label ASC")
         .fetch_all(pool).await?)
-}
-
-pub async fn list_alerts(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<Alert>> {
-    Ok(sqlx::query_as::<_, Alert>("SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at FROM alerts ORDER BY created_at DESC LIMIT ?1")
-        .bind(limit).fetch_all(pool).await?)
 }
 
 pub async fn list_alerts_filtered(
