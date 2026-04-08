@@ -106,81 +106,6 @@ export default function ReportsPage() {
     });
   }, [outages, sortBy]);
 
-  const filteredOutages = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-
-    const filtered = outages.filter((outage) => {
-      if (
-        statusFilter !== "all" &&
-        outage.status !== statusFilter
-      ) {
-        return false;
-      }
-
-      if (
-        typeFilter !== "all" &&
-        outage.outage_type !== typeFilter
-      ) {
-        return false;
-      }
-
-      if (!needle) {
-        return true;
-      }
-
-      const haystack = [
-        outage.outage_type,
-        outage.target,
-        outage.status,
-        outage.start_error,
-        outage.end_note,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(needle);
-    });
-
-    const sorted = [...filtered].sort((a, b) => {
-      if (sortBy === "started_asc") {
-        return (
-          new Date(a.started_at).getTime() -
-          new Date(b.started_at).getTime()
-        );
-      }
-
-      if (sortBy === "duration_desc") {
-        return (
-          (b.duration_seconds ?? -1) -
-          (a.duration_seconds ?? -1)
-        );
-      }
-
-      if (sortBy === "duration_asc") {
-        return (
-          (a.duration_seconds ??
-            Number.MAX_SAFE_INTEGER) -
-          (b.duration_seconds ??
-            Number.MAX_SAFE_INTEGER)
-        );
-      }
-
-      return (
-        new Date(b.started_at).getTime() -
-        new Date(a.started_at).getTime()
-      );
-    });
-
-    return sorted;
-  }, [
-    outages,
-    search,
-    statusFilter,
-    typeFilter,
-    sortBy,
-  ]);
-
   const activeCount = outages.filter(
     (outage) => outage.status === "active",
   ).length;
@@ -197,7 +122,7 @@ export default function ReportsPage() {
         <p className="text-sm text-zinc-400">
           {outagesQuery.isLoading
             ? "Loading..."
-            : `${filteredOutages.length} shown · ${outages.length} total · ${activeCount} active`}
+            : `${visibleOutages.length} shown · ${outages.length} total · ${activeCount} active`}
         </p>
       </div>
 
@@ -323,7 +248,7 @@ export default function ReportsPage() {
                   Loading outages...
                 </td>
               </tr>
-            ) : filteredOutages.length === 0 ? (
+            ) : visibleOutages.length === 0 ? (
               <tr>
                 <td
                   colSpan={7}
@@ -334,7 +259,7 @@ export default function ReportsPage() {
                 </td>
               </tr>
             ) : (
-              filteredOutages.map((outage) => (
+              visibleOutages.map((outage) => (
                 <tr
                   key={`${outage.id}-${outage.started_at}-${outage.target}`}
                   className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
@@ -388,6 +313,7 @@ export default function ReportsPage() {
           </tbody>
         </table>
       </div>
+
       {selectedOutage ? (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
           <div className="h-full w-full max-w-xl overflow-y-auto border-l border-zinc-800 bg-zinc-900 shadow-2xl">
@@ -416,7 +342,7 @@ export default function ReportsPage() {
                 <div className="text-xs uppercase tracking-wide text-zinc-500">
                   Target
                 </div>
-                <div className="mt-2 text-zinc-100 break-all">
+                <div className="mt-2 break-all text-zinc-100">
                   {selectedOutage.target}
                 </div>
               </div>
