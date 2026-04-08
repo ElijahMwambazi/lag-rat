@@ -1,3 +1,4 @@
+use std::sync::Mutex;
 use std::{env, fs, path::PathBuf, str::FromStr};
 
 use lag_rat_backend::{config::AppConfig, db, state::AppState};
@@ -11,8 +12,12 @@ pub struct TestHarness {
     pub state: AppState,
 }
 
+static TEST_ENV_LOCK: Mutex<()> = Mutex::new(());
+
 impl TestHarness {
     pub async fn new() -> anyhow::Result<Self> {
+        let _guard = TEST_ENV_LOCK.lock().unwrap();
+
         let tmpdir = tempfile::tempdir()?;
         let root = tmpdir.path().to_path_buf();
         let backend_dir = root.join("backend");
