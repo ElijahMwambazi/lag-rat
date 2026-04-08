@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AlertsPanel from "../components/AlertsPanel";
 import DebugPanel from "../components/DebugPanel";
@@ -82,6 +82,11 @@ export default function OverviewPage() {
     criticalAlertsQuery.data ?? [];
   const topCriticalAlert =
     criticalAlerts[0] ?? null;
+
+  const [alertsFocusMode, setAlertsFocusMode] =
+    useState<"default" | "active-critical">(
+      "default",
+    );
 
   const issues = [];
   if (overview && !overview.router.is_healthy) {
@@ -211,14 +216,17 @@ export default function OverviewPage() {
 
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  setAlertsFocusMode(
+                    "active-critical",
+                  );
                   alertsSectionRef.current?.scrollIntoView(
                     {
                       behavior: "smooth",
                       block: "start",
                     },
-                  )
-                }
+                  );
+                }}
                 className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
               >
                 View alerts
@@ -465,7 +473,9 @@ export default function OverviewPage() {
         className="grid gap-4 lg:grid-cols-2"
       >
         <IssuePanel issues={issues} />
-        <AlertsPanel />
+        <AlertsPanel
+          focusMode={alertsFocusMode}
+        />
       </div>
     </div>
   );

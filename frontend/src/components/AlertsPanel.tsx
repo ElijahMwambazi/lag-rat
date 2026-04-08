@@ -18,6 +18,9 @@ type EntityFilter =
   | "router"
   | "internet"
   | "dns";
+type AlertsPanelFocusMode =
+  | "default"
+  | "active-critical";
 
 const NOTIFIED_ALERT_IDS_STORAGE_KEY =
   "lag-rat:notified-critical-alert-ids";
@@ -91,7 +94,11 @@ function writeNotifiedAlertIds(ids: Set<number>) {
   }
 }
 
-export default function AlertsPanel() {
+export default function AlertsPanel({
+  focusMode = "default",
+}: {
+  focusMode?: AlertsPanelFocusMode;
+}) {
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter>("all");
   const [severityFilter, setSeverityFilter] =
@@ -149,6 +156,13 @@ export default function AlertsPanel() {
         .length,
     [alerts],
   );
+
+  useEffect(() => {
+    if (focusMode === "active-critical") {
+      setStatusFilter("active");
+      setSeverityFilter("critical");
+    }
+  }, [focusMode]);
 
   const visibleAlerts = useMemo(() => {
     return [...alerts].sort((a, b) => {
