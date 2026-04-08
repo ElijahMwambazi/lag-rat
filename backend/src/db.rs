@@ -527,6 +527,49 @@ pub async fn list_alerts(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<Al
         .bind(limit).fetch_all(pool).await?)
 }
 
+pub async fn list_alerts_filtered(
+    pool: &SqlitePool,
+    status: Option<&str>,
+    severity: Option<&str>,
+    entity_type: Option<&str>,
+    search: Option<&str>,
+    limit: i64,
+) -> anyhow::Result<Vec<Alert>> {
+    let search_term = search
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("%{}%", s));
+
+    Ok(
+        sqlx::query_as::<_, Alert>(
+            r#"
+            SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at
+            FROM alerts
+            WHERE (?1 IS NULL
+                   OR (?1 = 'active' AND is_active = 1)
+                   OR (?1 = 'resolved' AND is_active = 0))
+              AND (?2 IS NULL OR severity = ?2)
+              AND (?3 IS NULL OR entity_type = ?3)
+              AND (
+                    ?4 IS NULL
+                    OR message LIKE ?4
+                    OR entity_key LIKE ?4
+                    OR alert_type LIKE ?4
+                  )
+            ORDER BY created_at DESC
+            LIMIT ?5
+            "#,
+        )
+        .bind(status)
+        .bind(severity)
+        .bind(entity_type)
+        .bind(search_term.as_deref())
+        .bind(limit)
+        .fetch_all(pool)
+        .await?,
+    )
+}
+
 pub async fn upsert_alert_state(
     pool: &SqlitePool,
     alert_type: &str,

@@ -145,8 +145,34 @@ export const api = {
     getJson<StatusOverviewResponse>(
       "/api/status/overview",
     ),
-  getAlerts: () =>
-    getJson<Alert[]>("/api/alerts"),
+  getAlerts: (params?: {
+    status?: "active" | "resolved";
+    severity?: string;
+    entity_type?: string;
+    search?: string;
+    limit?: number;
+  }) => {
+    const query = new URLSearchParams();
+
+    if (params?.status)
+      query.set("status", params.status);
+    if (params?.severity)
+      query.set("severity", params.severity);
+    if (params?.entity_type)
+      query.set(
+        "entity_type",
+        params.entity_type,
+      );
+    if (params?.search?.trim())
+      query.set("search", params.search.trim());
+    if (params?.limit)
+      query.set("limit", String(params.limit));
+
+    const suffix = query.toString();
+    return getJson<Alert[]>(
+      `/api/alerts${suffix ? `?${suffix}` : ""}`,
+    );
+  },
   getHealthHistory: () =>
     getJson<TimeseriesPoint[]>(
       "/api/health/history?minutes=60",

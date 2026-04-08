@@ -18,6 +18,14 @@ use crate::{
     state::AppState,
 };
 
+#[derive(Deserialize)]
+pub struct OutageQuery {
+    pub status: Option<String>,
+    pub outage_type: Option<String>,
+    pub search: Option<String>,
+    pub limit: Option<u32>,
+}
+
 #[derive(serde::Serialize)]
 pub struct AlertView {
     pub id: i32,
@@ -32,9 +40,10 @@ pub struct AlertView {
 }
 
 #[derive(Deserialize)]
-pub struct OutageQuery {
+pub struct AlertQuery {
     pub status: Option<String>,
-    pub outage_type: Option<String>,
+    pub severity: Option<String>,
+    pub entity_type: Option<String>,
     pub search: Option<String>,
     pub limit: Option<u32>,
 }
@@ -147,10 +156,20 @@ async fn get_summary(
 
 async fn get_alerts(
     State(state): State<AppState>,
+    Query(query): Query<AlertQuery>,
 ) -> Result<Json<Vec<AlertView>>, (StatusCode, Json<serde_json::Value>)> {
-    let alerts = db::list_alerts(&state.db, 100)
-        .await
-        .map_err(internal_error)?;
+    let limit = query.limit.unwrap_or(100).min(500) as i64;
+
+    let alerts = db::list_alerts_filtered(
+        &state.db,
+        query.status.as_deref(),
+        query.severity.as_deref(),
+        query.entity_type.as_deref(),
+        query.search.as_deref(),
+        limit,
+    )
+    .await
+    .map_err(internal_error)?;
 
     let views = alerts
         .into_iter()
