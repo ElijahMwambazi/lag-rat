@@ -10,11 +10,14 @@ import { api } from "../services/api";
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? `Invalid: ${value}` : parsed.toLocaleString();
+  return Number.isNaN(parsed.getTime())
+    ? `Invalid: ${value}`
+    : parsed.toLocaleString();
 }
 
 function formatMs(value?: number | null) {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined)
+    return "—";
   return `${value.toFixed(1)} ms`;
 }
 
@@ -23,10 +26,21 @@ function getQueryStatus(
   isError: boolean,
   detailOk: string,
   detailLoading = "Request in progress",
-  detailError = "Request failed"
-): { status: "ok" | "loading" | "error"; detail: string } {
-  if (isError) return { status: "error", detail: detailError };
-  if (isLoading) return { status: "loading", detail: detailLoading };
+  detailError = "Request failed",
+): {
+  status: "ok" | "loading" | "error";
+  detail: string;
+} {
+  if (isError)
+    return {
+      status: "error",
+      detail: detailError,
+    };
+  if (isLoading)
+    return {
+      status: "loading",
+      detail: detailLoading,
+    };
   return { status: "ok", detail: detailOk };
 }
 
@@ -41,33 +55,32 @@ export default function OverviewPage() {
     queryFn: api.getSummary,
     refetchInterval: 30000,
   });
-  const alertsQuery = useQuery({
-    queryKey: ["alerts"],
-    queryFn: api.getAlerts,
-    refetchInterval: 15000,
-  });
-
   const overview = overviewQuery.data;
   const summary = summaryQuery.data;
-  const alerts = (alertsQuery.data ?? []).slice(0, 5);
 
   const issues = [];
   if (overview && !overview.router.is_healthy) {
     issues.push({
       title: "Router connectivity issue",
-      detail: overview.router.latest_error_message ?? "Router reachability is failing.",
+      detail:
+        overview.router.latest_error_message ??
+        "Router reachability is failing.",
     });
   }
   if (overview && !overview.internet.is_healthy) {
     issues.push({
       title: "Internet connectivity issue",
-      detail: overview.internet.latest_error_message ?? "Public probe is failing.",
+      detail:
+        overview.internet.latest_error_message ??
+        "Public probe is failing.",
     });
   }
   if (overview && !overview.dns.is_healthy) {
     issues.push({
       title: "DNS health issue",
-      detail: overview.dns.latest_error_message ?? "DNS resolution is failing.",
+      detail:
+        overview.dns.latest_error_message ??
+        "DNS resolution is failing.",
     });
   }
 
@@ -79,7 +92,9 @@ export default function OverviewPage() {
         overviewQuery.isError,
         "Overview payload received",
         "Waiting for overview payload",
-        overviewQuery.error instanceof Error ? overviewQuery.error.message : "Overview request failed"
+        overviewQuery.error instanceof Error
+          ? overviewQuery.error.message
+          : "Overview request failed",
       ),
     },
     {
@@ -89,18 +104,15 @@ export default function OverviewPage() {
         summaryQuery.isError,
         "Summary payload received",
         "Waiting for summary payload",
-        summaryQuery.error instanceof Error ? summaryQuery.error.message : "Summary request failed"
+        summaryQuery.error instanceof Error
+          ? summaryQuery.error.message
+          : "Summary request failed",
       ),
     },
     {
       name: "/api/alerts",
-      ...getQueryStatus(
-        alertsQuery.isLoading,
-        alertsQuery.isError,
-        `${alertsQuery.data?.length ?? 0} alerts returned`,
-        "Waiting for alerts payload",
-        alertsQuery.error instanceof Error ? alertsQuery.error.message : "Alerts request failed"
-      ),
+      status: "ok" as const,
+      detail: "Alerts handled in panel",
     },
   ];
 
@@ -109,10 +121,20 @@ export default function OverviewPage() {
       <section>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold">Overview</h2>
-            <p className="mt-2 text-zinc-400">Current health snapshot for your network.</p>
+            <h2 className="text-2xl font-semibold">
+              Overview
+            </h2>
+            <p className="mt-2 text-zinc-400">
+              Current health snapshot for your
+              network.
+            </p>
           </div>
-          {overview ? <p className="text-sm text-zinc-400">Last check {formatDate(overview.checked_at)}</p> : null}
+          {overview ? (
+            <p className="text-sm text-zinc-400">
+              Last check{" "}
+              {formatDate(overview.checked_at)}
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -139,10 +161,14 @@ export default function OverviewPage() {
                 ? "Reachable"
                 : "Down"
               : overviewQuery.isLoading
-              ? "Loading"
-              : "—"
+                ? "Loading"
+                : "—"
           }
-          hint={overview ? `Latency ${formatMs(overview.router.latest_latency_ms)}` : "Waiting for overview data"}
+          hint={
+            overview
+              ? `Latency ${formatMs(overview.router.latest_latency_ms)}`
+              : "Waiting for overview data"
+          }
         />
         <StatCard
           label="Internet"
@@ -152,10 +178,14 @@ export default function OverviewPage() {
                 ? "Online"
                 : "Offline"
               : overviewQuery.isLoading
-              ? "Loading"
-              : "—"
+                ? "Loading"
+                : "—"
           }
-          hint={overview ? `Latency ${formatMs(overview.internet.latest_latency_ms)}` : "Waiting for overview data"}
+          hint={
+            overview
+              ? `Latency ${formatMs(overview.internet.latest_latency_ms)}`
+              : "Waiting for overview data"
+          }
         />
         <StatCard
           label="DNS"
@@ -165,10 +195,14 @@ export default function OverviewPage() {
                 ? "Healthy"
                 : "Unhealthy"
               : overviewQuery.isLoading
-              ? "Loading"
-              : "—"
+                ? "Loading"
+                : "—"
           }
-          hint={overview ? `Response ${formatMs(overview.dns.latest_response_time_ms)}` : "Waiting for overview data"}
+          hint={
+            overview
+              ? `Response ${formatMs(overview.dns.latest_response_time_ms)}`
+              : "Waiting for overview data"
+          }
         />
         <StatCard
           label="24h Uptime"
@@ -176,15 +210,15 @@ export default function OverviewPage() {
             summary
               ? `${summary.uptime_pct_24h.toFixed(1)}%`
               : summaryQuery.isLoading
-              ? "Loading"
-              : "—"
+                ? "Loading"
+                : "—"
           }
           hint={
             summary
               ? `${summary.outage_count_24h} outages`
               : summaryQuery.isError
-              ? "Summary unavailable"
-              : "Waiting for summary data"
+                ? "Summary unavailable"
+                : "Waiting for summary data"
           }
         />
       </section>
@@ -192,34 +226,107 @@ export default function OverviewPage() {
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Router status</h3>
-            {overview ? <StatusBadge ok={overview.router.is_healthy} activeOutage={overview.router.active_outage} /> : null}
+            <h3 className="text-lg font-medium">
+              Router status
+            </h3>
+            {overview ? (
+              <StatusBadge
+                ok={overview.router.is_healthy}
+                activeOutage={
+                  overview.router.active_outage
+                }
+              />
+            ) : null}
           </div>
           <div className="mt-4 space-y-2 text-sm text-zinc-300">
-            <p>Last success: <span className="text-zinc-400">{formatDate(overview?.router.last_success_at)}</span></p>
-            <p>Last failure: <span className="text-zinc-400">{formatDate(overview?.router.last_failure_at)}</span></p>
+            <p>
+              Last success:{" "}
+              <span className="text-zinc-400">
+                {formatDate(
+                  overview?.router
+                    .last_success_at,
+                )}
+              </span>
+            </p>
+            <p>
+              Last failure:{" "}
+              <span className="text-zinc-400">
+                {formatDate(
+                  overview?.router
+                    .last_failure_at,
+                )}
+              </span>
+            </p>
           </div>
         </div>
 
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Internet status</h3>
-            {overview ? <StatusBadge ok={overview.internet.is_healthy} activeOutage={overview.internet.active_outage} /> : null}
+            <h3 className="text-lg font-medium">
+              Internet status
+            </h3>
+            {overview ? (
+              <StatusBadge
+                ok={overview.internet.is_healthy}
+                activeOutage={
+                  overview.internet.active_outage
+                }
+              />
+            ) : null}
           </div>
           <div className="mt-4 space-y-2 text-sm text-zinc-300">
-            <p>Last success: <span className="text-zinc-400">{formatDate(overview?.internet.last_success_at)}</span></p>
-            <p>Last failure: <span className="text-zinc-400">{formatDate(overview?.internet.last_failure_at)}</span></p>
+            <p>
+              Last success:{" "}
+              <span className="text-zinc-400">
+                {formatDate(
+                  overview?.internet
+                    .last_success_at,
+                )}
+              </span>
+            </p>
+            <p>
+              Last failure:{" "}
+              <span className="text-zinc-400">
+                {formatDate(
+                  overview?.internet
+                    .last_failure_at,
+                )}
+              </span>
+            </p>
           </div>
         </div>
 
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">DNS status</h3>
-            {overview ? <StatusBadge ok={overview.dns.is_healthy} activeOutage={overview.dns.active_outage} /> : null}
+            <h3 className="text-lg font-medium">
+              DNS status
+            </h3>
+            {overview ? (
+              <StatusBadge
+                ok={overview.dns.is_healthy}
+                activeOutage={
+                  overview.dns.active_outage
+                }
+              />
+            ) : null}
           </div>
           <div className="mt-4 space-y-2 text-sm text-zinc-300">
-            <p>Last success: <span className="text-zinc-400">{formatDate(overview?.dns.last_success_at)}</span></p>
-            <p>Last failure: <span className="text-zinc-400">{formatDate(overview?.dns.last_failure_at)}</span></p>
+            <p>
+              Last success:{" "}
+              <span className="text-zinc-400">
+                {formatDate(
+                  overview?.dns.last_success_at,
+                )}
+              </span>
+            </p>
+            <p>
+              Last failure:{" "}
+              <span className="text-zinc-400">
+                {formatDate(
+                  overview?.dns.last_failure_at,
+                )}
+              </span>
+            </p>
           </div>
         </div>
       </section>
@@ -227,24 +334,59 @@ export default function OverviewPage() {
       <section className="grid gap-4 lg:grid-cols-3">
         <StatCard
           label="Active outages"
-          value={overview ? String(overview.outages.active_count) : overviewQuery.isLoading ? "Loading" : "—"}
-          hint={overview ? `${overview.outages.last_24h_count} in last 24h` : "Waiting for overview data"}
+          value={
+            overview
+              ? String(
+                  overview.outages.active_count,
+                )
+              : overviewQuery.isLoading
+                ? "Loading"
+                : "—"
+          }
+          hint={
+            overview
+              ? `${overview.outages.last_24h_count} in last 24h`
+              : "Waiting for overview data"
+          }
         />
         <StatCard
           label="Devices seen (24h)"
-          value={overview ? String(overview.devices.active_count_24h) : overviewQuery.isLoading ? "Loading" : "—"}
-          hint={overview ? `Last seen ${formatDate(overview.devices.most_recent_seen_at)}` : "Waiting for overview data"}
+          value={
+            overview
+              ? String(
+                  overview.devices
+                    .active_count_24h,
+                )
+              : overviewQuery.isLoading
+                ? "Loading"
+                : "—"
+          }
+          hint={
+            overview
+              ? `Last seen ${formatDate(overview.devices.most_recent_seen_at)}`
+              : "Waiting for overview data"
+          }
         />
         <StatCard
           label="Last overall check"
-          value={overview ? formatDate(overview.checked_at) : overviewQuery.isLoading ? "Loading" : "—"}
-          hint={overviewQuery.isError ? "Overview unavailable" : undefined}
+          value={
+            overview
+              ? formatDate(overview.checked_at)
+              : overviewQuery.isLoading
+                ? "Loading"
+                : "—"
+          }
+          hint={
+            overviewQuery.isError
+              ? "Overview unavailable"
+              : undefined
+          }
         />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <IssuePanel issues={issues} />
-        <AlertsPanel alerts={alerts} />
+        <AlertsPanel />
       </div>
     </div>
   );
