@@ -207,3 +207,22 @@ pub struct DeviceHistoryItem {
     pub new_value: Option<String>,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Serialize, FromRow, Clone)]
+pub struct AlertHistoryEvent {
+    pub id: i64,
+    pub alert_id: i64,
+    pub event_type: String,
+    pub previous_value: Option<String>,
+    pub new_value: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AlertHistoryItem {
+    pub id: i64,
+    pub event_type: String,
+    pub previous_value: Option<String>,
+    pub new_value: Option<String>,
+    pub created_at: DateTime<Utc>,
+}

@@ -9,7 +9,11 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { api, type Alert } from "../services/api";
+import {
+  api,
+  type Alert,
+  type AlertHistoryItem,
+} from "../services/api";
 
 type StatusFilter = "all" | "active" | "resolved";
 type SeverityFilter =
@@ -36,6 +40,23 @@ function formatDate(value?: string | null) {
   return Number.isNaN(parsed.getTime())
     ? `Invalid: ${value}`
     : parsed.toLocaleString();
+}
+
+function formatAlertEventType(eventType: string) {
+  switch (eventType) {
+    case "opened":
+      return "Opened";
+    case "severity_changed":
+      return "Severity changed";
+    case "message_changed":
+      return "Message changed";
+    case "acknowledged":
+      return "Acknowledged";
+    case "resolved":
+      return "Resolved";
+    default:
+      return eventType.replace(/_/g, " ");
+  }
 }
 
 function severityClasses(severity: string) {
@@ -151,8 +172,17 @@ export default function AlertsPanel({
       }),
     refetchInterval: 60000,
   });
-
   const alerts = alertsQuery.data ?? [];
+
+  const alertHistoryQuery = useQuery({
+    queryKey: [
+      "alert-history",
+      selectedAlert?.id,
+    ],
+    queryFn: () =>
+      api.getAlertHistory(selectedAlert!.id),
+    enabled: !!selectedAlert,
+  });
 
   const activeCount = useMemo(
     () =>
@@ -564,6 +594,58 @@ export default function AlertsPanel({
                     Acknowledge
                   </button>
                 ) : null}
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Timeline
+                </div>
+
+                <div className="mt-3 space-y-3">
+                  {alertHistoryQuery.isLoading ? (
+                    <p className="text-sm text-zinc-400">
+                      Loading timeline...
+                    </p>
+                  ) : (
+                      alertHistoryQuery.data ?? []
+                    ).length === 0 ? (
+                    <p className="text-sm text-zinc-400">
+                      No timeline events yet.
+                    </p>
+                  ) : (
+                    (
+                      alertHistoryQuery.data ?? []
+                    ).map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium text-zinc-100">
+                            {formatAlertEventType(
+                              item.event_type,
+                            )}
+                          </p>
+                          <p className="text-xs text-zinc-400">
+                            {formatDate(
+                              item.created_at,
+                            )}
+                          </p>
+                        </div>
+
+                        {item.previous_value ||
+                        item.new_value ? (
+                          <p className="mt-1 text-xs text-zinc-400">
+                            {item.previous_value ??
+                              "—"}{" "}
+                            →{" "}
+                            {item.new_value ??
+                              "—"}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>

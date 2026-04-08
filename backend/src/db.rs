@@ -670,11 +670,11 @@ pub async fn upsert_alert_state(
 
     match (is_active, existing) {
         (true, None) => {
-            sqlx::query(
+            let result = sqlx::query(
                 "INSERT INTO alerts (
-                alert_type, severity, entity_type, entity_key, message,
-                is_active, created_at, resolved_at, acknowledged_at
-                ) VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, NULL, NULL)",
+            alert_type, severity, entity_type, entity_key, message,
+            is_active, created_at, resolved_at, acknowledged_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, NULL, NULL)",
             )
             .bind(alert_type)
             .bind(severity)
@@ -684,6 +684,11 @@ pub async fn upsert_alert_state(
             .bind(timestamp)
             .execute(pool)
             .await?;
+
+            let alert_id = result.last_insert_rowid();
+
+            insert_alert_history_event(pool, alert_id, "opened", None, Some(severity), timestamp)
+                .await?;
         }
         (true, Some(alert)) => {
             if alert.severity != severity || alert.message != message {
@@ -700,6 +705,30 @@ pub async fn upsert_alert_state(
                 .execute(pool)
                 .await?;
             }
+
+            if alert.severity != severity {
+                insert_alert_history_event(
+                    pool,
+                    alert.id,
+                    "severity_changed",
+                    Some(alert.severity.as_str()),
+                    Some(severity),
+                    timestamp,
+                )
+                .await?;
+            }
+
+            if alert.message != message {
+                insert_alert_history_event(
+                    pool,
+                    alert.id,
+                    "message_changed",
+                    Some(alert.message.as_str()),
+                    Some(message),
+                    timestamp,
+                )
+                .await?;
+            }
         }
         (false, Some(alert)) => {
             sqlx::query(
@@ -710,6 +739,16 @@ pub async fn upsert_alert_state(
             .bind(timestamp)
             .bind(alert.id)
             .execute(pool)
+            .await?;
+
+            insert_alert_history_event(
+                pool,
+                alert.id,
+                "resolved",
+                Some("active"),
+                Some("resolved"),
+                timestamp,
+            )
             .await?;
         }
         (false, None) => {}
@@ -743,7 +782,71 @@ pub async fn acknowledge_alert(
     .fetch_optional(pool)
     .await?;
 
+    if let Some(alert) = &alert {
+        if alert.acknowledged_at.is_some() {
+            insert_alert_history_event(
+                pool,
+                alert.id,
+                "acknowledged",
+                None,
+                Some("acknowledged"),
+                acknowledged_at,
+            )
+            .await?;
+        }
+    }
+
     Ok(alert)
+}
+
+pub async fn insert_alert_history_event(
+    pool: &SqlitePool,
+    alert_id: i64,
+    event_type: &str,
+    previous_value: Option<&str>,
+    new_value: Option<&str>,
+    created_at: DateTime<Utc>,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO alert_history (
+            alert_id,
+            event_type,
+            previous_value,
+            new_value,
+            created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5)
+        "#,
+    )
+    .bind(alert_id)
+    .bind(event_type)
+    .bind(previous_value)
+    .bind(new_value)
+    .bind(created_at)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn list_alert_history(
+    pool: &SqlitePool,
+    alert_id: i64,
+    limit: i64,
+) -> anyhow::Result<Vec<crate::models::AlertHistoryEvent>> {
+    Ok(sqlx::query_as::<_, crate::models::AlertHistoryEvent>(
+        r#"
+            SELECT id, alert_id, event_type, previous_value, new_value, created_at
+            FROM alert_history
+            WHERE alert_id = ?1
+            ORDER BY created_at DESC
+            LIMIT ?2
+            "#,
+    )
+    .bind(alert_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?)
 }
 
 pub async fn find_known_device_by_identity(

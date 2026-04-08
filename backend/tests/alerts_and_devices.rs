@@ -5,6 +5,7 @@ use common::TestHarness;
 use lag_rat_backend::monitors::connectivity::ProbeResult;
 
 #[tokio::test]
+
 async fn alert_opens_and_resolves() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
 

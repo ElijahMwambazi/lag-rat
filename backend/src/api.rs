@@ -11,8 +11,9 @@ use serde_json::json;
 use crate::{
     db,
     models::{
-        DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse, KnownDeviceView,
-        OutageReportItem, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
+        AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
+        KnownDeviceView, OutageReportItem, SaveKnownDeviceRequest, SummaryResponse,
+        TimeseriesPoint,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -63,6 +64,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/devices/known", post(save_known_device))
         .route("/api/devices/{ip}/history", get(get_device_history))
         .route("/api/alerts/{id}/acknowledge", post(acknowledge_alert))
+        .route("/api/alerts/{id}/history", get(get_alert_history))
         .with_state(state)
 }
 
@@ -222,6 +224,26 @@ async fn acknowledge_alert(
         resolved_at: alert.resolved_at,
         acknowledged_at: alert.acknowledged_at,
     }))
+}
+
+async fn get_alert_history(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<Vec<AlertHistoryItem>>, (StatusCode, Json<serde_json::Value>)> {
+    let items = db::list_alert_history(&state.db, id, 20)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|event| AlertHistoryItem {
+            id: event.id,
+            event_type: event.event_type,
+            previous_value: event.previous_value,
+            new_value: event.new_value,
+            created_at: event.created_at,
+        })
+        .collect();
+
+    Ok(Json(items))
 }
 
 async fn get_outages(
