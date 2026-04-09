@@ -328,15 +328,31 @@ export default function DevicesPage() {
                   key={device.id}
                   device={device}
                   editingId={editingId}
+                  isSaving={
+                    saveKnownDeviceMutation.isPending &&
+                    editingId === device.id
+                  }
                   label={label}
                   notes={notes}
                   onStartEdit={startEdit}
                   onCancelEdit={() => {
+                    if (
+                      saveKnownDeviceMutation.isPending
+                    ) {
+                      return;
+                    }
+
                     setEditingId(null);
                     setLabel("");
                     setNotes("");
                   }}
-                  onSave={(device) =>
+                  onSave={(device) => {
+                    if (
+                      saveKnownDeviceMutation.isPending
+                    ) {
+                      return;
+                    }
+
                     saveKnownDeviceMutation.mutate(
                       {
                         ip_address:
@@ -346,8 +362,8 @@ export default function DevicesPage() {
                         label,
                         notes,
                       },
-                    )
-                  }
+                    );
+                  }}
                   onLabelChange={setLabel}
                   onNotesChange={setNotes}
                   onOpenDetails={

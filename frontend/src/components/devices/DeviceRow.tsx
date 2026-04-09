@@ -4,6 +4,7 @@ import DeviceFlags from "./DeviceFlags";
 type Props = {
   device: Device;
   editingId: number | null;
+  isSaving: boolean;
   label: string;
   notes: string;
   onStartEdit: (device: Device) => void;
@@ -17,6 +18,7 @@ type Props = {
 export default function DeviceRow({
   device,
   editingId,
+  isSaving,
   label,
   notes,
   onStartEdit,
@@ -38,36 +40,41 @@ export default function DeviceRow({
           <div className="space-y-2">
             <input
               value={label}
+              disabled={isSaving}
               onChange={(e) =>
                 onLabelChange(e.target.value)
               }
               onClick={(e) => e.stopPropagation()}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="Device label"
             />
 
             <input
               value={notes}
+              disabled={isSaving}
               onChange={(e) =>
                 onNotesChange(e.target.value)
               }
               onClick={(e) => e.stopPropagation()}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="Notes"
             />
+
             <div className="flex gap-2">
               <button
-                className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-900"
+                disabled={isSaving}
+                className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={(e) => {
                   e.stopPropagation();
                   onSave(device);
                 }}
               >
-                Save
+                {isSaving ? "Saving..." : "Save"}
               </button>
 
               <button
-                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs"
+                disabled={isSaving}
+                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={(e) => {
                   e.stopPropagation();
                   onCancelEdit();
