@@ -255,6 +255,19 @@ export default function AlertsPanel({
           updatedAlert.id,
         ],
       });
+
+      queryClient.invalidateQueries({
+        queryKey: ["status-overview"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "alerts",
+          "critical",
+          "active",
+          "overview",
+        ],
+      });
     },
   });
 

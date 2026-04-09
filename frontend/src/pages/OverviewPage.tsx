@@ -73,7 +73,7 @@ export default function OverviewPage() {
       api.getAlerts({
         status: "active",
         severity: "critical",
-        limit: 5,
+        limit: 1,
       }),
     refetchInterval: 15000,
   });
