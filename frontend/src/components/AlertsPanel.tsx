@@ -538,8 +538,14 @@ export default function AlertsPanel({
       </section>
 
       {selectedAlert ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
-          <div className="h-full w-full max-w-xl overflow-y-auto border-l border-zinc-800 bg-zinc-900 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/50"
+          onClick={() => setSelectedAlert(null)}
+        >
+          <div
+            className="h-full w-full max-w-xl overflow-y-auto border-l border-zinc-800 bg-zinc-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start justify-between border-b border-zinc-800 px-6 py-5">
               <div>
                 <h3 className="text-xl font-semibold text-zinc-100">
