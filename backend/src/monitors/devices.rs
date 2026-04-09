@@ -24,7 +24,19 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
                 continue;
             }
 
-            db::upsert_device(&state.db, &ip, mac.as_deref(), host.as_deref(), Utc::now()).await?;
+            let resolved_host = match host {
+                Some(existing_host) => Some(existing_host),
+                None => resolve_hostname_for_ip(&ip).await,
+            };
+
+            db::upsert_device(
+                &state.db,
+                &ip,
+                mac.as_deref(),
+                resolved_host.as_deref(),
+                Utc::now(),
+            )
+            .await?;
         }
     }
 
@@ -87,8 +99,9 @@ async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
                             }
 
                             let host = hostname.clone().or_else(|| normalize_host(&iface));
-let mac = linux_mac_for_interface(&iface).await;
-db::upsert_device(&state.db, &ip, mac.as_deref(), host.as_deref(), now).await?;
+                            let mac = linux_mac_for_interface(&iface).await;
+                            db::upsert_device(&state.db, &ip, mac.as_deref(), host.as_deref(), now)
+                                .await?;
                         }
                     }
                 }
@@ -150,6 +163,27 @@ fn local_hostname() -> Option<String> {
                 .ok()
                 .filter(|s| !s.trim().is_empty())
         })
+}
+
+pub fn parse_getent_hosts_output(text: &str) -> Option<String> {
+    let line = text.lines().next()?.trim();
+    if line.is_empty() {
+        return None;
+    }
+
+    let columns: Vec<&str> = line.split_whitespace().collect();
+    let hostname = columns.get(1)?;
+    normalize_host(hostname)
+}
+
+pub fn parse_avahi_resolve_output(text: &str) -> Option<String> {
+    let line = text.lines().next()?.trim();
+    if line.is_empty() {
+        return None;
+    }
+
+    let hostname = line.split_whitespace().nth(1)?;
+    normalize_host(hostname)
 }
 
 fn parse_linux_ip_addr_line(line: &str) -> Option<(String, String)> {
@@ -358,6 +392,53 @@ async fn collect_inventory_lines(arp_table_path: &str) -> Vec<String> {
     }
 
     lines
+}
+
+async fn resolve_hostname_for_ip(ip: &str) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(host) = hostname_from_getent(ip).await {
+            return Some(host);
+        }
+
+        if let Some(host) = hostname_from_avahi(ip).await {
+            return Some(host);
+        }
+    }
+
+    None
+}
+
+#[cfg(target_os = "linux")]
+async fn hostname_from_getent(ip: &str) -> Option<String> {
+    let output = Command::new("getent")
+        .args(["hosts", ip])
+        .output()
+        .await
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = String::from_utf8(output.stdout).ok()?;
+    parse_getent_hosts_output(&text)
+}
+
+#[cfg(target_os = "linux")]
+async fn hostname_from_avahi(ip: &str) -> Option<String> {
+    let output = Command::new("avahi-resolve-address")
+        .arg(ip)
+        .output()
+        .await
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = String::from_utf8(output.stdout).ok()?;
+    parse_avahi_resolve_output(&text)
 }
 
 pub fn parse_inventory_line(line: &str) -> Option<(String, Option<String>, Option<String>)> {

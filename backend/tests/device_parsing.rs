@@ -1,6 +1,7 @@
 use lag_rat_backend::monitors::devices::{
-    expand_ipv4_cidr, ip_is_in_cidr, parse_inventory_line, parse_linux_ip_neigh,
-    parse_linux_proc_arp, parse_unix_arp, parse_windows_arp, should_persist_device_entry,
+    expand_ipv4_cidr, ip_is_in_cidr, parse_avahi_resolve_output, parse_getent_hosts_output,
+    parse_inventory_line, parse_linux_ip_neigh, parse_linux_proc_arp, parse_unix_arp,
+    parse_windows_arp, should_persist_device_entry,
 };
 
 #[test]
@@ -99,4 +100,24 @@ fn keeps_entries_with_mac() {
         None,
         "192.168.1.1",
     ));
+}
+
+#[test]
+fn parses_getent_hosts_output() {
+    let text = "192.168.1.50 printer.lan\n";
+    let parsed = parse_getent_hosts_output(text);
+    assert_eq!(parsed.as_deref(), Some("printer.lan"));
+}
+
+#[test]
+fn parses_avahi_resolve_output() {
+    let text = "192.168.1.51 my-phone.local\n";
+    let parsed = parse_avahi_resolve_output(text);
+    assert_eq!(parsed.as_deref(), Some("my-phone.local"));
+}
+
+#[test]
+fn ignores_empty_hostname_lookup_output() {
+    assert!(parse_getent_hosts_output("").is_none());
+    assert!(parse_avahi_resolve_output("").is_none());
 }
