@@ -75,6 +75,7 @@ export default function OverviewPage() {
         severity: "critical",
         limit: 1,
       }),
+    staleTime: 0,
     refetchInterval: 15000,
   });
 
