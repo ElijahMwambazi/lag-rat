@@ -73,12 +73,24 @@ fn rejects_ip_outside_cidr() {
 }
 
 #[test]
-fn skips_low_confidence_ip_only_entries() {
+fn keeps_ip_only_entries_when_reachable() {
+    assert!(should_persist_device_entry(
+        "192.168.1.50",
+        None,
+        None,
+        "192.168.1.1",
+        true,
+    ));
+}
+
+#[test]
+fn skips_ip_only_entries_when_not_reachable() {
     assert!(!should_persist_device_entry(
         "192.168.1.50",
         None,
         None,
         "192.168.1.1",
+        false,
     ));
 }
 
@@ -89,6 +101,7 @@ fn keeps_router_even_without_mac_or_hostname() {
         None,
         None,
         "192.168.1.1",
+        false,
     ));
 }
 
@@ -99,6 +112,7 @@ fn keeps_entries_with_mac() {
         Some("aa:bb:cc:dd:ee:ff"),
         None,
         "192.168.1.1",
+        false,
     ));
 }
 

@@ -1,16 +1,18 @@
 use chrono::Utc;
 use tokio::{fs, process::Command, sync::Semaphore};
 
-use std::{net::Ipv4Addr, sync::Arc, time::Duration};
+use std::{collections::HashSet, net::Ipv4Addr, sync::Arc, time::Duration};
 
 use crate::{db, state::AppState};
 
 pub async fn run(state: &AppState) -> anyhow::Result<()> {
     register_local_host(state).await?;
 
-    if state.config.active_discovery_enabled {
-        active_discovery_pass(state).await;
-    }
+    let reachable_ips = if state.config.active_discovery_enabled {
+        active_discovery_pass(state).await
+    } else {
+        HashSet::new()
+    };
 
     let lines = collect_inventory_lines(&state.config.arp_table_path).await;
     for line in lines {
@@ -20,6 +22,7 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
                 mac.as_deref(),
                 host.as_deref(),
                 &state.config.router_ip,
+                reachable_ips.contains(&ip),
             ) {
                 continue;
             }
@@ -45,10 +48,10 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn active_discovery_pass(state: &AppState) {
+async fn active_discovery_pass(state: &AppState) -> HashSet<String> {
     let ips = expand_ipv4_cidr(&state.config.local_subnet_cidr);
     if ips.is_empty() {
-        return;
+        return HashSet::new();
     }
 
     let timeout_ms = state.config.active_discovery_timeout_ms;
@@ -63,16 +66,23 @@ async fn active_discovery_pass(state: &AppState) {
             let _permit = permit_pool.acquire_owned().await.ok()?;
             if ip == router_ip {
                 let _ = probe_host(&ip, timeout_ms).await;
-                return Some(());
+                return Some((ip, true));
             }
-            let _ = probe_host(&ip, timeout_ms).await;
-            Some(())
+
+            let reachable = probe_host(&ip, timeout_ms).await;
+            Some((ip, reachable))
         }));
     }
 
+    let mut reachable_ips = HashSet::new();
+
     for task in tasks {
-        let _ = task.await;
+        if let Ok(Some((ip, true))) = task.await {
+            reachable_ips.insert(ip);
+        }
     }
+
+    reachable_ips
 }
 
 async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
@@ -535,6 +545,7 @@ pub fn should_persist_device_entry(
     mac: Option<&str>,
     host: Option<&str>,
     router_ip: &str,
+    is_reachable: bool,
 ) -> bool {
     if ip == router_ip {
         return true;
@@ -551,7 +562,7 @@ pub fn should_persist_device_entry(
         }
     }
 
-    false
+    is_reachable
 }
 
 pub fn ip_is_in_cidr(ip: &str, cidr: &str) -> bool {
