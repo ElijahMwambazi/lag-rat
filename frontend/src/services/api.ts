@@ -76,6 +76,7 @@ export type Device = {
   last_seen?: string | null;
   is_recent: boolean;
   is_gateway: boolean;
+  is_this_device: boolean;
   is_known: boolean;
   confidence: "high" | "medium" | "low";
 };
@@ -88,19 +89,6 @@ export type KnownDevice = {
   notes?: string | null;
   created_at: string;
   updated_at: string;
-};
-
-export type Outage = {
-  id: number;
-  outage_type: string;
-  target: string;
-  started_at: string;
-  ended_at?: string | null;
-  is_active: boolean;
-  start_error?: string | null;
-  end_note?: string | null;
-  duration_seconds?: number | null;
-  status: string;
 };
 
 export type SaveKnownDeviceRequest = {
@@ -116,6 +104,19 @@ export type DeviceHistoryItem = {
   previous_value?: string | null;
   new_value?: string | null;
   created_at: string;
+};
+
+export type Outage = {
+  id: number;
+  outage_type: string;
+  target: string;
+  started_at: string;
+  ended_at?: string | null;
+  is_active: boolean;
+  start_error?: string | null;
+  end_note?: string | null;
+  duration_seconds?: number | null;
+  status: string;
 };
 
 export type AlertHistoryItem = {

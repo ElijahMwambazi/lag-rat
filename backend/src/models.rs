@@ -176,6 +176,7 @@ pub struct EnrichedDevice {
     pub last_seen: Option<DateTime<Utc>>,
     pub is_recent: bool,
     pub is_gateway: bool,
+    pub is_this_device: bool,
     pub is_known: bool,
     pub confidence: String,
 }

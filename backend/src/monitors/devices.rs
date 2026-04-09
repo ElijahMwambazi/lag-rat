@@ -87,7 +87,8 @@ async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
                             }
 
                             let host = hostname.clone().or_else(|| normalize_host(&iface));
-                            db::upsert_device(&state.db, &ip, None, host.as_deref(), now).await?;
+let mac = linux_mac_for_interface(&iface).await;
+db::upsert_device(&state.db, &ip, mac.as_deref(), host.as_deref(), now).await?;
                         }
                     }
                 }
@@ -167,6 +168,48 @@ fn parse_linux_ip_addr_line(line: &str) -> Option<(String, String)> {
     }
 
     Some((ip, iface))
+}
+
+#[cfg(target_os = "linux")]
+async fn linux_mac_for_interface(iface: &str) -> Option<String> {
+    if let Some(mac) = linux_mac_from_ip_link(iface).await {
+        return Some(mac);
+    }
+
+    linux_mac_from_sysfs(iface).await
+}
+
+#[cfg(target_os = "linux")]
+async fn linux_mac_from_ip_link(iface: &str) -> Option<String> {
+    let output = Command::new("ip")
+        .args(["link", "show", "dev", iface])
+        .output()
+        .await
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = String::from_utf8(output.stdout).ok()?;
+
+    for line in text.lines() {
+        let columns: Vec<&str> = line.split_whitespace().collect();
+        if let Some(link_index) = columns.iter().position(|part| *part == "link/ether") {
+            if let Some(mac) = columns.get(link_index + 1) {
+                return normalize_mac(mac);
+            }
+        }
+    }
+
+    None
+}
+
+#[cfg(target_os = "linux")]
+async fn linux_mac_from_sysfs(iface: &str) -> Option<String> {
+    let path = format!("/sys/class/net/{iface}/address");
+    let text = fs::read_to_string(path).await.ok()?;
+    normalize_mac(text.trim())
 }
 
 #[cfg(target_os = "macos")]
