@@ -15,14 +15,24 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
     };
 
     let lines = collect_inventory_lines(&state.config.arp_table_path).await;
+
+    let confirmed_neighbor_ips: HashSet<String> = lines
+        .iter()
+        .filter_map(|line| parse_linux_ip_neigh_with_state(line))
+        .filter(|(_, _, _, state)| is_confirmed_neighbor_state(state))
+        .map(|(ip, _, _, _)| ip)
+        .collect();
+
     for line in lines {
         if let Some((ip, mac, host)) = parse_inventory_line(&line) {
+            let is_confirmed = reachable_ips.contains(&ip) || confirmed_neighbor_ips.contains(&ip);
+
             if !should_persist_device_entry(
                 &ip,
                 mac.as_deref(),
                 host.as_deref(),
                 &state.config.router_ip,
-                reachable_ips.contains(&ip),
+                is_confirmed,
             ) {
                 continue;
             }
@@ -480,6 +490,12 @@ pub fn parse_linux_proc_arp(line: &str) -> Option<(String, Option<String>, Optio
 }
 
 pub fn parse_linux_ip_neigh(line: &str) -> Option<(String, Option<String>, Option<String>)> {
+    parse_linux_ip_neigh_with_state(line).map(|(ip, mac, host, _)| (ip, mac, host))
+}
+
+pub fn parse_linux_ip_neigh_with_state(
+    line: &str,
+) -> Option<(String, Option<String>, Option<String>, String)> {
     let columns: Vec<&str> = line.split_whitespace().collect();
     if columns.len() < 3 {
         return None;
@@ -501,7 +517,16 @@ pub fn parse_linux_ip_neigh(line: &str) -> Option<(String, Option<String>, Optio
         .and_then(|idx| columns.get(idx + 1))
         .and_then(|value| normalize_mac(value));
 
-    Some((ip.to_string(), mac, host))
+    let state = columns.last()?.to_string();
+
+    Some((ip.to_string(), mac, host, state))
+}
+
+pub fn is_confirmed_neighbor_state(state: &str) -> bool {
+    matches!(
+        state,
+        "REACHABLE" | "STALE" | "DELAY" | "PROBE" | "PERMANENT"
+    )
 }
 
 pub fn parse_unix_arp(line: &str) -> Option<(String, Option<String>, Option<String>)> {
@@ -601,7 +626,7 @@ fn normalize_mac(value: &str) -> Option<String> {
 }
 
 fn normalize_host(value: &str) -> Option<String> {
-    let value = value.trim();
+    let value = value.trim().trim_start_matches('_');
     if value.is_empty() || value == "?" || value == "on" {
         return None;
     }

@@ -1,7 +1,8 @@
 use lag_rat_backend::monitors::devices::{
-    expand_ipv4_cidr, ip_is_in_cidr, parse_avahi_resolve_output, parse_getent_hosts_output,
-    parse_inventory_line, parse_linux_ip_neigh, parse_linux_proc_arp, parse_unix_arp,
-    parse_windows_arp, should_persist_device_entry,
+    expand_ipv4_cidr, ip_is_in_cidr, is_confirmed_neighbor_state, parse_avahi_resolve_output,
+    parse_getent_hosts_output, parse_inventory_line, parse_linux_ip_neigh,
+    parse_linux_ip_neigh_with_state, parse_linux_proc_arp, parse_unix_arp, parse_windows_arp,
+    should_persist_device_entry,
 };
 
 #[test]
@@ -134,4 +135,32 @@ fn parses_avahi_resolve_output() {
 fn ignores_empty_hostname_lookup_output() {
     assert!(parse_getent_hosts_output("").is_none());
     assert!(parse_avahi_resolve_output("").is_none());
+}
+
+#[test]
+fn parses_linux_ip_neigh_line_with_state() {
+    let line = "192.168.1.20 dev wlan0 lladdr aa:bb:cc:dd:ee:20 REACHABLE";
+    let parsed = parse_linux_ip_neigh_with_state(line).unwrap();
+    assert_eq!(parsed.0, "192.168.1.20");
+    assert_eq!(parsed.1.as_deref(), Some("aa:bb:cc:dd:ee:20"));
+    assert!(parsed.2.is_none());
+    assert_eq!(parsed.3, "REACHABLE");
+}
+
+#[test]
+fn recognizes_confirmed_neighbor_states() {
+    assert!(is_confirmed_neighbor_state("REACHABLE"));
+    assert!(is_confirmed_neighbor_state("STALE"));
+    assert!(is_confirmed_neighbor_state("DELAY"));
+    assert!(is_confirmed_neighbor_state("PROBE"));
+    assert!(is_confirmed_neighbor_state("PERMANENT"));
+    assert!(!is_confirmed_neighbor_state("FAILED"));
+    assert!(!is_confirmed_neighbor_state("INCOMPLETE"));
+}
+
+#[test]
+fn normalize_getent_hostname_strips_leading_underscore() {
+    let text = "192.168.1.1 _gateway\n";
+    let parsed = parse_getent_hosts_output(text);
+    assert_eq!(parsed.as_deref(), Some("gateway"));
 }
