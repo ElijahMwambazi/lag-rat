@@ -12,8 +12,8 @@ use crate::{
     db,
     models::{
         AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
-        KnownDeviceView, OutageReportItem, SaveKnownDeviceRequest, SummaryResponse,
-        TimeseriesPoint,
+        KnownDeviceView, OutageReportItem, ReportSummaryResponse, SaveKnownDeviceRequest,
+        SummaryResponse, TimeseriesPoint,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -50,6 +50,11 @@ pub struct AlertQuery {
     pub limit: Option<u32>,
 }
 
+#[derive(Deserialize)]
+pub struct ReportsSummaryQuery {
+    pub hours: Option<u32>,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/status/overview", get(get_status_overview))
@@ -58,6 +63,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/health/history/tcp", get(get_health_history_tcp))
         .route("/api/dns/history", get(get_dns_history))
         .route("/api/stats/summary", get(get_summary))
+        .route("/api/reports/summary", get(get_reports_summary))
         .route("/api/alerts", get(get_alerts))
         .route("/api/outages", get(get_outages))
         .route("/api/devices", get(get_devices))
@@ -155,6 +161,19 @@ async fn get_summary(
 ) -> Result<Json<SummaryResponse>, (StatusCode, Json<serde_json::Value>)> {
     Ok(Json(
         db::summary_24h(&state.db).await.map_err(internal_error)?,
+    ))
+}
+
+async fn get_reports_summary(
+    State(state): State<AppState>,
+    Query(query): Query<ReportsSummaryQuery>,
+) -> Result<Json<ReportSummaryResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let hours = query.hours.unwrap_or(24).clamp(1, 24 * 7) as i64;
+
+    Ok(Json(
+        db::report_summary(&state.db, hours)
+            .await
+            .map_err(internal_error)?,
     ))
 }
 

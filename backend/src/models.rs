@@ -49,6 +49,20 @@ pub struct SummaryResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ReportSummaryResponse {
+    pub window_hours: u32,
+    pub uptime_pct: f64,
+    pub avg_latency_ms: f64,
+    pub outage_count: u32,
+    pub total_downtime_seconds: i64,
+    pub dns_failure_count: u32,
+    pub device_history_event_count: u32,
+    pub active_alert_count: u32,
+    pub active_critical_alert_count: u32,
+    pub active_unacknowledged_alert_count: u32,
+}
+
+#[derive(Debug, Serialize)]
 pub struct ServiceStatus {
     pub is_healthy: bool,
     pub last_success_at: Option<DateTime<Utc>>,

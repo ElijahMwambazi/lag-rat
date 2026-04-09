@@ -4,6 +4,19 @@ export type SummaryResponse = {
   outage_count_24h: number;
 };
 
+export type ReportSummaryResponse = {
+  window_hours: number;
+  uptime_pct: number;
+  avg_latency_ms: number;
+  outage_count: number;
+  total_downtime_seconds: number;
+  dns_failure_count: number;
+  device_history_event_count: number;
+  active_alert_count: number;
+  active_critical_alert_count: number;
+  active_unacknowledged_alert_count: number;
+};
+
 export type TimeseriesPoint = {
   timestamp: string;
   value: number;
@@ -224,6 +237,10 @@ export const api = {
   getSummary: () =>
     getJson<SummaryResponse>(
       "/api/stats/summary",
+    ),
+  getReportsSummary: (hours = 24) =>
+    getJson<ReportSummaryResponse>(
+      `/api/reports/summary?hours=${hours}`,
     ),
   getDevices: () =>
     getJson<Device[]>("/api/devices"),

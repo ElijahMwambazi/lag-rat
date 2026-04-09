@@ -6,7 +6,7 @@ use sqlx::{Row, SqlitePool};
 
 use crate::models::{
     Alert, ConnectivityCheck, Device, DeviceHistoryEvent, DnsCheck, KnownDevice, Outage,
-    SummaryResponse, TimeseriesPoint,
+    ReportSummaryResponse, SummaryResponse, TimeseriesPoint,
 };
 
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
@@ -295,6 +295,85 @@ pub async fn summary_24h(pool: &SqlitePool) -> anyhow::Result<SummaryResponse> {
         },
         avg_latency_ms_24h: avg_latency.unwrap_or(0.0),
         outage_count_24h: outage_count_24h as u32,
+    })
+}
+
+pub async fn report_summary(
+    pool: &SqlitePool,
+    hours: i64,
+) -> anyhow::Result<ReportSummaryResponse> {
+    let total_row = sqlx::query(
+        "SELECT COUNT(*) AS total,
+                SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successes,
+                AVG(latency_ms) AS avg_latency
+         FROM connectivity_checks
+         WHERE probe_kind = 'internet_http'
+           AND timestamp >= datetime('now', '-' || ?1 || ' hours')",
+    )
+    .bind(hours)
+    .fetch_one(pool)
+    .await?;
+
+    let total: i64 = total_row.get("total");
+    let successes: Option<i64> = total_row.try_get("successes").ok();
+    let avg_latency: Option<f64> = total_row.try_get("avg_latency").ok();
+
+    let outage_row = sqlx::query(
+        "SELECT COUNT(*) AS total,
+                COALESCE(SUM(
+                    CAST(
+                        (julianday(COALESCE(ended_at, CURRENT_TIMESTAMP)) - julianday(started_at)) * 86400
+                        AS INTEGER
+                    )
+                ), 0) AS total_downtime_seconds
+         FROM outages
+         WHERE started_at >= datetime('now', '-' || ?1 || ' hours')",
+    )
+    .bind(hours)
+    .fetch_one(pool)
+    .await?;
+
+    let outage_count: i64 = outage_row.get("total");
+    let total_downtime_seconds: i64 = outage_row.try_get("total_downtime_seconds").unwrap_or(0);
+
+    let dns_failure_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*)
+         FROM dns_checks
+         WHERE success = 0
+           AND timestamp >= datetime('now', '-' || ?1 || ' hours')",
+    )
+    .bind(hours)
+    .fetch_one(pool)
+    .await?;
+
+    let device_history_event_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*)
+         FROM device_history
+         WHERE created_at >= datetime('now', '-' || ?1 || ' hours')",
+    )
+    .bind(hours)
+    .fetch_one(pool)
+    .await?;
+
+    let active_alert_count = active_alerts_count(pool).await?;
+    let active_critical_alert_count = active_critical_alerts_count(pool).await?;
+    let active_unacknowledged_alert_count = active_unacknowledged_alerts_count(pool).await?;
+
+    Ok(ReportSummaryResponse {
+        window_hours: hours as u32,
+        uptime_pct: if total > 0 {
+            (successes.unwrap_or(0) as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        },
+        avg_latency_ms: avg_latency.unwrap_or(0.0),
+        outage_count: outage_count as u32,
+        total_downtime_seconds,
+        dns_failure_count: dns_failure_count as u32,
+        device_history_event_count: device_history_event_count as u32,
+        active_alert_count,
+        active_critical_alert_count,
+        active_unacknowledged_alert_count,
     })
 }
 

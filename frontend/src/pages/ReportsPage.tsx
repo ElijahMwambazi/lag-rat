@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QueryState from "../components/QueryState";
+import StatCard from "../components/StatCard";
 import { api, Outage } from "../services/api";
 
 type StatusFilter = "all" | "active" | "resolved";
@@ -27,6 +28,14 @@ function formatDuration(seconds?: number | null) {
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 }
 
+function formatDurationCompact(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) {
+    return `${Math.floor(seconds / 60)}m`;
+  }
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const parsed = new Date(value);
@@ -38,6 +47,9 @@ function formatDate(value?: string | null) {
 export default function ReportsPage() {
   const [selectedOutage, setSelectedOutage] =
     useState<Outage | null>(null);
+  const [windowHours, setWindowHours] = useState<
+    24 | 168
+  >(24);
 
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter>("all");
@@ -47,6 +59,15 @@ export default function ReportsPage() {
   const [sortBy, setSortBy] = useState<SortKey>(
     "started_desc",
   );
+
+  const reportsSummaryQuery = useQuery({
+    queryKey: ["reports-summary", windowHours],
+    queryFn: () =>
+      api.getReportsSummary(windowHours),
+    refetchInterval: 60000,
+  });
+
+  const reportsSummary = reportsSummaryQuery.data;
 
   const outagesQuery = useQuery({
     queryKey: [
@@ -119,12 +140,132 @@ export default function ReportsPage() {
           </h2>
         </div>
 
-        <p className="text-sm text-zinc-400">
-          {outagesQuery.isLoading
-            ? "Loading..."
-            : `${visibleOutages.length} shown · ${outages.length} total · ${activeCount} active`}
-        </p>
+        <div className="flex items-center gap-3">
+          <select
+            value={windowHours}
+            onChange={(e) =>
+              setWindowHours(
+                Number(e.target.value) as
+                  | 24
+                  | 168,
+              )
+            }
+            className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+          >
+            <option value={24}>Last 24h</option>
+            <option value={168}>Last 7d</option>
+          </select>
+
+          <p className="text-sm text-zinc-400">
+            {outagesQuery.isLoading
+              ? "Loading..."
+              : `${visibleOutages.length} shown · ${outages.length} total · ${activeCount} active`}
+          </p>
+        </div>
       </div>
+
+      {reportsSummaryQuery.isError ? (
+        <QueryState
+          title="Reports summary request failed"
+          tone="error"
+          message={
+            reportsSummaryQuery.error instanceof
+            Error
+              ? reportsSummaryQuery.error.message
+              : "The reports summary endpoint failed."
+          }
+        />
+      ) : null}
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <StatCard
+          label={`Uptime (${windowHours === 24 ? "24h" : "7d"})`}
+          value={
+            reportsSummary
+              ? `${reportsSummary.uptime_pct.toFixed(1)}%`
+              : reportsSummaryQuery.isLoading
+                ? "Loading"
+                : "—"
+          }
+          hint={
+            reportsSummary
+              ? `Avg latency ${reportsSummary.avg_latency_ms.toFixed(1)} ms`
+              : "Waiting for report summary"
+          }
+        />
+
+        <StatCard
+          label="Outages"
+          value={
+            reportsSummary
+              ? String(
+                  reportsSummary.outage_count,
+                )
+              : reportsSummaryQuery.isLoading
+                ? "Loading"
+                : "—"
+          }
+          hint={
+            reportsSummary
+              ? `Downtime ${formatDurationCompact(reportsSummary.total_downtime_seconds)}`
+              : "Waiting for report summary"
+          }
+        />
+
+        <StatCard
+          label="DNS failures"
+          value={
+            reportsSummary
+              ? String(
+                  reportsSummary.dns_failure_count,
+                )
+              : reportsSummaryQuery.isLoading
+                ? "Loading"
+                : "—"
+          }
+          hint={
+            reportsSummary
+              ? `${windowHours === 24 ? "24h" : "7d"} failure count`
+              : "Waiting for report summary"
+          }
+        />
+
+        <StatCard
+          label="Device changes"
+          value={
+            reportsSummary
+              ? String(
+                  reportsSummary.device_history_event_count,
+                )
+              : reportsSummaryQuery.isLoading
+                ? "Loading"
+                : "—"
+          }
+          hint={
+            reportsSummary
+              ? `${windowHours === 24 ? "24h" : "7d"} activity`
+              : "Waiting for report summary"
+          }
+        />
+
+        <StatCard
+          label="Active alerts"
+          value={
+            reportsSummary
+              ? String(
+                  reportsSummary.active_alert_count,
+                )
+              : reportsSummaryQuery.isLoading
+                ? "Loading"
+                : "—"
+          }
+          hint={
+            reportsSummary
+              ? `${reportsSummary.active_unacknowledged_alert_count} unacknowledged · ${reportsSummary.active_critical_alert_count} critical`
+              : "Waiting for report summary"
+          }
+        />
+      </section>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
