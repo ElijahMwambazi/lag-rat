@@ -81,3 +81,83 @@ async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Resu
 
     Ok(())
 }
+
+#[tokio::test]
+async fn overview_includes_alert_summary_counts() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "critical",
+        "internet",
+        "https://www.google.com/generate_204",
+        "internet check failed: timeout",
+        true,
+        now - Duration::minutes(3),
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    let critical_alert_id = alerts
+        .iter()
+        .find(|alert| alert.entity_type == "internet")
+        .map(|alert| alert.id)
+        .expect("critical alert should exist");
+
+    lag_rat_backend::db::acknowledge_alert(
+        &harness.state.db,
+        critical_alert_id,
+        now - Duration::minutes(2),
+    )
+    .await?;
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "dns_health",
+        "critical",
+        "dns",
+        "google.com",
+        "dns resolution failed",
+        true,
+        now - Duration::minutes(1),
+    )
+    .await?;
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "router_health",
+        "warning",
+        "router",
+        "192.168.1.1:80",
+        "router latency elevated",
+        true,
+        now,
+    )
+    .await?;
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "router_health",
+        "info",
+        "router",
+        "192.168.1.1:80",
+        "router recovered",
+        false,
+        now + Duration::seconds(30),
+    )
+    .await?;
+
+    let overview = lag_rat_backend::services::status_overview::build(&harness.state).await?;
+
+    assert_eq!(overview.alerts.active_count, 2);
+    assert_eq!(overview.alerts.active_critical_count, 2);
+    assert_eq!(overview.alerts.active_unacknowledged_count, 1);
+    assert_eq!(overview.alerts.active_unacknowledged_critical_count, 1);
+    assert!(overview.alerts.most_recent_created_at.is_some());
+
+    Ok(())
+}
