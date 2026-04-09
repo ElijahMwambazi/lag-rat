@@ -198,11 +198,10 @@ export default function AlertsPanel({
       api.acknowledgeAlert(id),
     onSuccess: () => {
       queryClient.invalidateQueries({
+        queryKey: ["alerts"],
+      });
+      queryClient.invalidateQueries({
         queryKey: [
-          "alerts",
-          "critical",
-          "active",
-          "overview",
           "alert-history",
           selectedAlert?.id,
         ],

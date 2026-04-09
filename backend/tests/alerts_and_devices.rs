@@ -4,6 +4,13 @@ use chrono::{Duration, Utc};
 use common::TestHarness;
 use lag_rat_backend::monitors::connectivity::ProbeResult;
 
+use axum::{
+    body::{to_bytes, Body},
+    http::{Request, StatusCode},
+};
+use serde_json::Value;
+use tower::ServiceExt;
+
 #[tokio::test]
 
 async fn alert_opens_and_resolves() -> anyhow::Result<()> {
@@ -597,6 +604,209 @@ async fn alert_history_records_severity_and_message_changes() -> anyhow::Result<
     assert_eq!(history[1].new_value.as_deref(), Some("critical"));
 
     assert_eq!(history[2].event_type, "opened");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn acknowledge_alert_api_returns_200_and_sets_acknowledged_at() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "critical",
+        "internet",
+        "https://www.google.com/generate_204",
+        "internet check failed: timeout",
+        true,
+        now,
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    let alert_id = alerts[0].id;
+
+    let app = lag_rat_backend::api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/alerts/{alert_id}/acknowledge"))
+                .body(Body::from("{}"))?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+
+    assert_eq!(json["id"].as_i64(), Some(alert_id));
+    assert_eq!(json["is_active"].as_bool(), Some(true));
+    assert!(json["acknowledged_at"].as_str().is_some());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn acknowledge_alert_api_returns_404_for_unknown_alert() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = lag_rat_backend::api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/alerts/999999/acknowledge")
+                .body(Body::from("{}"))?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+    assert_eq!(json["error"].as_str(), Some("alert not found"));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn alert_history_api_returns_lifecycle_events() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "warning",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http check failed: timeout",
+        true,
+        now,
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    let alert_id = alerts[0].id;
+
+    lag_rat_backend::db::acknowledge_alert(
+        &harness.state.db,
+        alert_id,
+        now + Duration::seconds(10),
+    )
+    .await?;
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "critical",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http still failing after 5m: timeout",
+        true,
+        now + Duration::minutes(5),
+    )
+    .await?;
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "info",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http recovered",
+        false,
+        now + Duration::minutes(6),
+    )
+    .await?;
+
+    let app = lag_rat_backend::api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/alerts/{alert_id}/history"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+    let items = json
+        .as_array()
+        .expect("history response should be an array");
+
+    assert!(!items.is_empty());
+
+    let event_types: Vec<&str> = items
+        .iter()
+        .filter_map(|item| item["event_type"].as_str())
+        .collect();
+    assert!(event_types.contains(&"opened"));
+    assert!(event_types.contains(&"acknowledged"));
+    assert!(event_types.contains(&"severity_changed"));
+    assert!(event_types.contains(&"message_changed"));
+    assert!(event_types.contains(&"resolved"));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn alert_history_api_returns_opened_for_new_alert() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "warning",
+        "internet_http",
+        "https://www.google.com/generate_204",
+        "internet_http check failed: timeout",
+        true,
+        now,
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    let alert_id = alerts[0].id;
+
+    let app = lag_rat_backend::api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/alerts/{alert_id}/history"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+    let items = json
+        .as_array()
+        .expect("history response should be an array");
+
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["event_type"].as_str(), Some("opened"));
+    assert_eq!(items[0]["new_value"].as_str(), Some("warning"));
 
     Ok(())
 }
