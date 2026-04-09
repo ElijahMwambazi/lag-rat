@@ -11,7 +11,7 @@ use serde_json::json;
 use crate::{
     db,
     models::{
-        self, AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
+        AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
         KnownDeviceView, OutageReportItem, SaveKnownDeviceRequest, SummaryResponse,
         TimeseriesPoint,
     },
@@ -192,15 +192,6 @@ async fn get_alerts(
         .collect();
 
     Ok(Json(views))
-}
-
-async fn get_alert_by_id(
-    state: &AppState,
-    id: i64,
-) -> Result<Option<models::Alert>, anyhow::Error> {
-    db::list_alerts_filtered(&state.db, None, None, None, None, 500)
-        .await
-        .map(|alerts| alerts.into_iter().find(|alert| alert.id == id))
 }
 
 async fn acknowledge_alert(
