@@ -84,6 +84,10 @@ export default function OverviewPage() {
   const topCriticalAlert =
     criticalAlerts[0] ?? null;
 
+  const activeUnacknowledgedCriticalCount =
+    overview?.alerts
+      .active_unacknowledged_critical_count ?? 0;
+
   const [alertsFocusMode, setAlertsFocusMode] =
     useState<"default" | "active-critical">(
       "default",
@@ -145,7 +149,9 @@ export default function OverviewPage() {
       ...getQueryStatus(
         criticalAlertsQuery.isLoading,
         criticalAlertsQuery.isError,
-        `${criticalAlerts.length} active critical alerts`,
+        overview
+          ? `${overview.alerts.active_unacknowledged_critical_count} active unacknowledged critical alerts`
+          : `${criticalAlerts.length} active critical alerts`,
         "Waiting for critical alerts payload",
         criticalAlertsQuery.error instanceof Error
           ? criticalAlertsQuery.error.message
@@ -211,8 +217,10 @@ export default function OverviewPage() {
 
             <div className="flex items-center gap-3">
               <span className="rounded-full border border-red-800 bg-red-950 px-2.5 py-1 text-xs text-red-300">
-                {criticalAlerts.length} critical
-                active
+                {
+                  activeUnacknowledgedCriticalCount
+                }{" "}
+                critical unacknowledged
               </span>
 
               <button
@@ -416,7 +424,7 @@ export default function OverviewPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid gap-4 lg:grid-cols-4">
         <StatCard
           label="Active outages"
           value={
@@ -449,6 +457,23 @@ export default function OverviewPage() {
           hint={
             overview
               ? `Last seen ${formatDate(overview.devices.most_recent_seen_at)}`
+              : "Waiting for overview data"
+          }
+        />
+        <StatCard
+          label="Active alerts"
+          value={
+            overview
+              ? String(
+                  overview.alerts.active_count,
+                )
+              : overviewQuery.isLoading
+                ? "Loading"
+                : "—"
+          }
+          hint={
+            overview
+              ? `${overview.alerts.active_unacknowledged_count} unacknowledged · ${overview.alerts.active_critical_count} critical`
               : "Waiting for overview data"
           }
         />

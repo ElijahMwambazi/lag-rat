@@ -81,6 +81,15 @@ pub struct OutageOverview {
 }
 
 #[derive(Debug, Serialize)]
+pub struct AlertOverview {
+    pub active_count: u32,
+    pub active_critical_count: u32,
+    pub active_unacknowledged_count: u32,
+    pub active_unacknowledged_critical_count: u32,
+    pub most_recent_created_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct StatusOverviewResponse {
     pub checked_at: DateTime<Utc>,
     pub router: ServiceStatus,
@@ -90,6 +99,7 @@ pub struct StatusOverviewResponse {
     pub dns: DnsStatus,
     pub devices: DeviceOverview,
     pub outages: OutageOverview,
+    pub alerts: AlertOverview,
 }
 
 #[derive(Debug, Serialize, FromRow, Clone)]

@@ -881,6 +881,53 @@ pub async fn list_alert_history(
     .await?)
 }
 
+pub async fn active_alerts_count(pool: &SqlitePool) -> anyhow::Result<u32> {
+    Ok(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM alerts WHERE is_active = 1")
+            .fetch_one(pool)
+            .await? as u32,
+    )
+}
+
+pub async fn active_critical_alerts_count(pool: &SqlitePool) -> anyhow::Result<u32> {
+    Ok(sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM alerts WHERE is_active = 1 AND severity = 'critical'",
+    )
+    .fetch_one(pool)
+    .await? as u32)
+}
+
+pub async fn active_unacknowledged_alerts_count(pool: &SqlitePool) -> anyhow::Result<u32> {
+    Ok(sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM alerts WHERE is_active = 1 AND acknowledged_at IS NULL",
+    )
+    .fetch_one(pool)
+    .await? as u32)
+}
+
+pub async fn active_unacknowledged_critical_alerts_count(pool: &SqlitePool) -> anyhow::Result<u32> {
+    Ok(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM alerts WHERE is_active = 1 AND severity = 'critical' AND acknowledged_at IS NULL",
+        )
+        .fetch_one(pool)
+        .await? as u32,
+    )
+}
+
+pub async fn most_recent_alert_created_at(
+    pool: &SqlitePool,
+) -> anyhow::Result<Option<DateTime<Utc>>> {
+    let row = sqlx::query("SELECT created_at FROM alerts ORDER BY created_at DESC LIMIT 1")
+        .fetch_optional(pool)
+        .await?;
+
+    match row {
+        Some(row) => Ok(Some(row.get("created_at"))),
+        None => Ok(None),
+    }
+}
+
 pub async fn find_known_device_by_identity(
     pool: &SqlitePool,
     ip_address: Option<&str>,

@@ -55,6 +55,13 @@ export type StatusOverviewResponse = {
     active_count: number;
     last_24h_count: number;
   };
+  alerts: {
+    active_count: number;
+    active_critical_count: number;
+    active_unacknowledged_count: number;
+    active_unacknowledged_critical_count: number;
+    most_recent_created_at?: string | null;
+  };
 };
 
 export type Device = {

@@ -3,7 +3,7 @@ use chrono::Utc;
 use crate::{
     db,
     models::{
-        ConnectivityCheck, DeviceOverview, DnsStatus, OutageOverview, ServiceStatus,
+        AlertOverview, ConnectivityCheck, DeviceOverview, DnsStatus, OutageOverview, ServiceStatus,
         StatusOverviewResponse,
     },
     state::AppState,
@@ -66,6 +66,13 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
     let most_recent_seen_at = db::most_recent_device_seen(&state.db).await?;
     let active_outage_count = db::active_outages_count(&state.db).await?;
     let last_24h_count = db::outage_count_since_hours(&state.db, 24).await?;
+    let active_alert_count = db::active_alerts_count(&state.db).await?;
+    let active_critical_alert_count = db::active_critical_alerts_count(&state.db).await?;
+    let active_unacknowledged_alert_count =
+        db::active_unacknowledged_alerts_count(&state.db).await?;
+    let active_unacknowledged_critical_alert_count =
+        db::active_unacknowledged_critical_alerts_count(&state.db).await?;
+    let most_recent_alert_created_at = db::most_recent_alert_created_at(&state.db).await?;
 
     let checked_at = [
         router_latest.as_ref().map(|row| row.timestamp),
@@ -73,6 +80,7 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
         internet_http_latest.as_ref().map(|row| row.timestamp),
         dns_latest.as_ref().map(|row| row.timestamp),
         most_recent_seen_at,
+        most_recent_alert_created_at,
     ]
     .into_iter()
     .flatten()
@@ -146,6 +154,13 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
         outages: OutageOverview {
             active_count: active_outage_count,
             last_24h_count,
+        },
+        alerts: AlertOverview {
+            active_count: active_alert_count,
+            active_critical_count: active_critical_alert_count,
+            active_unacknowledged_count: active_unacknowledged_alert_count,
+            active_unacknowledged_critical_count: active_unacknowledged_critical_alert_count,
+            most_recent_created_at: most_recent_alert_created_at,
         },
     })
 }
