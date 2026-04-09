@@ -196,14 +196,27 @@ export default function AlertsPanel({
   const acknowledgeMutation = useMutation({
     mutationFn: (id: number) =>
       api.acknowledgeAlert(id),
-    onSuccess: () => {
+    onSuccess: (updatedAlert) => {
+      setSelectedAlert(updatedAlert);
+
+      queryClient.setQueriesData(
+        { queryKey: ["alerts"] },
+        (oldData: Alert[] | undefined) =>
+          oldData?.map((alert) =>
+            alert.id === updatedAlert.id
+              ? updatedAlert
+              : alert,
+          ) ?? oldData,
+      );
+
       queryClient.invalidateQueries({
         queryKey: ["alerts"],
       });
+
       queryClient.invalidateQueries({
         queryKey: [
           "alert-history",
-          selectedAlert?.id,
+          updatedAlert.id,
         ],
       });
     },
@@ -582,15 +595,29 @@ export default function AlertsPanel({
                 !selectedAlert.acknowledged_at ? (
                   <button
                     type="button"
+                    disabled={
+                      acknowledgeMutation.isPending
+                    }
                     onClick={() =>
                       acknowledgeMutation.mutate(
                         selectedAlert.id,
                       )
                     }
-                    className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900"
+                    className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Acknowledge
+                    {acknowledgeMutation.isPending
+                      ? "Acknowledging..."
+                      : "Acknowledge"}
                   </button>
+                ) : null}
+                {acknowledgeMutation.isError ? (
+                  <div className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+                    {acknowledgeMutation.error instanceof
+                    Error
+                      ? acknowledgeMutation.error
+                          .message
+                      : "Failed to acknowledge alert."}
+                  </div>
                 ) : null}
               </div>
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">

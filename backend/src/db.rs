@@ -762,17 +762,7 @@ pub async fn acknowledge_alert(
     alert_id: i64,
     acknowledged_at: DateTime<Utc>,
 ) -> anyhow::Result<Option<Alert>> {
-    sqlx::query(
-        "UPDATE alerts
-         SET acknowledged_at = ?1
-         WHERE id = ?2 AND is_active = 1",
-    )
-    .bind(acknowledged_at)
-    .bind(alert_id)
-    .execute(pool)
-    .await?;
-
-    let alert = sqlx::query_as::<_, Alert>(
+    let existing = sqlx::query_as::<_, Alert>(
         "SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at, acknowledged_at
          FROM alerts
          WHERE id = ?1
@@ -782,21 +772,49 @@ pub async fn acknowledge_alert(
     .fetch_optional(pool)
     .await?;
 
-    if let Some(alert) = &alert {
-        if alert.acknowledged_at.is_some() {
-            insert_alert_history_event(
-                pool,
-                alert.id,
-                "acknowledged",
-                None,
-                Some("acknowledged"),
-                acknowledged_at,
-            )
-            .await?;
-        }
+    let Some(existing_alert) = existing else {
+        return Ok(None);
+    };
+
+    if !existing_alert.is_active {
+        return Ok(Some(existing_alert));
     }
 
-    Ok(alert)
+    if existing_alert.acknowledged_at.is_some() {
+        return Ok(Some(existing_alert));
+    }
+
+    sqlx::query(
+        "UPDATE alerts
+         SET acknowledged_at = ?1
+         WHERE id = ?2 AND is_active = 1 AND acknowledged_at IS NULL",
+    )
+    .bind(acknowledged_at)
+    .bind(alert_id)
+    .execute(pool)
+    .await?;
+
+    insert_alert_history_event(
+        pool,
+        alert_id,
+        "acknowledged",
+        None,
+        Some("acknowledged"),
+        acknowledged_at,
+    )
+    .await?;
+
+    let updated = sqlx::query_as::<_, Alert>(
+        "SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at, acknowledged_at
+         FROM alerts
+         WHERE id = ?1
+         LIMIT 1",
+    )
+    .bind(alert_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(Some(updated))
 }
 
 pub async fn insert_alert_history_event(

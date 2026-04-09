@@ -810,3 +810,60 @@ async fn alert_history_api_returns_opened_for_new_alert() -> anyhow::Result<()> 
 
     Ok(())
 }
+
+#[tokio::test]
+async fn acknowledging_alert_twice_does_not_duplicate_history() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    lag_rat_backend::db::upsert_alert_state(
+        &harness.state.db,
+        "service_health",
+        "critical",
+        "internet",
+        "https://www.google.com/generate_204",
+        "internet check failed: timeout",
+        true,
+        now,
+    )
+    .await?;
+
+    let alerts =
+        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
+            .await?;
+    let alert_id = alerts[0].id;
+
+    let first = lag_rat_backend::db::acknowledge_alert(
+        &harness.state.db,
+        alert_id,
+        now + Duration::seconds(10),
+    )
+    .await?;
+    let first_ack_at = first
+        .as_ref()
+        .and_then(|alert| alert.acknowledged_at)
+        .expect("first acknowledge should set acknowledged_at");
+
+    let second = lag_rat_backend::db::acknowledge_alert(
+        &harness.state.db,
+        alert_id,
+        now + Duration::seconds(20),
+    )
+    .await?;
+    let second_ack_at = second
+        .as_ref()
+        .and_then(|alert| alert.acknowledged_at)
+        .expect("second acknowledge should keep acknowledged_at");
+
+    assert_eq!(first_ack_at, second_ack_at);
+
+    let history = lag_rat_backend::db::list_alert_history(&harness.state.db, alert_id, 20).await?;
+    let acknowledged_events = history
+        .iter()
+        .filter(|item| item.event_type == "acknowledged")
+        .count();
+
+    assert_eq!(acknowledged_events, 1);
+
+    Ok(())
+}
