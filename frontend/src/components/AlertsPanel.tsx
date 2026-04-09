@@ -59,6 +59,42 @@ function formatAlertEventType(eventType: string) {
   }
 }
 
+function formatAlertEventSummary(
+  item: AlertHistoryItem,
+) {
+  switch (item.event_type) {
+    case "opened":
+      return item.new_value
+        ? `Initial severity: ${item.new_value}`
+        : "Alert opened";
+
+    case "severity_changed":
+      return item.previous_value && item.new_value
+        ? `${item.previous_value} → ${item.new_value}`
+        : "Severity changed";
+
+    case "message_changed":
+      return item.previous_value && item.new_value
+        ? `Previous: ${item.previous_value}\nNew: ${item.new_value}`
+        : "Message updated";
+
+    case "acknowledged":
+      return "Marked as acknowledged";
+
+    case "resolved":
+      return item.previous_value && item.new_value
+        ? `${item.previous_value} → ${item.new_value}`
+        : "Alert resolved";
+
+    default:
+      if (item.previous_value || item.new_value) {
+        return `${item.previous_value ?? "—"} → ${item.new_value ?? "—"}`;
+      }
+
+      return null;
+  }
+}
+
 function severityClasses(severity: string) {
   if (severity === "critical") {
     return "border-red-800 bg-red-950 text-red-300";
@@ -657,14 +693,13 @@ export default function AlertsPanel({
                           </p>
                         </div>
 
-                        {item.previous_value ||
-                        item.new_value ? (
-                          <p className="mt-1 text-xs text-zinc-400">
-                            {item.previous_value ??
-                              " "}
-                            →{" "}
-                            {item.new_value ??
-                              "—"}
+                        {formatAlertEventSummary(
+                          item,
+                        ) ? (
+                          <p className="mt-1 whitespace-pre-wrap break-words text-xs text-zinc-400">
+                            {formatAlertEventSummary(
+                              item,
+                            )}
                           </p>
                         ) : null}
                       </div>

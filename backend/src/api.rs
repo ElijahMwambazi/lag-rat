@@ -11,7 +11,7 @@ use serde_json::json;
 use crate::{
     db,
     models::{
-        AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
+        self, AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
         KnownDeviceView, OutageReportItem, SaveKnownDeviceRequest, SummaryResponse,
         TimeseriesPoint,
     },
@@ -194,6 +194,15 @@ async fn get_alerts(
     Ok(Json(views))
 }
 
+async fn get_alert_by_id(
+    state: &AppState,
+    id: i64,
+) -> Result<Option<models::Alert>, anyhow::Error> {
+    db::list_alerts_filtered(&state.db, None, None, None, None, 500)
+        .await
+        .map(|alerts| alerts.into_iter().find(|alert| alert.id == id))
+}
+
 async fn acknowledge_alert(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -230,6 +239,17 @@ async fn get_alert_history(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<Json<Vec<AlertHistoryItem>>, (StatusCode, Json<serde_json::Value>)> {
+    let alert = db::get_alert_by_id(&state.db, id)
+        .await
+        .map_err(internal_error)?;
+
+    if alert.is_none() {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "alert not found" })),
+        ));
+    }
+
     let items = db::list_alert_history(&state.db, id, 20)
         .await
         .map_err(internal_error)?

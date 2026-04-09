@@ -867,3 +867,26 @@ async fn acknowledging_alert_twice_does_not_duplicate_history() -> anyhow::Resul
 
     Ok(())
 }
+
+#[tokio::test]
+async fn alert_history_api_returns_404_for_unknown_alert() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = lag_rat_backend::api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/alerts/999999/history")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+    assert_eq!(json["error"].as_str(), Some("alert not found"));
+
+    Ok(())
+}

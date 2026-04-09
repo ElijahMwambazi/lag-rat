@@ -602,6 +602,20 @@ pub async fn list_known_devices(pool: &SqlitePool) -> anyhow::Result<Vec<KnownDe
         .fetch_all(pool).await?)
 }
 
+pub async fn get_alert_by_id(pool: &SqlitePool, alert_id: i64) -> anyhow::Result<Option<Alert>> {
+    Ok(sqlx::query_as::<_, Alert>(
+        r#"
+        SELECT id, alert_type, severity, entity_type, entity_key, message, is_active, created_at, resolved_at, acknowledged_at
+        FROM alerts
+        WHERE id = ?1
+        LIMIT 1
+        "#,
+    )
+    .bind(alert_id)
+    .fetch_optional(pool)
+    .await?)
+}
+
 pub async fn list_alerts_filtered(
     pool: &SqlitePool,
     status: Option<&str>,
