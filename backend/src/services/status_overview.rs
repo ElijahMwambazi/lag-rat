@@ -66,6 +66,7 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
     let most_recent_seen_at = db::most_recent_device_seen(&state.db).await?;
     let active_outage_count = db::active_outages_count(&state.db).await?;
     let last_24h_count = db::outage_count_since_hours(&state.db, 24).await?;
+
     let active_alert_count = db::active_alerts_count(&state.db).await?;
     let active_critical_alert_count = db::active_critical_alerts_count(&state.db).await?;
     let active_unacknowledged_alert_count =

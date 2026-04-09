@@ -88,6 +88,19 @@ export default function OverviewPage() {
     overview?.alerts
       .active_unacknowledged_critical_count ?? 0;
 
+  const shouldShowCriticalBanner =
+    activeUnacknowledgedCriticalCount > 0;
+
+  const isCriticalBannerPreviewLoading =
+    shouldShowCriticalBanner &&
+    criticalAlertsQuery.isLoading &&
+    !topCriticalAlert;
+
+  const isCriticalBannerPreviewUnavailable =
+    shouldShowCriticalBanner &&
+    !criticalAlertsQuery.isLoading &&
+    !topCriticalAlert;
+
   const [alertsFocusMode, setAlertsFocusMode] =
     useState<"default" | "active-critical">(
       "default",
@@ -196,23 +209,52 @@ export default function OverviewPage() {
         />
       ) : null}
 
-      {topCriticalAlert ? (
+      {shouldShowCriticalBanner ? (
         <section className="rounded-2xl border border-red-900 bg-red-950/40 px-5 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wide text-red-300">
                 Active critical alert
               </h3>
-              <p className="mt-1 text-base font-medium text-zinc-100">
-                {topCriticalAlert.message}
-              </p>
-              <p className="mt-1 text-sm text-zinc-300">
-                {topCriticalAlert.entity_type} ·{" "}
-                {topCriticalAlert.alert_type} ·{" "}
-                {formatDate(
-                  topCriticalAlert.created_at,
-                )}
-              </p>
+
+              {topCriticalAlert ? (
+                <>
+                  <p className="mt-1 text-base font-medium text-zinc-100">
+                    {topCriticalAlert.message}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-300">
+                    {topCriticalAlert.entity_type}{" "}
+                    ·{" "}
+                    {topCriticalAlert.alert_type}{" "}
+                    ·{" "}
+                    {formatDate(
+                      topCriticalAlert.created_at,
+                    )}
+                  </p>
+                </>
+              ) : isCriticalBannerPreviewLoading ? (
+                <>
+                  <p className="mt-1 text-base font-medium text-zinc-100">
+                    Loading critical alert
+                    details...
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-300">
+                    Alert preview is being
+                    refreshed.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 text-base font-medium text-zinc-100">
+                    Critical alerts require
+                    attention.
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-300">
+                    Preview details are
+                    temporarily unavailable.
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -242,6 +284,13 @@ export default function OverviewPage() {
               </button>
             </div>
           </div>
+
+          {isCriticalBannerPreviewUnavailable ? (
+            <p className="mt-3 text-xs text-red-200/80">
+              Critical alert details are
+              temporarily unavailable.
+            </p>
+          ) : null}
         </section>
       ) : null}
 
