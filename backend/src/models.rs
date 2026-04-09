@@ -251,3 +251,36 @@ pub struct AlertHistoryItem {
     pub new_value: Option<String>,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct RecentAlertEventItem {
+    pub alert_id: i64,
+    pub alert_type: String,
+    pub severity: String,
+    pub entity_type: String,
+    pub entity_key: String,
+    pub message: String,
+    pub event_type: String,
+    pub previous_value: Option<String>,
+    pub new_value: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RecentDeviceEventItem {
+    pub device_ip_address: String,
+    pub event_type: String,
+    pub previous_value: Option<String>,
+    pub new_value: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct IncidentTargetSummaryItem {
+    pub incident_type: String,
+    pub target: String,
+    pub count: u32,
+    pub active_count: u32,
+    pub total_downtime_seconds: i64,
+    pub latest_started_at: Option<DateTime<Utc>>,
+}

@@ -2,7 +2,13 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QueryState from "../components/QueryState";
 import StatCard from "../components/StatCard";
-import { api, Outage } from "../services/api";
+import {
+  api,
+  Outage,
+  type IncidentTargetSummaryItem,
+  type RecentAlertEventItem,
+  type RecentDeviceEventItem,
+} from "../services/api";
 
 type StatusFilter = "all" | "active" | "resolved";
 type TypeFilter =
@@ -44,6 +50,62 @@ function formatDate(value?: string | null) {
     : parsed.toLocaleString();
 }
 
+function formatAlertEventType(eventType: string) {
+  switch (eventType) {
+    case "opened":
+      return "Opened";
+    case "severity_changed":
+      return "Severity changed";
+    case "message_changed":
+      return "Message changed";
+    case "acknowledged":
+      return "Acknowledged";
+    case "resolved":
+      return "Resolved";
+    default:
+      return eventType.replace(/_/g, " ");
+  }
+}
+
+function formatDeviceEventType(
+  eventType: string,
+) {
+  switch (eventType) {
+    case "first_seen":
+      return "First seen";
+    case "seen_again":
+      return "Seen again";
+    case "mac_changed":
+      return "MAC changed";
+    case "hostname_changed":
+      return "Hostname changed";
+    case "label_changed":
+      return "Label changed";
+    case "label_added":
+      return "Label added";
+    case "notes_changed":
+      return "Notes changed";
+    default:
+      return eventType.replace(/_/g, " ");
+  }
+}
+
+function formatIncidentType(value: string) {
+  return value.replace(/_/g, " ");
+}
+
+function formatTransition(
+  previousValue?: string | null,
+  newValue?: string | null,
+) {
+  if (!previousValue && !newValue) return null;
+  if (!previousValue && newValue)
+    return `Set to ${newValue}`;
+  if (previousValue && !newValue)
+    return `Removed: ${previousValue}`;
+  return `${previousValue} → ${newValue}`;
+}
+
 export default function ReportsPage() {
   const [selectedOutage, setSelectedOutage] =
     useState<Outage | null>(null);
@@ -68,6 +130,46 @@ export default function ReportsPage() {
   });
 
   const reportsSummary = reportsSummaryQuery.data;
+
+  const recentAlertEventsQuery = useQuery({
+    queryKey: [
+      "reports-alert-events",
+      windowHours,
+    ],
+    queryFn: () =>
+      api.getRecentReportAlertEvents(windowHours),
+    refetchInterval: 60000,
+  });
+
+  const recentDeviceEventsQuery = useQuery({
+    queryKey: [
+      "reports-device-events",
+      windowHours,
+    ],
+    queryFn: () =>
+      api.getRecentReportDeviceEvents(
+        windowHours,
+      ),
+    refetchInterval: 60000,
+  });
+
+  const recentAlertEvents =
+    recentAlertEventsQuery.data ?? [];
+  const recentDeviceEvents =
+    recentDeviceEventsQuery.data ?? [];
+
+  const topIncidentTargetsQuery = useQuery({
+    queryKey: [
+      "reports-top-incident-targets",
+      windowHours,
+    ],
+    queryFn: () =>
+      api.getTopIncidentTargets(windowHours),
+    refetchInterval: 60000,
+  });
+
+  const topIncidentTargets =
+    topIncidentTargetsQuery.data ?? [];
 
   const outagesQuery = useQuery({
     queryKey: [
@@ -350,6 +452,231 @@ export default function ReportsPage() {
           }
         />
       ) : null}
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">
+              Recent alert events
+            </h3>
+            <p className="text-sm text-zinc-400">
+              Last{" "}
+              {windowHours === 24 ? "24h" : "7d"}
+            </p>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {recentAlertEventsQuery.isLoading ? (
+              <p className="text-sm text-zinc-400">
+                Loading alert activity...
+              </p>
+            ) : recentAlertEventsQuery.isError ? (
+              <p className="text-sm text-red-400">
+                Could not load recent alert
+                activity.
+              </p>
+            ) : recentAlertEvents.length === 0 ? (
+              <p className="text-sm text-zinc-400">
+                No recent alert events in this
+                window.
+              </p>
+            ) : (
+              recentAlertEvents.map(
+                (item: RecentAlertEventItem) => (
+                  <div
+                    key={`${item.alert_id}-${item.created_at}-${item.event_type}`}
+                    className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-100">
+                          {formatAlertEventType(
+                            item.event_type,
+                          )}
+                        </p>
+                        <p className="mt-1 line-clamp-2 text-sm text-zinc-300">
+                          {item.message}
+                        </p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {item.entity_type} ·{" "}
+                          {item.alert_type}
+                        </p>
+                      </div>
+
+                      <span className="shrink-0 text-xs text-zinc-400">
+                        {formatDate(
+                          item.created_at,
+                        )}
+                      </span>
+                    </div>
+
+                    {formatTransition(
+                      item.previous_value,
+                      item.new_value,
+                    ) ? (
+                      <p className="mt-2 text-xs text-zinc-400">
+                        {formatTransition(
+                          item.previous_value,
+                          item.new_value,
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                ),
+              )
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">
+              Recent device changes
+            </h3>
+            <p className="text-sm text-zinc-400">
+              Last{" "}
+              {windowHours === 24 ? "24h" : "7d"}
+            </p>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {recentDeviceEventsQuery.isLoading ? (
+              <p className="text-sm text-zinc-400">
+                Loading device activity...
+              </p>
+            ) : recentDeviceEventsQuery.isError ? (
+              <p className="text-sm text-red-400">
+                Could not load recent device
+                activity.
+              </p>
+            ) : recentDeviceEvents.length ===
+              0 ? (
+              <p className="text-sm text-zinc-400">
+                No recent device events in this
+                window.
+              </p>
+            ) : (
+              recentDeviceEvents.map(
+                (item: RecentDeviceEventItem) => (
+                  <div
+                    key={`${item.device_ip_address}-${item.created_at}-${item.event_type}`}
+                    className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-100">
+                          {formatDeviceEventType(
+                            item.event_type,
+                          )}
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-300">
+                          {item.device_ip_address}
+                        </p>
+                      </div>
+
+                      <span className="shrink-0 text-xs text-zinc-400">
+                        {formatDate(
+                          item.created_at,
+                        )}
+                      </span>
+                    </div>
+
+                    {formatTransition(
+                      item.previous_value,
+                      item.new_value,
+                    ) ? (
+                      <p className="mt-2 whitespace-pre-wrap break-words text-xs text-zinc-400">
+                        {formatTransition(
+                          item.previous_value,
+                          item.new_value,
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                ),
+              )
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">
+            Top incident targets
+          </h3>
+          <p className="text-sm text-zinc-400">
+            Last{" "}
+            {windowHours === 24 ? "24h" : "7d"}
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {topIncidentTargetsQuery.isLoading ? (
+            <p className="text-sm text-zinc-400">
+              Loading incident targets...
+            </p>
+          ) : topIncidentTargetsQuery.isError ? (
+            <p className="text-sm text-red-400">
+              Could not load incident target
+              summary.
+            </p>
+          ) : topIncidentTargets.length === 0 ? (
+            <p className="text-sm text-zinc-400">
+              No incident targets in this window.
+            </p>
+          ) : (
+            topIncidentTargets.map(
+              (
+                item: IncidentTargetSummaryItem,
+              ) => (
+                <div
+                  key={`${item.incident_type}-${item.target}`}
+                  className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+                >
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-100">
+                        {item.target}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {formatIncidentType(
+                          item.incident_type,
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-zinc-300">
+                        {item.count} incidents
+                      </span>
+                      <span className="rounded-full border border-amber-800 bg-amber-950 px-2.5 py-1 text-amber-300">
+                        {formatDurationCompact(
+                          item.total_downtime_seconds,
+                        )}{" "}
+                        downtime
+                      </span>
+                      {item.active_count > 0 ? (
+                        <span className="rounded-full border border-red-800 bg-red-950 px-2.5 py-1 text-red-300">
+                          {item.active_count}{" "}
+                          active
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <p className="mt-2 text-xs text-zinc-400">
+                    Latest incident{" "}
+                    {formatDate(
+                      item.latest_started_at,
+                    )}
+                  </p>
+                </div>
+              ),
+            )
+          )}
+        </div>
+      </section>
 
       <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
         <table className="min-w-full text-sm">

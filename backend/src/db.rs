@@ -5,8 +5,9 @@ use chrono::{DateTime, Utc};
 use sqlx::{Row, SqlitePool};
 
 use crate::models::{
-    Alert, ConnectivityCheck, Device, DeviceHistoryEvent, DnsCheck, KnownDevice, Outage,
-    ReportSummaryResponse, SummaryResponse, TimeseriesPoint,
+    Alert, ConnectivityCheck, Device, DeviceHistoryEvent, DnsCheck, IncidentTargetSummaryItem,
+    KnownDevice, Outage, RecentAlertEventItem, RecentDeviceEventItem, ReportSummaryResponse,
+    SummaryResponse, TimeseriesPoint,
 };
 
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
@@ -960,6 +961,53 @@ pub async fn list_alert_history(
     .await?)
 }
 
+pub async fn recent_alert_events(
+    pool: &SqlitePool,
+    hours: i64,
+    limit: i64,
+) -> anyhow::Result<Vec<RecentAlertEventItem>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            ah.alert_id,
+            a.alert_type,
+            a.severity,
+            a.entity_type,
+            a.entity_key,
+            a.message,
+            ah.event_type,
+            ah.previous_value,
+            ah.new_value,
+            ah.created_at
+        FROM alert_history ah
+        JOIN alerts a ON a.id = ah.alert_id
+        WHERE ah.created_at >= datetime('now', '-' || ?1 || ' hours')
+        ORDER BY ah.created_at DESC, ah.id DESC
+        LIMIT ?2
+        "#,
+    )
+    .bind(hours)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| RecentAlertEventItem {
+            alert_id: row.get("alert_id"),
+            alert_type: row.get("alert_type"),
+            severity: row.get("severity"),
+            entity_type: row.get("entity_type"),
+            entity_key: row.get("entity_key"),
+            message: row.get("message"),
+            event_type: row.get("event_type"),
+            previous_value: row.try_get("previous_value").ok(),
+            new_value: row.try_get("new_value").ok(),
+            created_at: row.get("created_at"),
+        })
+        .collect())
+}
+
 pub async fn active_alerts_count(pool: &SqlitePool) -> anyhow::Result<u32> {
     Ok(
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM alerts WHERE is_active = 1")
@@ -1238,4 +1286,79 @@ pub async fn list_device_history(
     .bind(limit)
     .fetch_all(pool)
     .await?)
+}
+
+pub async fn recent_device_events(
+    pool: &SqlitePool,
+    hours: i64,
+    limit: i64,
+) -> anyhow::Result<Vec<RecentDeviceEventItem>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT device_ip_address, event_type, previous_value, new_value, created_at
+        FROM device_history
+        WHERE created_at >= datetime('now', '-' || ?1 || ' hours')
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?2
+        "#,
+    )
+    .bind(hours)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| RecentDeviceEventItem {
+            device_ip_address: row.get("device_ip_address"),
+            event_type: row.get("event_type"),
+            previous_value: row.try_get("previous_value").ok(),
+            new_value: row.try_get("new_value").ok(),
+            created_at: row.get("created_at"),
+        })
+        .collect())
+}
+
+pub async fn top_incident_targets(
+    pool: &SqlitePool,
+    hours: i64,
+    limit: i64,
+) -> anyhow::Result<Vec<IncidentTargetSummaryItem>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            outage_type AS incident_type,
+            target,
+            COUNT(*) AS count,
+            SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS active_count,
+            COALESCE(SUM(
+                CAST(
+                    (julianday(COALESCE(ended_at, CURRENT_TIMESTAMP)) - julianday(started_at)) * 86400
+                    AS INTEGER
+                )
+            ), 0) AS total_downtime_seconds,
+            MAX(started_at) AS latest_started_at
+        FROM outages
+        WHERE started_at >= datetime('now', '-' || ?1 || ' hours')
+        GROUP BY outage_type, target
+        ORDER BY count DESC, total_downtime_seconds DESC, latest_started_at DESC
+        LIMIT ?2
+        "#,
+    )
+    .bind(hours)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| IncidentTargetSummaryItem {
+            incident_type: row.get("incident_type"),
+            target: row.get("target"),
+            count: row.get::<i64, _>("count") as u32,
+            active_count: row.get::<i64, _>("active_count") as u32,
+            total_downtime_seconds: row.get::<i64, _>("total_downtime_seconds"),
+            latest_started_at: row.try_get("latest_started_at").ok(),
+        })
+        .collect())
 }

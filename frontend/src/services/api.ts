@@ -140,6 +140,36 @@ export type AlertHistoryItem = {
   created_at: string;
 };
 
+export type RecentAlertEventItem = {
+  alert_id: number;
+  alert_type: string;
+  severity: string;
+  entity_type: string;
+  entity_key: string;
+  message: string;
+  event_type: string;
+  previous_value?: string | null;
+  new_value?: string | null;
+  created_at: string;
+};
+
+export type RecentDeviceEventItem = {
+  device_ip_address: string;
+  event_type: string;
+  previous_value?: string | null;
+  new_value?: string | null;
+  created_at: string;
+};
+
+export type IncidentTargetSummaryItem = {
+  incident_type: string;
+  target: string;
+  count: number;
+  active_count: number;
+  total_downtime_seconds: number;
+  latest_started_at?: string | null;
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -241,6 +271,18 @@ export const api = {
   getReportsSummary: (hours = 24) =>
     getJson<ReportSummaryResponse>(
       `/api/reports/summary?hours=${hours}`,
+    ),
+  getRecentReportAlertEvents: (hours = 24) =>
+    getJson<RecentAlertEventItem[]>(
+      `/api/reports/alerts/recent?hours=${hours}`,
+    ),
+  getRecentReportDeviceEvents: (hours = 24) =>
+    getJson<RecentDeviceEventItem[]>(
+      `/api/reports/devices/recent?hours=${hours}`,
+    ),
+  getTopIncidentTargets: (hours = 24) =>
+    getJson<IncidentTargetSummaryItem[]>(
+      `/api/reports/incidents/top?hours=${hours}`,
     ),
   getDevices: () =>
     getJson<Device[]>("/api/devices"),

@@ -12,8 +12,9 @@ use crate::{
     db,
     models::{
         AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
-        KnownDeviceView, OutageReportItem, ReportSummaryResponse, SaveKnownDeviceRequest,
-        SummaryResponse, TimeseriesPoint,
+        IncidentTargetSummaryItem, KnownDeviceView, OutageReportItem, RecentAlertEventItem,
+        RecentDeviceEventItem, ReportSummaryResponse, SaveKnownDeviceRequest, SummaryResponse,
+        TimeseriesPoint,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -65,12 +66,24 @@ pub fn router(state: AppState) -> Router {
         .route("/api/stats/summary", get(get_summary))
         .route("/api/reports/summary", get(get_reports_summary))
         .route("/api/alerts", get(get_alerts))
+        .route(
+            "/api/reports/alerts/recent",
+            get(get_recent_report_alert_events),
+        )
+        .route(
+            "/api/reports/devices/recent",
+            get(get_recent_report_device_events),
+        )
         .route("/api/outages", get(get_outages))
         .route("/api/devices", get(get_devices))
         .route("/api/devices/known", post(save_known_device))
         .route("/api/devices/{ip}/history", get(get_device_history))
         .route("/api/alerts/{id}/acknowledge", post(acknowledge_alert))
         .route("/api/alerts/{id}/history", get(get_alert_history))
+        .route(
+            "/api/reports/incidents/top",
+            get(get_top_report_incident_targets),
+        )
         .with_state(state)
 }
 
@@ -172,6 +185,45 @@ async fn get_reports_summary(
 
     Ok(Json(
         db::report_summary(&state.db, hours)
+            .await
+            .map_err(internal_error)?,
+    ))
+}
+
+async fn get_recent_report_alert_events(
+    State(state): State<AppState>,
+    Query(query): Query<ReportsSummaryQuery>,
+) -> Result<Json<Vec<RecentAlertEventItem>>, (StatusCode, Json<serde_json::Value>)> {
+    let hours = query.hours.unwrap_or(24).clamp(1, 24 * 7) as i64;
+
+    Ok(Json(
+        db::recent_alert_events(&state.db, hours, 10)
+            .await
+            .map_err(internal_error)?,
+    ))
+}
+
+async fn get_recent_report_device_events(
+    State(state): State<AppState>,
+    Query(query): Query<ReportsSummaryQuery>,
+) -> Result<Json<Vec<RecentDeviceEventItem>>, (StatusCode, Json<serde_json::Value>)> {
+    let hours = query.hours.unwrap_or(24).clamp(1, 24 * 7) as i64;
+
+    Ok(Json(
+        db::recent_device_events(&state.db, hours, 10)
+            .await
+            .map_err(internal_error)?,
+    ))
+}
+
+async fn get_top_report_incident_targets(
+    State(state): State<AppState>,
+    Query(query): Query<ReportsSummaryQuery>,
+) -> Result<Json<Vec<IncidentTargetSummaryItem>>, (StatusCode, Json<serde_json::Value>)> {
+    let hours = query.hours.unwrap_or(24).clamp(1, 24 * 7) as i64;
+
+    Ok(Json(
+        db::top_incident_targets(&state.db, hours, 8)
             .await
             .map_err(internal_error)?,
     ))
