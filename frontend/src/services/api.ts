@@ -80,6 +80,16 @@ export type Device = {
   confidence: "high" | "medium" | "low";
 };
 
+export type KnownDevice = {
+  id: number;
+  ip_address?: string | null;
+  mac_address?: string | null;
+  label: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Outage = {
   id: number;
   outage_type: string;
@@ -243,7 +253,11 @@ export const api = {
   },
   saveKnownDevice: (
     body: SaveKnownDeviceRequest,
-  ) => postJson("/api/devices/known", body),
+  ) =>
+    postJson<KnownDevice, SaveKnownDeviceRequest>(
+      "/api/devices/known",
+      body,
+    ),
   getDeviceHistory: (ip: string) =>
     getJson<DeviceHistoryItem[]>(
       `/api/devices/${encodeURIComponent(ip)}/history`,

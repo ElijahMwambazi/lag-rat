@@ -1,7 +1,10 @@
 import QueryState from "../components/QueryState";
 import DeviceRow from "../components/devices/DeviceRow";
 import DeviceDetailDrawer from "../components/devices/DeviceDetailDrawer";
-import { api } from "../services/api";
+import {
+  api,
+  type KnownDevice,
+} from "../services/api";
 import {
   useMutation,
   useQuery,
@@ -51,15 +54,52 @@ export default function DevicesPage() {
       null,
     );
 
-  const saveKnownDeviceMutation = useMutation({
+  const saveKnownDeviceMutation = useMutation<
+    KnownDevice,
+    Error,
+    Parameters<typeof api.saveKnownDevice>[0]
+  >({
     mutationFn: api.saveKnownDevice,
-    onSuccess: async () => {
+    onSuccess: async (savedDevice) => {
+      const nextSelectedDevice =
+        selectedDevice &&
+        (savedDevice.ip_address ===
+          selectedDevice.ip_address ||
+          (savedDevice.mac_address &&
+            savedDevice.mac_address ===
+              selectedDevice.mac_address))
+          ? {
+              ...selectedDevice,
+              label: savedDevice.label,
+              notes: savedDevice.notes,
+              is_known: true,
+              display_name:
+                savedDevice.label ??
+                selectedDevice.display_name,
+            }
+          : selectedDevice;
+
+      setSelectedDevice(nextSelectedDevice);
       setEditingId(null);
       setLabel("");
       setNotes("");
+
       await queryClient.invalidateQueries({
         queryKey: ["devices"],
       });
+
+      await queryClient.invalidateQueries({
+        queryKey: ["status-overview"],
+      });
+
+      if (savedDevice.ip_address) {
+        await queryClient.invalidateQueries({
+          queryKey: [
+            "device-history",
+            savedDevice.ip_address,
+          ],
+        });
+      }
     },
   });
 
