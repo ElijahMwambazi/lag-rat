@@ -257,6 +257,11 @@ export default function ReportsPage() {
     setIsExportingSnapshot,
   ] = useState(false);
 
+  const [
+    showTopIncidentTargets,
+    setShowTopIncidentTargets,
+  ] = useState(true);
+
   const reportsSummaryQuery = useQuery({
     queryKey: ["reports-summary", windowHours],
     queryFn: () =>
@@ -866,11 +871,12 @@ export default function ReportsPage() {
             </h3>
             <p className="text-sm text-zinc-400">
               Last{" "}
-              {windowHours === 24 ? "24h" : "7d"}
+              {windowHours === 24 ? "24h" : "7d"}{" "}
+              · scroll
             </p>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 max-h-[26rem] space-y-3 overflow-y-auto pr-1">
             {recentAlertEventsQuery.isLoading ? (
               <p className="text-sm text-zinc-400">
                 Loading alert activity...
@@ -940,11 +946,12 @@ export default function ReportsPage() {
             </h3>
             <p className="text-sm text-zinc-400">
               Last{" "}
-              {windowHours === 24 ? "24h" : "7d"}
+              {windowHours === 24 ? "24h" : "7d"}{" "}
+              · scroll
             </p>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 max-h-[26rem] space-y-3 overflow-y-auto pr-1">
             {recentDeviceEventsQuery.isLoading ? (
               <p className="text-sm text-zinc-400">
                 Loading device activity...
@@ -1006,81 +1013,106 @@ export default function ReportsPage() {
       </section>
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">
-            Top incident targets
-          </h3>
-          <p className="text-sm text-zinc-400">
-            Last{" "}
-            {windowHours === 24 ? "24h" : "7d"}
-          </p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-medium">
+              Top incident targets
+            </h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              Last{" "}
+              {windowHours === 24 ? "24h" : "7d"}{" "}
+              · {topIncidentTargets.length} shown
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setShowTopIncidentTargets(
+                (current) => !current,
+              )
+            }
+            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
+          >
+            {showTopIncidentTargets
+              ? "Collapse"
+              : "Expand"}
+          </button>
         </div>
 
-        <div className="mt-4 space-y-3">
-          {topIncidentTargetsQuery.isLoading ? (
-            <p className="text-sm text-zinc-400">
-              Loading incident targets...
-            </p>
-          ) : topIncidentTargetsQuery.isError ? (
-            <p className="text-sm text-red-400">
-              Could not load incident target
-              summary.
-            </p>
-          ) : topIncidentTargets.length === 0 ? (
-            <p className="text-sm text-zinc-400">
-              No incident targets in this window.
-            </p>
-          ) : (
-            topIncidentTargets.map(
-              (
-                item: IncidentTargetSummaryItem,
-              ) => (
-                <div
-                  key={`${item.incident_type}-${item.target}`}
-                  className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
-                >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-zinc-100">
-                        {item.target}
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        {formatIncidentType(
-                          item.incident_type,
-                        )}
-                      </p>
-                    </div>
+        {showTopIncidentTargets ? (
+          <div className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+            {topIncidentTargetsQuery.isLoading ? (
+              <p className="text-sm text-zinc-400">
+                Loading incident targets...
+              </p>
+            ) : topIncidentTargetsQuery.isError ? (
+              <p className="text-sm text-red-400">
+                Could not load incident target
+                summary.
+              </p>
+            ) : topIncidentTargets.length ===
+              0 ? (
+              <p className="text-sm text-zinc-400">
+                No incident targets in this
+                window.
+              </p>
+            ) : (
+              topIncidentTargets.map(
+                (
+                  item: IncidentTargetSummaryItem,
+                ) => (
+                  <div
+                    key={`${item.incident_type}-${item.target}`}
+                    className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+                  >
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-100">
+                          {item.target}
+                        </p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {formatIncidentType(
+                            item.incident_type,
+                          )}
+                        </p>
+                      </div>
 
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-zinc-300">
-                        {item.count} incidents
-                      </span>
-                      <span className="rounded-full border border-amber-800 bg-amber-950 px-2.5 py-1 text-amber-300">
-                        {formatDurationCompact(
-                          item.total_downtime_seconds,
-                        )}{" "}
-                        downtime
-                      </span>
-                      {item.active_count > 0 ? (
-                        <span className="rounded-full border border-red-800 bg-red-950 px-2.5 py-1 text-red-300">
-                          {item.active_count}{" "}
-                          active
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-zinc-300">
+                          {item.count} incidents
                         </span>
-                      ) : null}
+                        <span className="rounded-full border border-amber-800 bg-amber-950 px-2.5 py-1 text-amber-300">
+                          {formatDurationCompact(
+                            item.total_downtime_seconds,
+                          )}{" "}
+                          downtime
+                        </span>
+                        {item.active_count > 0 ? (
+                          <span className="rounded-full border border-red-800 bg-red-950 px-2.5 py-1 text-red-300">
+                            {item.active_count}{" "}
+                            active
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
 
-                  <p className="mt-2 text-xs text-zinc-400">
-                    Latest incident{" "}
-                    {formatDate(
-                      item.latest_started_at,
-                    )}
-                  </p>
-                </div>
-              ),
-            )
-          )}
-        </div>
+                    <p className="mt-2 text-xs text-zinc-400">
+                      Latest incident{" "}
+                      {formatDate(
+                        item.latest_started_at,
+                      )}
+                    </p>
+                  </div>
+                ),
+              )
+            )}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-zinc-400">
+            Incident target ranking is collapsed.
+          </p>
+        )}
       </section>
 
       <section className="space-y-3">
