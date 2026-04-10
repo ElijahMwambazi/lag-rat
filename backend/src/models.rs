@@ -63,6 +63,18 @@ pub struct ReportSummaryResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ReportSnapshotResponse {
+    pub generated_at: DateTime<Utc>,
+    pub window_hours: u32,
+    pub narrative: String,
+    pub summary: ReportSummaryResponse,
+    pub top_incident_targets: Vec<IncidentTargetSummaryItem>,
+    pub recent_alert_events: Vec<RecentAlertEventItem>,
+    pub recent_device_events: Vec<RecentDeviceEventItem>,
+    pub outages: Vec<OutageReportItem>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct ServiceStatus {
     pub is_healthy: bool,
     pub last_success_at: Option<DateTime<Utc>>,

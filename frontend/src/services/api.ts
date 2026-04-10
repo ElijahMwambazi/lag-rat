@@ -170,6 +170,17 @@ export type IncidentTargetSummaryItem = {
   latest_started_at?: string | null;
 };
 
+export type ReportSnapshotResponse = {
+  generated_at: string;
+  window_hours: number;
+  narrative: string;
+  summary: ReportSummaryResponse;
+  top_incident_targets: IncidentTargetSummaryItem[];
+  recent_alert_events: RecentAlertEventItem[];
+  recent_device_events: RecentDeviceEventItem[];
+  outages: Outage[];
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -271,6 +282,10 @@ export const api = {
   getReportsSummary: (hours = 24) =>
     getJson<ReportSummaryResponse>(
       `/api/reports/summary?hours=${hours}`,
+    ),
+  getReportsSnapshot: (hours = 24) =>
+    getJson<ReportSnapshotResponse>(
+      `/api/reports/snapshot?hours=${hours}`,
     ),
   getRecentReportAlertEvents: (hours = 24) =>
     getJson<RecentAlertEventItem[]>(

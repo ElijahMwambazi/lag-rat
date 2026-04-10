@@ -13,8 +13,8 @@ use crate::{
     models::{
         AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
         IncidentTargetSummaryItem, KnownDeviceView, OutageReportItem, RecentAlertEventItem,
-        RecentDeviceEventItem, ReportSummaryResponse, SaveKnownDeviceRequest, SummaryResponse,
-        TimeseriesPoint,
+        RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse,
+        SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -65,6 +65,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/dns/history", get(get_dns_history))
         .route("/api/stats/summary", get(get_summary))
         .route("/api/reports/summary", get(get_reports_summary))
+        .route("/api/reports/snapshot", get(get_reports_snapshot))
         .route("/api/alerts", get(get_alerts))
         .route(
             "/api/reports/alerts/recent",
@@ -227,6 +228,116 @@ async fn get_top_report_incident_targets(
             .await
             .map_err(internal_error)?,
     ))
+}
+
+async fn get_reports_snapshot(
+    State(state): State<AppState>,
+    Query(query): Query<ReportsSummaryQuery>,
+) -> Result<Json<ReportSnapshotResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let hours = query.hours.unwrap_or(24).clamp(1, 24 * 7) as i64;
+
+    let summary = db::report_summary(&state.db, hours)
+        .await
+        .map_err(internal_error)?;
+
+    let top_incident_targets = db::top_incident_targets(&state.db, hours, 8)
+        .await
+        .map_err(internal_error)?;
+
+    let recent_alert_events = db::recent_alert_events(&state.db, hours, 10)
+        .await
+        .map_err(internal_error)?;
+
+    let recent_device_events = db::recent_device_events(&state.db, hours, 10)
+        .await
+        .map_err(internal_error)?;
+
+    let outages = db::list_outages_filtered(&state.db, None, None, None, 200)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .filter(|outage| {
+            let window_start = Utc::now() - chrono::Duration::hours(hours);
+            outage.started_at >= window_start
+        })
+        .map(|outage| {
+            let duration_seconds = outage
+                .ended_at
+                .map(|ended_at| (ended_at - outage.started_at).num_seconds());
+
+            OutageReportItem {
+                id: outage.id,
+                outage_type: outage.outage_type,
+                target: outage.target,
+                started_at: outage.started_at,
+                ended_at: outage.ended_at,
+                is_active: outage.is_active,
+                start_error: outage.start_error,
+                end_note: outage.end_note,
+                duration_seconds,
+                status: if outage.is_active {
+                    "active".to_string()
+                } else {
+                    "resolved".to_string()
+                },
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let top_target = top_incident_targets.first();
+
+    let window_label = if hours == 24 {
+        "last 24 hours"
+    } else {
+        "last 7 days"
+    };
+
+    let mut parts = Vec::new();
+    parts.push(format!(
+        "Network uptime was {:.1}% over the {}.",
+        summary.uptime_pct, window_label
+    ));
+    parts.push(format!(
+        "{} outages were recorded, with {} total downtime.",
+        summary.outage_count,
+        format_duration_compact(summary.total_downtime_seconds)
+    ));
+    parts.push(format!(
+        "{} DNS failures occurred in this window.",
+        summary.dns_failure_count
+    ));
+    parts.push(format!(
+        "There are currently {} active alerts, including {} critical and {} unacknowledged.",
+        summary.active_alert_count,
+        summary.active_critical_alert_count,
+        summary.active_unacknowledged_alert_count
+    ));
+    parts.push(format!(
+        "{} device changes were recorded.",
+        summary.device_history_event_count
+    ));
+
+    if let Some(item) = top_target {
+        parts.push(format!(
+            "The most frequent incident target was {}, with {} incidents and {} downtime.",
+            item.target,
+            item.count,
+            format_duration_compact(item.total_downtime_seconds)
+        ));
+    }
+
+    let narrative = parts.join(" ");
+
+    Ok(Json(ReportSnapshotResponse {
+        generated_at: Utc::now(),
+        window_hours: hours as u32,
+        narrative,
+        summary,
+        top_incident_targets,
+        recent_alert_events,
+        recent_device_events,
+        outages,
+    }))
 }
 
 async fn get_alerts(
@@ -443,6 +554,16 @@ async fn get_device_history(
         .collect();
 
     Ok(Json(items))
+}
+
+fn format_duration_compact(seconds: i64) -> String {
+    if seconds < 60 {
+        format!("{seconds}s")
+    } else if seconds < 3600 {
+        format!("{}m", seconds / 60)
+    } else {
+        format!("{}h {}m", seconds / 3600, (seconds % 3600) / 60)
+    }
 }
 
 fn internal_error(err: anyhow::Error) -> (StatusCode, Json<serde_json::Value>) {

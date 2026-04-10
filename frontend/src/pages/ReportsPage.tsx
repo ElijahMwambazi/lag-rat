@@ -252,6 +252,11 @@ export default function ReportsPage() {
     "started_desc",
   );
 
+  const [
+    isExportingSnapshot,
+    setIsExportingSnapshot,
+  ] = useState(false);
+
   const reportsSummaryQuery = useQuery({
     queryKey: ["reports-summary", windowHours],
     queryFn: () =>
@@ -406,25 +411,23 @@ export default function ReportsPage() {
     }
   }
 
-  function exportReportsJson() {
-    const payload = {
-      generated_at: new Date().toISOString(),
-      window_hours: windowHours,
-      narrative: reportNarrative,
-      summary: reportsSummary ?? null,
-      top_incident_targets: topIncidentTargets,
-      recent_alert_events: recentAlertEvents,
-      recent_device_events: recentDeviceEvents,
-      outages: visibleOutages,
-    };
+  async function exportReportsJson() {
+    try {
+      setIsExportingSnapshot(true);
 
-    downloadFile(
-      `lag-rat-report-${formatWindowLabel(
-        windowHours,
-      )}.json`,
-      JSON.stringify(payload, null, 2),
-      "application/json",
-    );
+      const snapshot =
+        await api.getReportsSnapshot(windowHours);
+
+      downloadFile(
+        `lag-rat-report-${formatWindowLabel(
+          windowHours,
+        )}.json`,
+        JSON.stringify(snapshot, null, 2),
+        "application/json",
+      );
+    } finally {
+      setIsExportingSnapshot(false);
+    }
   }
 
   function exportReportsCsv() {
@@ -666,9 +669,12 @@ export default function ReportsPage() {
           <button
             type="button"
             onClick={exportReportsJson}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+            disabled={isExportingSnapshot}
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Export JSON
+            {isExportingSnapshot
+              ? "Exporting..."
+              : "Export JSON"}
           </button>
 
           <button
