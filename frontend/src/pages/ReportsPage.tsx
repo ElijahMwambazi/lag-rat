@@ -201,6 +201,41 @@ function buildReportNarrative(params: {
   return parts.join(" ");
 }
 
+function escapeCsv(value: unknown) {
+  const text =
+    value === null || value === undefined
+      ? ""
+      : String(value);
+  const escaped = text.replace(/"/g, '""');
+  return /[",\n]/.test(escaped)
+    ? `"${escaped}"`
+    : escaped;
+}
+
+function downloadFile(
+  filename: string,
+  content: string,
+  mimeType: string,
+) {
+  const blob = new Blob([content], {
+    type: mimeType,
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function formatWindowLabel(
+  windowHours: 24 | 168,
+) {
+  return windowHours === 24 ? "24h" : "7d";
+}
+
 export default function ReportsPage() {
   const [selectedOutage, setSelectedOutage] =
     useState<Outage | null>(null);
@@ -371,6 +406,238 @@ export default function ReportsPage() {
     }
   }
 
+  function exportReportsJson() {
+    const payload = {
+      generated_at: new Date().toISOString(),
+      window_hours: windowHours,
+      narrative: reportNarrative,
+      summary: reportsSummary ?? null,
+      top_incident_targets: topIncidentTargets,
+      recent_alert_events: recentAlertEvents,
+      recent_device_events: recentDeviceEvents,
+      outages: visibleOutages,
+    };
+
+    downloadFile(
+      `lag-rat-report-${formatWindowLabel(
+        windowHours,
+      )}.json`,
+      JSON.stringify(payload, null, 2),
+      "application/json",
+    );
+  }
+
+  function exportReportsCsv() {
+    const sections: string[] = [];
+
+    sections.push("section,key,value");
+    sections.push(
+      ["summary", "window_hours", windowHours]
+        .map(escapeCsv)
+        .join(","),
+    );
+    sections.push(
+      [
+        "summary",
+        "generated_at",
+        new Date().toISOString(),
+      ]
+        .map(escapeCsv)
+        .join(","),
+    );
+    sections.push(
+      [
+        "summary",
+        "narrative",
+        reportNarrative ?? "",
+      ]
+        .map(escapeCsv)
+        .join(","),
+    );
+
+    if (reportsSummary) {
+      const summaryRows: Array<
+        [string, unknown]
+      > = [
+        ["uptime_pct", reportsSummary.uptime_pct],
+        [
+          "avg_latency_ms",
+          reportsSummary.avg_latency_ms,
+        ],
+        [
+          "outage_count",
+          reportsSummary.outage_count,
+        ],
+        [
+          "total_downtime_seconds",
+          reportsSummary.total_downtime_seconds,
+        ],
+        [
+          "dns_failure_count",
+          reportsSummary.dns_failure_count,
+        ],
+        [
+          "device_history_event_count",
+          reportsSummary.device_history_event_count,
+        ],
+        [
+          "active_alert_count",
+          reportsSummary.active_alert_count,
+        ],
+        [
+          "active_critical_alert_count",
+          reportsSummary.active_critical_alert_count,
+        ],
+        [
+          "active_unacknowledged_alert_count",
+          reportsSummary.active_unacknowledged_alert_count,
+        ],
+      ];
+
+      for (const [key, value] of summaryRows) {
+        sections.push(
+          ["summary", key, value]
+            .map(escapeCsv)
+            .join(","),
+        );
+      }
+    }
+
+    sections.push("");
+    sections.push(
+      [
+        "top_incident_targets",
+        "incident_type",
+        "target",
+        "count",
+        "active_count",
+        "total_downtime_seconds",
+        "latest_started_at",
+      ].join(","),
+    );
+
+    for (const item of topIncidentTargets) {
+      sections.push(
+        [
+          "top_incident_targets",
+          item.incident_type,
+          item.target,
+          item.count,
+          item.active_count,
+          item.total_downtime_seconds,
+          item.latest_started_at ?? "",
+        ]
+          .map(escapeCsv)
+          .join(","),
+      );
+    }
+
+    sections.push("");
+    sections.push(
+      [
+        "recent_alert_events",
+        "alert_id",
+        "event_type",
+        "severity",
+        "entity_type",
+        "alert_type",
+        "message",
+        "previous_value",
+        "new_value",
+        "created_at",
+      ].join(","),
+    );
+
+    for (const item of recentAlertEvents) {
+      sections.push(
+        [
+          "recent_alert_events",
+          item.alert_id,
+          item.event_type,
+          item.severity,
+          item.entity_type,
+          item.alert_type,
+          item.message,
+          item.previous_value ?? "",
+          item.new_value ?? "",
+          item.created_at,
+        ]
+          .map(escapeCsv)
+          .join(","),
+      );
+    }
+
+    sections.push("");
+    sections.push(
+      [
+        "recent_device_events",
+        "device_ip_address",
+        "event_type",
+        "previous_value",
+        "new_value",
+        "created_at",
+      ].join(","),
+    );
+
+    for (const item of recentDeviceEvents) {
+      sections.push(
+        [
+          "recent_device_events",
+          item.device_ip_address,
+          item.event_type,
+          item.previous_value ?? "",
+          item.new_value ?? "",
+          item.created_at,
+        ]
+          .map(escapeCsv)
+          .join(","),
+      );
+    }
+
+    sections.push("");
+    sections.push(
+      [
+        "outages",
+        "id",
+        "outage_type",
+        "target",
+        "started_at",
+        "ended_at",
+        "duration_seconds",
+        "status",
+        "start_error",
+        "end_note",
+      ].join(","),
+    );
+
+    for (const outage of visibleOutages) {
+      sections.push(
+        [
+          "outages",
+          outage.id,
+          outage.outage_type,
+          outage.target,
+          outage.started_at,
+          outage.ended_at ?? "",
+          outage.duration_seconds ?? "",
+          outage.status,
+          outage.start_error ?? "",
+          outage.end_note ?? "",
+        ]
+          .map(escapeCsv)
+          .join(","),
+      );
+    }
+
+    downloadFile(
+      `lag-rat-report-${formatWindowLabel(
+        windowHours,
+      )}.csv`,
+      sections.join("\n"),
+      "text/csv;charset=utf-8",
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
@@ -395,6 +662,22 @@ export default function ReportsPage() {
             <option value={24}>Last 24h</option>
             <option value={168}>Last 7d</option>
           </select>
+
+          <button
+            type="button"
+            onClick={exportReportsJson}
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+          >
+            Export JSON
+          </button>
+
+          <button
+            type="button"
+            onClick={exportReportsCsv}
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+          >
+            Export CSV
+          </button>
 
           <p className="text-sm text-zinc-400">
             {outagesQuery.isLoading
