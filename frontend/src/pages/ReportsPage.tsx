@@ -106,6 +106,101 @@ function formatTransition(
   return `${previousValue} → ${newValue}`;
 }
 
+function pluralize(
+  value: number,
+  singular: string,
+  plural = `${singular}s`,
+) {
+  return `${value} ${value === 1 ? singular : plural}`;
+}
+
+function buildReportNarrative(params: {
+  windowHours: 24 | 168;
+  uptimePct?: number;
+  outageCount?: number;
+  totalDowntimeSeconds?: number;
+  dnsFailureCount?: number;
+  activeAlertCount?: number;
+  activeCriticalAlertCount?: number;
+  activeUnacknowledgedAlertCount?: number;
+  deviceHistoryEventCount?: number;
+  topIncidentTarget?: {
+    target: string;
+    count: number;
+    total_downtime_seconds: number;
+  } | null;
+}) {
+  const windowLabel =
+    params.windowHours === 24
+      ? "last 24 hours"
+      : "last 7 days";
+
+  const parts: string[] = [];
+
+  if (params.uptimePct !== undefined) {
+    parts.push(
+      `Network uptime was ${params.uptimePct.toFixed(1)}% over the ${windowLabel}.`,
+    );
+  }
+
+  if (
+    params.outageCount !== undefined &&
+    params.totalDowntimeSeconds !== undefined
+  ) {
+    parts.push(
+      `${pluralize(params.outageCount, "outage")} recorded, with ${formatDurationCompact(
+        params.totalDowntimeSeconds,
+      )} total downtime.`,
+    );
+  }
+
+  if (params.dnsFailureCount !== undefined) {
+    parts.push(
+      `${pluralize(params.dnsFailureCount, "DNS failure")} occurred in this window.`,
+    );
+  }
+
+  if (
+    params.activeAlertCount !== undefined &&
+    params.activeCriticalAlertCount !==
+      undefined &&
+    params.activeUnacknowledgedAlertCount !==
+      undefined
+  ) {
+    parts.push(
+      `There are currently ${pluralize(params.activeAlertCount, "active alert")}, including ${pluralize(
+        params.activeCriticalAlertCount,
+        "critical alert",
+      )} and ${pluralize(
+        params.activeUnacknowledgedAlertCount,
+        "unacknowledged alert",
+      )}.`,
+    );
+  }
+
+  if (
+    params.deviceHistoryEventCount !== undefined
+  ) {
+    parts.push(
+      `${pluralize(params.deviceHistoryEventCount, "device change")} were recorded.`,
+    );
+  }
+
+  if (params.topIncidentTarget) {
+    parts.push(
+      `The most frequent incident target was ${params.topIncidentTarget.target}, with ${pluralize(
+        params.topIncidentTarget.count,
+        "incident",
+      )} and ${formatDurationCompact(
+        params.topIncidentTarget
+          .total_downtime_seconds,
+      )} downtime.`,
+    );
+  }
+
+  return parts.join(" ");
+}
+
 export default function ReportsPage() {
   const [selectedOutage, setSelectedOutage] =
     useState<Outage | null>(null);
@@ -229,9 +324,52 @@ export default function ReportsPage() {
     });
   }, [outages, sortBy]);
 
+  const topIncidentTarget =
+    topIncidentTargets[0] ?? null;
+
+  const reportNarrative = reportsSummary
+    ? buildReportNarrative({
+        windowHours,
+        uptimePct: reportsSummary.uptime_pct,
+        outageCount: reportsSummary.outage_count,
+        totalDowntimeSeconds:
+          reportsSummary.total_downtime_seconds,
+        dnsFailureCount:
+          reportsSummary.dns_failure_count,
+        activeAlertCount:
+          reportsSummary.active_alert_count,
+        activeCriticalAlertCount:
+          reportsSummary.active_critical_alert_count,
+        activeUnacknowledgedAlertCount:
+          reportsSummary.active_unacknowledged_alert_count,
+        deviceHistoryEventCount:
+          reportsSummary.device_history_event_count,
+        topIncidentTarget: topIncidentTarget
+          ? {
+              target: topIncidentTarget.target,
+              count: topIncidentTarget.count,
+              total_downtime_seconds:
+                topIncidentTarget.total_downtime_seconds,
+            }
+          : null,
+      })
+    : null;
+
   const activeCount = outages.filter(
     (outage) => outage.status === "active",
   ).length;
+
+  async function copySummaryToClipboard() {
+    if (!reportNarrative) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        reportNarrative,
+      );
+    } catch {
+      // ignore clipboard failures
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -452,6 +590,56 @@ export default function ReportsPage() {
           }
         />
       ) : null}
+
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-medium">
+              Window summary
+            </h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              Export-friendly operational recap
+              for the selected reporting window.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
+              {windowHours === 24 ? "24h" : "7d"}
+            </span>
+
+            <button
+              type="button"
+              onClick={copySummaryToClipboard}
+              disabled={!reportNarrative}
+              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Copy summary
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          {reportsSummaryQuery.isLoading ? (
+            <p className="text-sm text-zinc-400">
+              Building summary...
+            </p>
+          ) : reportsSummaryQuery.isError ? (
+            <p className="text-sm text-red-400">
+              Could not build the report summary
+              block.
+            </p>
+          ) : reportNarrative ? (
+            <p className="whitespace-pre-wrap break-words text-sm leading-7 text-zinc-200">
+              {reportNarrative}
+            </p>
+          ) : (
+            <p className="text-sm text-zinc-400">
+              No summary is available for this
+              window yet.
+            </p>
+          )}
+        </div>
+      </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
