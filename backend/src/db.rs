@@ -378,10 +378,7 @@ pub async fn report_summary(
     })
 }
 
-pub async fn report_trends(
-    pool: &SqlitePool,
-    hours: i64,
-) -> anyhow::Result<Vec<ReportTrendPoint>> {
+pub async fn report_trends(pool: &SqlitePool, hours: i64) -> anyhow::Result<Vec<ReportTrendPoint>> {
     let bucket_format = if hours <= 24 {
         "%Y-%m-%d %H:00:00"
     } else {

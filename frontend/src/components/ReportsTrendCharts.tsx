@@ -1,13 +1,13 @@
 import QueryState from "./QueryState";
 import {
+  CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Legend,
 } from "recharts";
 import type { ReportTrendPoint } from "../services/api";
 
