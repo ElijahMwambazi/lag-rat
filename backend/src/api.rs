@@ -314,16 +314,25 @@ async fn get_reports_snapshot(
 
     let top_target = top_incident_targets.first();
 
-    let window_label = if hours == 24 {
-        "last 24 hours"
+    let window_label = if hours < 24 {
+        format!("last {hours} hours")
+    } else if hours == 24 {
+        "last 24 hours".to_string()
+    } else if hours % 24 == 0 {
+        let days = hours / 24;
+        if days == 1 {
+            "last 1 day".to_string()
+        } else {
+            format!("last {days} days")
+        }
     } else {
-        "last 7 days"
+        format!("last {hours} hours")
     };
 
     let mut parts = Vec::new();
     parts.push(format!(
         "Network uptime was {:.1}% over the {}.",
-        summary.uptime_pct, window_label
+        summary.uptime_pct, &window_label
     ));
     parts.push(format!(
         "{} outages were recorded, with {} total downtime.",
