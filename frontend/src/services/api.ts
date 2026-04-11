@@ -170,6 +170,15 @@ export type IncidentTargetSummaryItem = {
   latest_started_at?: string | null;
 };
 
+export type ReportTrendPoint = {
+  bucket_start: string;
+  label: string;
+  outage_count: number;
+  dns_failure_count: number;
+  internet_http_failure_count: number;
+  internet_tcp_failure_count: number;
+};
+
 export type ReportSnapshotResponse = {
   generated_at: string;
   window_hours: number;
@@ -282,6 +291,10 @@ export const api = {
   getReportsSummary: (hours = 24) =>
     getJson<ReportSummaryResponse>(
       `/api/reports/summary?hours=${hours}`,
+    ),
+  getReportTrends: (hours = 24) =>
+    getJson<ReportTrendPoint[]>(
+      `/api/reports/trends?hours=${hours}`,
     ),
   getReportsSnapshot: (hours = 24) =>
     getJson<ReportSnapshotResponse>(

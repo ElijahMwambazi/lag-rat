@@ -296,3 +296,13 @@ pub struct IncidentTargetSummaryItem {
     pub total_downtime_seconds: i64,
     pub latest_started_at: Option<DateTime<Utc>>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct ReportTrendPoint {
+    pub bucket_start: DateTime<Utc>,
+    pub label: String,
+    pub outage_count: u32,
+    pub dns_failure_count: u32,
+    pub internet_http_failure_count: u32,
+    pub internet_tcp_failure_count: u32,
+}

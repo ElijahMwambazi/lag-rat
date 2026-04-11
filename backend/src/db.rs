@@ -1,13 +1,13 @@
 use std::fs;
 use std::path::Path;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use sqlx::{Row, SqlitePool};
 
 use crate::models::{
     Alert, ConnectivityCheck, Device, DeviceHistoryEvent, DnsCheck, IncidentTargetSummaryItem,
     KnownDevice, Outage, RecentAlertEventItem, RecentDeviceEventItem, ReportSummaryResponse,
-    SummaryResponse, TimeseriesPoint,
+    ReportTrendPoint, SummaryResponse, TimeseriesPoint,
 };
 
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
@@ -376,6 +376,153 @@ pub async fn report_summary(
         active_critical_alert_count,
         active_unacknowledged_alert_count,
     })
+}
+
+pub async fn report_trends(
+    pool: &SqlitePool,
+    hours: i64,
+) -> anyhow::Result<Vec<ReportTrendPoint>> {
+    let bucket_format = if hours <= 24 {
+        "%Y-%m-%d %H:00:00"
+    } else {
+        "%Y-%m-%d 00:00:00"
+    };
+
+    let step_hours = if hours <= 24 { 1 } else { 24 };
+    let bucket_count = if hours <= 24 { 24 } else { 7 };
+
+    let outage_rows = sqlx::query(
+        r#"
+        SELECT
+            strftime(?1, started_at) AS bucket_key,
+            COUNT(*) AS outage_count
+        FROM outages
+        WHERE started_at >= datetime('now', '-' || ?2 || ' hours')
+        GROUP BY bucket_key
+        "#,
+    )
+    .bind(bucket_format)
+    .bind(hours)
+    .fetch_all(pool)
+    .await?;
+
+    let dns_rows = sqlx::query(
+        r#"
+        SELECT
+            strftime(?1, timestamp) AS bucket_key,
+            COUNT(*) AS dns_failure_count
+        FROM dns_checks
+        WHERE success = 0
+          AND timestamp >= datetime('now', '-' || ?2 || ' hours')
+        GROUP BY bucket_key
+        "#,
+    )
+    .bind(bucket_format)
+    .bind(hours)
+    .fetch_all(pool)
+    .await?;
+
+    let http_rows = sqlx::query(
+        r#"
+        SELECT
+            strftime(?1, timestamp) AS bucket_key,
+            COUNT(*) AS failure_count
+        FROM connectivity_checks
+        WHERE probe_kind = 'internet_http'
+          AND success = 0
+          AND timestamp >= datetime('now', '-' || ?2 || ' hours')
+        GROUP BY bucket_key
+        "#,
+    )
+    .bind(bucket_format)
+    .bind(hours)
+    .fetch_all(pool)
+    .await?;
+
+    let tcp_rows = sqlx::query(
+        r#"
+        SELECT
+            strftime(?1, timestamp) AS bucket_key,
+            COUNT(*) AS failure_count
+        FROM connectivity_checks
+        WHERE probe_kind = 'internet_tcp'
+          AND success = 0
+          AND timestamp >= datetime('now', '-' || ?2 || ' hours')
+        GROUP BY bucket_key
+        "#,
+    )
+    .bind(bucket_format)
+    .bind(hours)
+    .fetch_all(pool)
+    .await?;
+
+    let mut outage_map = std::collections::HashMap::new();
+    for row in outage_rows {
+        let key: String = row.get("bucket_key");
+        let count: i64 = row.get("outage_count");
+        outage_map.insert(key, count as u32);
+    }
+
+    let mut dns_map = std::collections::HashMap::new();
+    for row in dns_rows {
+        let key: String = row.get("bucket_key");
+        let count: i64 = row.get("dns_failure_count");
+        dns_map.insert(key, count as u32);
+    }
+
+    let mut http_map = std::collections::HashMap::new();
+    for row in http_rows {
+        let key: String = row.get("bucket_key");
+        let count: i64 = row.get("failure_count");
+        http_map.insert(key, count as u32);
+    }
+
+    let mut tcp_map = std::collections::HashMap::new();
+    for row in tcp_rows {
+        let key: String = row.get("bucket_key");
+        let count: i64 = row.get("failure_count");
+        tcp_map.insert(key, count as u32);
+    }
+
+    let now = Utc::now();
+    let mut points = Vec::with_capacity(bucket_count);
+
+    for index in (0..bucket_count).rev() {
+        let bucket_start = now - chrono::Duration::hours((index * step_hours) as i64);
+
+        let normalized = if hours <= 24 {
+            bucket_start
+                .with_minute(0)
+                .and_then(|dt| dt.with_second(0))
+                .and_then(|dt| dt.with_nanosecond(0))
+                .unwrap_or(bucket_start)
+        } else {
+            bucket_start
+                .date_naive()
+                .and_hms_opt(0, 0, 0)
+                .map(|naive| chrono::DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc))
+                .unwrap_or(bucket_start)
+        };
+
+        let key = normalized.format(bucket_format).to_string();
+
+        let label = if hours <= 24 {
+            normalized.format("%H:%M").to_string()
+        } else {
+            normalized.format("%b %d").to_string()
+        };
+
+        points.push(ReportTrendPoint {
+            bucket_start: normalized,
+            label,
+            outage_count: *outage_map.get(&key).unwrap_or(&0),
+            dns_failure_count: *dns_map.get(&key).unwrap_or(&0),
+            internet_http_failure_count: *http_map.get(&key).unwrap_or(&0),
+            internet_tcp_failure_count: *tcp_map.get(&key).unwrap_or(&0),
+        });
+    }
+
+    Ok(points)
 }
 
 pub async fn upsert_device(

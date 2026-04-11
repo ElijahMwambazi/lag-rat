@@ -13,7 +13,7 @@ use crate::{
     models::{
         AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
         IncidentTargetSummaryItem, KnownDeviceView, OutageReportItem, RecentAlertEventItem,
-        RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse,
+        RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse, ReportTrendPoint,
         SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
     },
     services::{devices, status_overview},
@@ -75,6 +75,7 @@ pub fn router(state: AppState) -> Router {
             "/api/reports/devices/recent",
             get(get_recent_report_device_events),
         )
+        .route("/api/reports/trends", get(get_reports_trends))
         .route("/api/outages", get(get_outages))
         .route("/api/devices", get(get_devices))
         .route("/api/devices/known", post(save_known_device))
@@ -186,6 +187,19 @@ async fn get_reports_summary(
 
     Ok(Json(
         db::report_summary(&state.db, hours)
+            .await
+            .map_err(internal_error)?,
+    ))
+}
+
+async fn get_reports_trends(
+    State(state): State<AppState>,
+    Query(query): Query<ReportsSummaryQuery>,
+) -> Result<Json<Vec<ReportTrendPoint>>, (StatusCode, Json<serde_json::Value>)> {
+    let hours = query.hours.unwrap_or(24).clamp(1, 24 * 7) as i64;
+
+    Ok(Json(
+        db::report_trends(&state.db, hours)
             .await
             .map_err(internal_error)?,
     ))

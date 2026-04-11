@@ -5,6 +5,7 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QueryState from "../components/QueryState";
+import ReportsTrendCharts from "../components/ReportsTrendCharts";
 import StatCard from "../components/StatCard";
 import {
   api,
@@ -288,6 +289,16 @@ export default function ReportsPage() {
   });
 
   const reportsSummary = reportsSummaryQuery.data;
+
+  const reportTrendsQuery = useQuery({
+    queryKey: ["reports-trends", windowHours],
+    queryFn: () =>
+      api.getReportTrends(windowHours),
+    refetchInterval: 60000,
+  });
+
+  const reportTrends =
+    reportTrendsQuery.data ?? [];
 
   const recentAlertEventsQuery = useQuery({
     queryKey: [
@@ -832,6 +843,17 @@ export default function ReportsPage() {
           }
         />
       </section>
+
+      <ReportsTrendCharts
+        data={reportTrends}
+        isLoading={reportTrendsQuery.isLoading}
+        isError={reportTrendsQuery.isError}
+        errorMessage={
+          reportTrendsQuery.error instanceof Error
+            ? reportTrendsQuery.error.message
+            : "The reports trends endpoint failed."
+        }
+      />
 
       {outagesQuery.isError ? (
         <QueryState
