@@ -176,7 +176,7 @@ export default function DeviceDetailDrawer({
 
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
           <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Recent activity
+            Timeline
           </div>
 
           <div className="mt-3 space-y-3">
