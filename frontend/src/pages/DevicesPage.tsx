@@ -179,17 +179,66 @@ export default function DevicesPage() {
     sortBy,
   ]);
 
+  const lowConfidenceCount = devices.filter(
+    (device) => device.confidence === "low",
+  ).length;
+
+  const hiddenLowConfidenceCount =
+    showLowConfidence ? 0 : lowConfidenceCount;
+
+  const hasFiltersApplied =
+    search.trim().length > 0 ||
+    sortBy !== "last_seen" ||
+    showLowConfidence;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-6">
+      <section className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold">
             Devices
           </h2>
+          <p className="mt-2 text-zinc-400">
+            Review devices seen on your local
+            network, save labels for known
+            devices, and inspect device history.
+          </p>
         </div>
 
-        <div className="flex items-center gap-6">
-          <label className="flex items-center gap-2 text-sm text-zinc-400">
+        <div className="text-right">
+          <p className="text-sm text-zinc-400">
+            {devicesQuery.isLoading
+              ? "Loading..."
+              : `${visibleDevices.length} shown · ${devices.length} total`}
+          </p>
+
+          {hiddenLowConfidenceCount > 0 ? (
+            <p className="mt-1 text-xs text-zinc-500">
+              {hiddenLowConfidenceCount}{" "}
+              low-confidence{" "}
+              {hiddenLowConfidenceCount === 1
+                ? "device is"
+                : "devices are"}{" "}
+              hidden to reduce noise.
+            </p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-1">
+            <h3 className="text-sm font-medium text-zinc-100">
+              Device explorer
+            </h3>
+            <p className="text-sm text-zinc-400">
+              Search by label, hostname, IP, MAC,
+              or notes. Click a row to open device
+              details.
+            </p>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
             <input
               type="checkbox"
               checked={showLowConfidence}
@@ -199,58 +248,39 @@ export default function DevicesPage() {
                 )
               }
             />
-            Show low-confidence
+            Show low-confidence devices
           </label>
-
-          {!showLowConfidence &&
-          devices.length !==
-            devices.filter(
-              (d) => d.confidence !== "low",
-            ).length ? (
-            <p className="text-sm text-zinc-500">
-              {
-                devices.filter(
-                  (d) => d.confidence === "low",
-                ).length
-              }{" "}
-              low-confidence devices hidden
-            </p>
-          ) : null}
-
-          <p className="text-sm text-zinc-400">
-            {devicesQuery.isLoading
-              ? "Loading..."
-              : `${visibleDevices.length} shown · ${devices.length} total`}
-          </p>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <input
-          value={search}
-          onChange={(e) =>
-            setSearch(e.target.value)
-          }
-          placeholder="Search label, host, IP, MAC..."
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:max-w-md"
-        />
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
+            placeholder="Search label, host, IP, MAC, or notes..."
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:max-w-md"
+          />
 
-        <select
-          value={sortBy}
-          onChange={(e) =>
-            setSortBy(e.target.value as SortKey)
-          }
-          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
-        >
-          <option value="last_seen">
-            Sort: Last seen
-          </option>
-          <option value="name">Sort: Name</option>
-          <option value="confidence">
-            Sort: Confidence
-          </option>
-        </select>
-      </div>
+          <select
+            value={sortBy}
+            onChange={(e) =>
+              setSortBy(e.target.value as SortKey)
+            }
+            className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
+          >
+            <option value="last_seen">
+              Sort: Last seen
+            </option>
+            <option value="name">
+              Sort: Name
+            </option>
+            <option value="confidence">
+              Sort: Confidence
+            </option>
+          </select>
+        </div>
+      </section>
 
       {devicesQuery.isError ? (
         <QueryState
@@ -283,7 +313,7 @@ export default function DevicesPage() {
           <thead className="bg-zinc-800/50 text-zinc-300">
             <tr>
               <th className="px-4 py-3 text-left">
-                Name
+                Device
               </th>
               <th className="px-4 py-3 text-left">
                 IP
@@ -292,7 +322,7 @@ export default function DevicesPage() {
                 MAC
               </th>
               <th className="px-4 py-3 text-left">
-                Host
+                Hostname
               </th>
               <th className="px-4 py-3 text-left">
                 Last seen
@@ -319,7 +349,9 @@ export default function DevicesPage() {
                   colSpan={6}
                   className="px-4 py-6 text-zinc-400"
                 >
-                  No matching devices.
+                  {hasFiltersApplied
+                    ? "No devices match the current search or filters."
+                    : "No devices have been recorded yet."}
                 </td>
               </tr>
             ) : (
