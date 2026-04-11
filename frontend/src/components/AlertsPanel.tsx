@@ -10,6 +10,12 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  buildAlertHeadline,
+  buildAlertSubtext,
+  formatIncidentState,
+  formatIncidentType,
+} from "../utils/incidentText";
+import {
   api,
   type Alert,
   type AlertHistoryItem,
@@ -492,11 +498,33 @@ export default function AlertsPanel({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 font-medium text-zinc-100">
-                        {alert.message}
+                        {buildAlertHeadline({
+                          entityType:
+                            alert.entity_type,
+                          entityKey:
+                            alert.entity_key,
+                          message: alert.message,
+                        })}
                       </p>
-                      <p className="mt-1 text-sm text-zinc-400">
-                        {alert.entity_type} ·{" "}
-                        {alert.alert_type} ·{" "}
+
+                      <p className="mt-1 line-clamp-1 text-sm text-zinc-300">
+                        {
+                          buildAlertSubtext({
+                            entityType:
+                              alert.entity_type,
+                            entityKey:
+                              alert.entity_key,
+                            message:
+                              alert.message,
+                          }).targetLabel
+                        }
+                      </p>
+
+                      <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
+                        {formatIncidentType(
+                          alert.entity_type,
+                        )}{" "}
+                        · Opened{" "}
                         {formatDate(
                           alert.created_at,
                         )}
@@ -519,9 +547,11 @@ export default function AlertsPanel({
                             : "border-zinc-700 bg-zinc-800 text-zinc-300"
                         }`}
                       >
-                        {alert.is_active
-                          ? "Active"
-                          : "Resolved"}
+                        {formatIncidentState(
+                          alert.is_active
+                            ? "active"
+                            : "resolved",
+                        )}
                       </span>
                       {alert.is_active &&
                       alert.acknowledged_at ? (

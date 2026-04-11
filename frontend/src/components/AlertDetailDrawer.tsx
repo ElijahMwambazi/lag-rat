@@ -4,6 +4,7 @@ import type {
 } from "../services/api";
 import SideDrawer from "./SideDrawer";
 import DrawerDetailSection from "./DrawerDetailSection";
+import { formatIncidentType } from "../utils/incidentText";
 
 type Props = {
   alert: Alert | null;
@@ -97,10 +98,12 @@ export default function AlertDetailDrawer({
     <SideDrawer
       open={open}
       title="Alert details"
-      subtitle={alert.alert_type}
+      subtitle={formatIncidentType(
+        alert.entity_type,
+      )}
       onClose={onClose}
     >
-      <DrawerDetailSection label="Message">
+      <DrawerDetailSection label="Technical message">
         <div className="whitespace-pre-wrap break-words">
           {alert.message}
         </div>
@@ -108,7 +111,7 @@ export default function AlertDetailDrawer({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <DrawerDetailSection label="Entity type">
-          {alert.entity_type}
+          {formatIncidentType(alert.entity_type)}
         </DrawerDetailSection>
 
         <DrawerDetailSection label="Entity key">

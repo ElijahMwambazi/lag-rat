@@ -86,12 +86,12 @@ export default function MetricsPage() {
   const metricsSummary =
     metricsSummaryQuery.data?.items ?? [];
 
-  const allFailed =
+  const allChartsFailed =
     httpQuery.isError &&
     tcpQuery.isError &&
     dnsQuery.isError;
 
-  const totalPointCount = useMemo(
+  const chartPointCount = useMemo(
     () =>
       (httpQuery.data?.length ?? 0) +
       (tcpQuery.data?.length ?? 0) +
@@ -103,6 +103,53 @@ export default function MetricsPage() {
     ],
   );
 
+  const summaryHasAnyChecks = useMemo(
+    () =>
+      metricsSummary.some((item) =>
+        hasMeaningfulMetricsData(item),
+      ),
+    [metricsSummary],
+  );
+
+  const summaryFailed =
+    metricsSummaryQuery.isError;
+  const summaryEmpty =
+    !metricsSummaryQuery.isLoading &&
+    !metricsSummaryQuery.isError &&
+    (!metricsSummary.length ||
+      !summaryHasAnyChecks);
+
+  const everythingEmpty =
+    !allChartsFailed &&
+    chartPointCount === 0 &&
+    summaryEmpty;
+
+  const statusText = useMemo(() => {
+    if (allChartsFailed && summaryFailed) {
+      return "Summary and chart requests failed";
+    }
+
+    if (allChartsFailed) {
+      return "All chart requests failed";
+    }
+
+    if (summaryFailed) {
+      return "Summary request failed";
+    }
+
+    if (everythingEmpty) {
+      return `${formatMetricsWindowLabel(windowMinutes)} · No data in this window yet`;
+    }
+
+    return `${formatMetricsWindowLabel(windowMinutes)} · ${chartPointCount} chart points`;
+  }, [
+    allChartsFailed,
+    summaryFailed,
+    everythingEmpty,
+    windowMinutes,
+    chartPointCount,
+  ]);
+
   return (
     <div className="space-y-8">
       <section className="flex items-start justify-between gap-4">
@@ -111,8 +158,8 @@ export default function MetricsPage() {
             Metrics
           </h2>
           <p className="mt-2 text-zinc-400">
-            Latency and DNS response trends from
-            SQLite-backed probe data.
+            Probe latency and DNS timing for the
+            selected operational window.
           </p>
         </div>
 
@@ -137,18 +184,39 @@ export default function MetricsPage() {
           </select>
 
           <p className="text-sm text-zinc-400">
-            {allFailed
-              ? "All chart requests failed"
-              : `${formatMetricsWindowLabel(windowMinutes)} · ${totalPointCount} points`}
+            {statusText}
           </p>
         </div>
       </section>
 
-      {allFailed ? (
+      {allChartsFailed ? (
         <QueryState
-          title="Metrics requests failed"
+          title="Metrics chart requests failed"
           tone="error"
-          message="All metrics endpoints failed. Check the backend and API base URL."
+          message="All chart endpoints failed. Check the backend and API base URL."
+        />
+      ) : null}
+
+      {summaryFailed ? (
+        <QueryState
+          title="Metrics summary request failed"
+          tone="error"
+          message={
+            metricsSummaryQuery.error instanceof
+            Error
+              ? metricsSummaryQuery.error.message
+              : "The metrics summary endpoint failed."
+          }
+        />
+      ) : null}
+
+      {everythingEmpty ? (
+        <QueryState
+          title="No metrics recorded yet"
+          tone="warning"
+          message={`No probe data was recorded in the selected window (${formatMetricsWindowLabel(
+            windowMinutes,
+          )}).`}
         />
       ) : null}
 

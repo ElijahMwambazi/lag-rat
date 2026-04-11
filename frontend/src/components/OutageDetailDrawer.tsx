@@ -1,6 +1,11 @@
 import type { Outage } from "../services/api";
 import DrawerDetailSection from "./DrawerDetailSection";
 import SideDrawer from "./SideDrawer";
+import {
+  formatIncidentState,
+  formatIncidentType,
+  summarizeOutageCause,
+} from "../utils/incidentText";
 
 type Props = {
   outage: Outage | null;
@@ -39,8 +44,10 @@ export default function OutageDetailDrawer({
   return (
     <SideDrawer
       open={open}
-      title={outage.outage_type}
-      subtitle="Outage details"
+      title={formatIncidentType(
+        outage.outage_type,
+      )}
+      subtitle="Incident details"
       onClose={onClose}
     >
       <DrawerDetailSection label="Target">
@@ -65,11 +72,11 @@ export default function OutageDetailDrawer({
         </DrawerDetailSection>
 
         <DrawerDetailSection label="Status">
-          {outage.status}
+          {formatIncidentState(outage.status)}
         </DrawerDetailSection>
       </div>
 
-      <DrawerDetailSection label="Error">
+      <DrawerDetailSection label="Technical cause">
         <div className="whitespace-pre-wrap break-words">
           {outage.start_error ?? "—"}
         </div>

@@ -15,6 +15,11 @@ import {
   type RecentAlertEventItem,
   type RecentDeviceEventItem,
 } from "../services/api";
+import {
+  formatIncidentState,
+  formatIncidentType,
+  summarizeOutageCause,
+} from "../utils/incidentText";
 import OutageDetailDrawer from "../components/OutageDetailDrawer";
 
 type StatusFilter = "all" | "active" | "resolved";
@@ -95,10 +100,6 @@ function formatDeviceEventType(
     default:
       return eventType.replace(/_/g, " ");
   }
-}
-
-function formatIncidentType(value: string) {
-  return value.replace(/_/g, " ");
 }
 
 function formatTransition(
@@ -1369,25 +1370,22 @@ export default function ReportsPage() {
                 <thead className="bg-zinc-800/50 text-zinc-300">
                   <tr>
                     <th className="px-4 py-3 text-left">
-                      Type
+                      Incident
                     </th>
                     <th className="px-4 py-3 text-left">
-                      Target
+                      Affected target
                     </th>
                     <th className="px-4 py-3 text-left">
-                      Started
+                      Recovered
                     </th>
                     <th className="px-4 py-3 text-left">
-                      Ended
+                      Downtime
                     </th>
                     <th className="px-4 py-3 text-left">
-                      Duration
+                      State
                     </th>
                     <th className="px-4 py-3 text-left">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Error
+                      Cause
                     </th>
                   </tr>
                 </thead>
@@ -1426,8 +1424,9 @@ export default function ReportsPage() {
                           }
                         >
                           <td className="px-4 py-3">
-                            {outage.outage_type ||
-                              "—"}
+                            {formatIncidentType(
+                              outage.outage_type,
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             {outage.target}
@@ -1456,7 +1455,9 @@ export default function ReportsPage() {
                                   : "rounded-full border border-emerald-800 bg-emerald-950 px-2 py-0.5 text-xs text-emerald-300"
                               }
                             >
-                              {outage.status}
+                              {formatIncidentState(
+                                outage.status,
+                              )}
                             </span>
                           </td>
                           <td className="max-w-[420px] px-4 py-3 text-zinc-300">
@@ -1467,8 +1468,9 @@ export default function ReportsPage() {
                                 "—"
                               }
                             >
-                              {outage.start_error ??
-                                "—"}
+                              {summarizeOutageCause(
+                                outage.start_error,
+                              )}
                             </div>
                           </td>
                         </tr>
