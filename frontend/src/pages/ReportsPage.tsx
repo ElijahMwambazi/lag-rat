@@ -249,6 +249,20 @@ function formatReportsWindowLabel(
   return `Last ${windowHours === 24 ? "24h" : "7d"}`;
 }
 
+function outageStartsWithinWindow(
+  startedAt: string,
+  windowHours: 24 | 168,
+) {
+  const started = new Date(startedAt);
+  if (Number.isNaN(started.getTime()))
+    return false;
+
+  const windowStart =
+    Date.now() - windowHours * 60 * 60 * 1000;
+
+  return started.getTime() >= windowStart;
+}
+
 export default function ReportsPage() {
   const [selectedOutage, setSelectedOutage] =
     useState<Outage | null>(null);
@@ -351,6 +365,7 @@ export default function ReportsPage() {
   const outagesQuery = useQuery({
     queryKey: [
       "outages",
+      windowHours,
       statusFilter,
       typeFilter,
       search,
@@ -374,8 +389,19 @@ export default function ReportsPage() {
 
   const outages = outagesQuery.data ?? [];
 
+  const windowedOutages = useMemo(
+    () =>
+      outages.filter((outage) =>
+        outageStartsWithinWindow(
+          outage.started_at,
+          windowHours,
+        ),
+      ),
+    [outages, windowHours],
+  );
+
   const visibleOutages = useMemo(() => {
-    return [...outages].sort((a, b) => {
+    return [...windowedOutages].sort((a, b) => {
       if (sortBy === "started_asc") {
         return (
           new Date(a.started_at).getTime() -
@@ -404,7 +430,7 @@ export default function ReportsPage() {
         new Date(a.started_at).getTime()
       );
     });
-  }, [outages, sortBy]);
+  }, [windowedOutages, sortBy]);
 
   const topIncidentTarget =
     topIncidentTargets[0] ?? null;
@@ -744,7 +770,7 @@ export default function ReportsPage() {
           <p className="text-sm text-zinc-400">
             {outagesQuery.isLoading
               ? "Loading..."
-              : `${visibleOutages.length} shown · ${outages.length} total · ${activeCount} active`}
+              : `${visibleOutages.length} shown · ${windowedOutages.length} in window · ${activeCount} active`}
           </p>
         </div>
       </div>
@@ -1234,7 +1260,8 @@ export default function ReportsPage() {
             </h3>
             <p className="mt-1 text-sm text-zinc-400">
               Search, filter, and inspect outage
-              records for the selected window.
+              records within the selected
+              reporting window.
             </p>
           </div>
 
