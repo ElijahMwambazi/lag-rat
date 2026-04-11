@@ -1,4 +1,4 @@
-# Lag Rat multi-probe patch
+# Lag Rat
 
 This patch adds:
 
