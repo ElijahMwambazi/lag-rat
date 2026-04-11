@@ -31,7 +31,7 @@ export default function DeviceFlags({
 
       {device.is_this_device ? (
         <span className="rounded-full border border-violet-800 bg-violet-950 px-2 py-0.5 text-xs text-violet-300">
-          This Device
+          This device
         </span>
       ) : null}
 

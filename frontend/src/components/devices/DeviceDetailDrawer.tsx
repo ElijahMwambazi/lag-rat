@@ -13,6 +13,86 @@ type Props = {
   onEdit: (device: Device) => void;
 };
 
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? "—"
+    : parsed.toLocaleString();
+}
+
+function formatConfidence(
+  value: Device["confidence"],
+) {
+  if (value === "high") return "High";
+  if (value === "medium") return "Medium";
+  return "Low";
+}
+
+function formatEventType(eventType: string) {
+  switch (eventType) {
+    case "first_seen":
+      return "First seen";
+    case "seen_again":
+      return "Seen again";
+    case "mac_changed":
+      return "MAC address changed";
+    case "hostname_changed":
+      return "Hostname changed";
+    case "label_changed":
+      return "Label updated";
+    case "label_added":
+      return "Label added";
+    case "notes_changed":
+      return "Notes updated";
+    default:
+      return eventType.replace(/_/g, " ");
+  }
+}
+
+function formatEventValues(
+  eventType: string,
+  previousValue?: string | null,
+  newValue?: string | null,
+) {
+  if (!previousValue && !newValue) {
+    return null;
+  }
+
+  if (
+    eventType === "first_seen" ||
+    eventType === "label_added"
+  ) {
+    return newValue ?? null;
+  }
+
+  if (
+    eventType === "notes_changed" &&
+    !previousValue &&
+    newValue
+  ) {
+    return `Added notes: ${newValue}`;
+  }
+
+  if (
+    eventType === "notes_changed" &&
+    previousValue &&
+    !newValue
+  ) {
+    return `Cleared notes: ${previousValue}`;
+  }
+
+  if (!previousValue && newValue) {
+    return `Set to ${newValue}`;
+  }
+
+  if (previousValue && !newValue) {
+    return `Removed: ${previousValue}`;
+  }
+
+  return `${previousValue} → ${newValue}`;
+}
+
 export default function DeviceDetailDrawer({
   device,
   open,
@@ -42,70 +122,6 @@ export default function DeviceDetailDrawer({
     return null;
   }
 
-  function formatEventType(eventType: string) {
-    switch (eventType) {
-      case "first_seen":
-        return "First seen";
-      case "seen_again":
-        return "Seen again";
-      case "mac_changed":
-        return "MAC address changed";
-      case "hostname_changed":
-        return "Hostname changed";
-      case "label_changed":
-        return "Label changed";
-      case "label_added":
-        return "Label added";
-      case "notes_changed":
-        return "Notes changed";
-      default:
-        return eventType.replace(/_/g, " ");
-    }
-  }
-
-  function formatEventValues(
-    eventType: string,
-    previousValue?: string | null,
-    newValue?: string | null,
-  ) {
-    if (!previousValue && !newValue) {
-      return null;
-    }
-
-    if (
-      eventType === "first_seen" ||
-      eventType === "label_added"
-    ) {
-      return newValue ?? null;
-    }
-
-    if (
-      eventType === "notes_changed" &&
-      !previousValue &&
-      newValue
-    ) {
-      return `Added: ${newValue}`;
-    }
-
-    if (
-      eventType === "notes_changed" &&
-      previousValue &&
-      !newValue
-    ) {
-      return `Cleared: ${previousValue}`;
-    }
-
-    if (!previousValue && newValue) {
-      return `Set to ${newValue}`;
-    }
-
-    if (previousValue && !newValue) {
-      return `Removed: ${previousValue}`;
-    }
-
-    return `${previousValue} → ${newValue}`;
-  }
-
   return (
     <SideDrawer
       open={open}
@@ -113,13 +129,17 @@ export default function DeviceDetailDrawer({
       subtitle="Device details"
       onClose={onClose}
     >
-      <div className="space-y-6 px-6 py-5">
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-zinc-200">
-            Flags
+      <div className="space-y-6">
+        <DrawerDetailSection label="Status">
+          <div className="space-y-3">
+            <DeviceFlags device={device} />
+            <p className="text-sm text-zinc-400">
+              {device.is_known
+                ? "Known device with saved identity information."
+                : "Unlabeled device. Add a label to make it easier to recognize later."}
+            </p>
           </div>
-          <DeviceFlags device={device} />
-        </div>
+        </DrawerDetailSection>
 
         {device.notes ? (
           <DrawerDetailSection label="Notes">
@@ -129,47 +149,71 @@ export default function DeviceDetailDrawer({
           </DrawerDetailSection>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <DeviceMetaItem
-            label="IP address"
-            value={device.ip_address}
-          />
-          <DeviceMetaItem
-            label="MAC address"
-            value={device.mac_address ?? "—"}
-          />
-          <DeviceMetaItem
-            label="Hostname"
-            value={device.hostname ?? "—"}
-          />
-          <DeviceMetaItem
-            label="Label"
-            value={device.label ?? "—"}
-          />
-          <DeviceMetaItem
-            label="First seen"
-            value={
-              device.first_seen
-                ? new Date(
-                    device.first_seen,
-                  ).toLocaleString()
-                : "—"
+        <DrawerDetailSection label="Identity">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DeviceMetaItem
+              label="IP address"
+              value={device.ip_address}
+            />
+            <DeviceMetaItem
+              label="Hostname"
+              value={device.hostname ?? "—"}
+            />
+            <DeviceMetaItem
+              label="MAC address"
+              value={device.mac_address ?? "—"}
+            />
+            <DeviceMetaItem
+              label="Label"
+              value={device.label ?? "—"}
+            />
+            <DeviceMetaItem
+              label="Confidence"
+              value={formatConfidence(
+                device.confidence,
+              )}
+            />
+            <DeviceMetaItem
+              label="First seen"
+              value={formatDate(
+                device.first_seen,
+              )}
+            />
+            <DeviceMetaItem
+              label="Last seen"
+              value={formatDate(device.last_seen)}
+            />
+          </div>
+        </DrawerDetailSection>
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900"
+            onClick={() => onEdit(device)}
+          >
+            {device.is_known
+              ? "Edit label"
+              : "Add label"}
+          </button>
+
+          <button
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+            onClick={() =>
+              copyText(device.ip_address)
             }
-          />
-          <DeviceMetaItem
-            label="Last seen"
-            value={
-              device.last_seen
-                ? new Date(
-                    device.last_seen,
-                  ).toLocaleString()
-                : "—"
+          >
+            Copy IP
+          </button>
+
+          <button
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() =>
+              copyText(device.mac_address)
             }
-          />
-          <DeviceMetaItem
-            label="Confidence"
-            value={device.confidence}
-          />
+            disabled={!device.mac_address}
+          >
+            Copy MAC
+          </button>
         </div>
 
         <DrawerDetailSection label="Timeline">
@@ -196,9 +240,9 @@ export default function DeviceDetailDrawer({
                         )}
                       </p>
                       <p className="text-xs text-zinc-400">
-                        {new Date(
+                        {formatDate(
                           item.created_at,
-                        ).toLocaleString()}
+                        )}
                       </p>
                     </div>
 
@@ -225,36 +269,6 @@ export default function DeviceDetailDrawer({
             )}
           </div>
         </DrawerDetailSection>
-
-        <div className="flex flex-wrap gap-3">
-          <button
-            className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900"
-            onClick={() => onEdit(device)}
-          >
-            {device.is_known
-              ? "Edit label"
-              : "Add label"}
-          </button>
-
-          <button
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
-            onClick={() =>
-              copyText(device.ip_address)
-            }
-          >
-            Copy IP
-          </button>
-
-          <button
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
-            onClick={() =>
-              copyText(device.mac_address)
-            }
-            disabled={!device.mac_address}
-          >
-            Copy MAC
-          </button>
-        </div>
       </div>
     </SideDrawer>
   );

@@ -91,22 +91,28 @@ export default function DeviceRow({
             </div>
 
             {device.notes ? (
-              <div className="text-xs text-zinc-400">
+              <div className="line-clamp-2 text-xs text-zinc-400">
                 {device.notes}
               </div>
             ) : null}
 
-            <button
-              className="block text-left text-xs text-zinc-400 underline underline-offset-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartEdit(device);
-              }}
-            >
-              {device.is_known
-                ? "Edit label"
-                : "Add label"}
-            </button>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                className="text-left text-xs text-zinc-300 underline underline-offset-2 hover:text-zinc-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartEdit(device);
+                }}
+              >
+                {device.is_known
+                  ? "Edit label"
+                  : "Add label"}
+              </button>
+
+              <span className="text-[11px] text-zinc-500">
+                Click row for details
+              </span>
+            </div>
           </div>
         )}
       </td>
