@@ -6,8 +6,9 @@ use sqlx::{Row, SqlitePool};
 
 use crate::models::{
     Alert, ConnectivityCheck, Device, DeviceHistoryEvent, DnsCheck, IncidentTargetSummaryItem,
-    KnownDevice, Outage, RecentAlertEventItem, RecentDeviceEventItem, ReportSummaryResponse,
-    ReportTrendPoint, SummaryResponse, TimeseriesPoint,
+    KnownDevice, MetricsSummaryResponse, Outage, ProbeMetricsSummaryItem, RecentAlertEventItem,
+    RecentDeviceEventItem, ReportSummaryResponse, ReportTrendPoint, SummaryResponse,
+    TimeseriesPoint,
 };
 
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
@@ -375,6 +376,163 @@ pub async fn report_summary(
         active_alert_count,
         active_critical_alert_count,
         active_unacknowledged_alert_count,
+    })
+}
+
+pub async fn metrics_summary(
+    pool: &SqlitePool,
+    minutes: i64,
+) -> anyhow::Result<MetricsSummaryResponse> {
+    let http = connectivity_probe_metrics_summary(
+        pool,
+        "internet_http",
+        "internet_http",
+        "Internet HTTP",
+        minutes,
+    )
+    .await?;
+
+    let tcp = connectivity_probe_metrics_summary(
+        pool,
+        "internet_tcp",
+        "internet_tcp",
+        "Internet TCP",
+        minutes,
+    )
+    .await?;
+
+    let dns = dns_probe_metrics_summary(pool, "dns", "DNS", minutes).await?;
+
+    Ok(MetricsSummaryResponse {
+        window_minutes: minutes as u32,
+        items: vec![http, tcp, dns],
+    })
+}
+
+async fn connectivity_probe_metrics_summary(
+    pool: &SqlitePool,
+    key: &str,
+    probe_kind: &str,
+    label: &str,
+    minutes: i64,
+) -> anyhow::Result<ProbeMetricsSummaryItem> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            COUNT(*) AS total_checks,
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+            SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failure_count,
+            AVG(latency_ms) AS avg_latency_ms,
+            MAX(timestamp) AS last_checked_at
+        FROM connectivity_checks
+        WHERE probe_kind = ?1
+          AND timestamp >= datetime('now', '-' || ?2 || ' minutes')
+        "#,
+    )
+    .bind(probe_kind)
+    .bind(minutes)
+    .fetch_one(pool)
+    .await?;
+
+    let latest_row = sqlx::query(
+        r#"
+        SELECT latency_ms
+        FROM connectivity_checks
+        WHERE probe_kind = ?1
+          AND timestamp >= datetime('now', '-' || ?2 || ' minutes')
+        ORDER BY timestamp DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(probe_kind)
+    .bind(minutes)
+    .fetch_optional(pool)
+    .await?;
+
+    let total_checks: i64 = row.get("total_checks");
+    let success_count: i64 = row.try_get("success_count").unwrap_or(0);
+    let failure_count: i64 = row.try_get("failure_count").unwrap_or(0);
+    let avg_latency_ms: Option<f64> = row.try_get("avg_latency_ms").ok();
+    let last_checked_at: Option<DateTime<Utc>> = row.try_get("last_checked_at").ok();
+    let latest_latency_ms: Option<f64> = latest_row
+        .as_ref()
+        .and_then(|latest| latest.try_get("latency_ms").ok());
+
+    Ok(ProbeMetricsSummaryItem {
+        key: key.to_string(),
+        label: label.to_string(),
+        total_checks: total_checks as u32,
+        success_count: success_count as u32,
+        failure_count: failure_count as u32,
+        success_rate_pct: if total_checks > 0 {
+            (success_count as f64 / total_checks as f64) * 100.0
+        } else {
+            0.0
+        },
+        avg_latency_ms: avg_latency_ms.unwrap_or(0.0),
+        latest_latency_ms,
+        last_checked_at,
+    })
+}
+
+async fn dns_probe_metrics_summary(
+    pool: &SqlitePool,
+    key: &str,
+    label: &str,
+    minutes: i64,
+) -> anyhow::Result<ProbeMetricsSummaryItem> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            COUNT(*) AS total_checks,
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+            SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failure_count,
+            AVG(response_time_ms) AS avg_latency_ms,
+            MAX(timestamp) AS last_checked_at
+        FROM dns_checks
+        WHERE timestamp >= datetime('now', '-' || ?1 || ' minutes')
+        "#,
+    )
+    .bind(minutes)
+    .fetch_one(pool)
+    .await?;
+
+    let latest_row = sqlx::query(
+        r#"
+        SELECT response_time_ms
+        FROM dns_checks
+        WHERE timestamp >= datetime('now', '-' || ?1 || ' minutes')
+        ORDER BY timestamp DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(minutes)
+    .fetch_optional(pool)
+    .await?;
+
+    let total_checks: i64 = row.get("total_checks");
+    let success_count: i64 = row.try_get("success_count").unwrap_or(0);
+    let failure_count: i64 = row.try_get("failure_count").unwrap_or(0);
+    let avg_latency_ms: Option<f64> = row.try_get("avg_latency_ms").ok();
+    let last_checked_at: Option<DateTime<Utc>> = row.try_get("last_checked_at").ok();
+    let latest_latency_ms: Option<f64> = latest_row
+        .as_ref()
+        .and_then(|latest| latest.try_get("response_time_ms").ok());
+
+    Ok(ProbeMetricsSummaryItem {
+        key: key.to_string(),
+        label: label.to_string(),
+        total_checks: total_checks as u32,
+        success_count: success_count as u32,
+        failure_count: failure_count as u32,
+        success_rate_pct: if total_checks > 0 {
+            (success_count as f64 / total_checks as f64) * 100.0
+        } else {
+            0.0
+        },
+        avg_latency_ms: avg_latency_ms.unwrap_or(0.0),
+        latest_latency_ms,
+        last_checked_at,
     })
 }
 

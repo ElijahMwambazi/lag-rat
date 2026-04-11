@@ -179,6 +179,23 @@ export type ReportTrendPoint = {
   internet_tcp_failure_count: number;
 };
 
+export type ProbeMetricsSummaryItem = {
+  key: string;
+  label: string;
+  total_checks: number;
+  success_count: number;
+  failure_count: number;
+  success_rate_pct: number;
+  avg_latency_ms: number;
+  latest_latency_ms?: number | null;
+  last_checked_at?: string | null;
+};
+
+export type MetricsSummaryResponse = {
+  window_minutes: number;
+  items: ProbeMetricsSummaryItem[];
+};
+
 export type ReportSnapshotResponse = {
   generated_at: string;
   window_hours: number;
@@ -295,6 +312,10 @@ export const api = {
   getReportTrends: (hours = 24) =>
     getJson<ReportTrendPoint[]>(
       `/api/reports/trends?hours=${hours}`,
+    ),
+  getMetricsSummary: (minutes = 60) =>
+    getJson<MetricsSummaryResponse>(
+      `/api/metrics/summary?minutes=${minutes}`,
     ),
   getReportsSnapshot: (hours = 24) =>
     getJson<ReportSnapshotResponse>(

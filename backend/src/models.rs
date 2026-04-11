@@ -306,3 +306,22 @@ pub struct ReportTrendPoint {
     pub internet_http_failure_count: u32,
     pub internet_tcp_failure_count: u32,
 }
+
+#[derive(Debug, Serialize)]
+pub struct ProbeMetricsSummaryItem {
+    pub key: String,
+    pub label: String,
+    pub total_checks: u32,
+    pub success_count: u32,
+    pub failure_count: u32,
+    pub success_rate_pct: f64,
+    pub avg_latency_ms: f64,
+    pub latest_latency_ms: Option<f64>,
+    pub last_checked_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MetricsSummaryResponse {
+    pub window_minutes: u32,
+    pub items: Vec<ProbeMetricsSummaryItem>,
+}

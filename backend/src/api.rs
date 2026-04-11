@@ -12,9 +12,9 @@ use crate::{
     db,
     models::{
         AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
-        IncidentTargetSummaryItem, KnownDeviceView, OutageReportItem, RecentAlertEventItem,
-        RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse, ReportTrendPoint,
-        SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
+        IncidentTargetSummaryItem, KnownDeviceView, MetricsSummaryResponse, OutageReportItem,
+        RecentAlertEventItem, RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse,
+        ReportTrendPoint, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -65,6 +65,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/dns/history", get(get_dns_history))
         .route("/api/stats/summary", get(get_summary))
         .route("/api/reports/summary", get(get_reports_summary))
+        .route("/api/metrics/summary", get(get_metrics_summary))
         .route("/api/reports/snapshot", get(get_reports_snapshot))
         .route("/api/alerts", get(get_alerts))
         .route(
@@ -187,6 +188,19 @@ async fn get_reports_summary(
 
     Ok(Json(
         db::report_summary(&state.db, hours)
+            .await
+            .map_err(internal_error)?,
+    ))
+}
+
+async fn get_metrics_summary(
+    State(state): State<AppState>,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<MetricsSummaryResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let minutes = query.minutes.unwrap_or(60).min(60 * 24 * 7) as i64;
+
+    Ok(Json(
+        db::metrics_summary(&state.db, minutes)
             .await
             .map_err(internal_error)?,
     ))
