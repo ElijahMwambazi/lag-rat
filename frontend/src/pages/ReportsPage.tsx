@@ -792,7 +792,7 @@ export default function ReportsPage() {
         />
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           label={`Uptime (${windowHours === 24 ? "24h" : "7d"})`}
           value={
@@ -822,7 +822,7 @@ export default function ReportsPage() {
           }
           hint={
             reportsSummary
-              ? `Downtime ${formatDurationCompact(reportsSummary.total_downtime_seconds)}`
+              ? `Total downtime ${formatDurationCompact(reportsSummary.total_downtime_seconds)}`
               : "Waiting for report summary"
           }
         />
@@ -840,7 +840,7 @@ export default function ReportsPage() {
           }
           hint={
             reportsSummary
-              ? `${windowHours === 24 ? "24h" : "7d"} failure count`
+              ? `Window failure count`
               : "Waiting for report summary"
           }
         />
@@ -858,7 +858,7 @@ export default function ReportsPage() {
           }
           hint={
             reportsSummary
-              ? `${windowHours === 24 ? "24h" : "7d"} activity`
+              ? `Recorded changes`
               : "Waiting for report summary"
           }
         />
@@ -1352,7 +1352,7 @@ export default function ReportsPage() {
                         .value as StatusFilter,
                     )
                   }
-                  className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 xl:w-auto"
                 >
                   <option value="all">
                     All statuses
@@ -1372,7 +1372,7 @@ export default function ReportsPage() {
                       e.target.value as SortKey,
                     )
                   }
-                  className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 xl:w-auto"
                 >
                   <option value="started_desc">
                     Newest first
@@ -1392,7 +1392,7 @@ export default function ReportsPage() {
 
             <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
               <div className="overflow-x-auto">
-                <table className="min-w-[980px] w-full text-sm">
+                <table className="w-full min-w-[980px] text-sm">
                   <thead className="bg-zinc-800/50 text-zinc-300">
                     <tr>
                       <th className="px-4 py-3 text-left">
@@ -1507,6 +1507,7 @@ export default function ReportsPage() {
                   </tbody>
                 </table>
               </div>
+
               <OutageDetailDrawer
                 outage={selectedOutage}
                 open={!!selectedOutage}

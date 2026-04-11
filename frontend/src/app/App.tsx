@@ -29,24 +29,26 @@ export default function App() {
             </p>
           </div>
 
-          <nav className="-mx-1 flex items-center gap-2 overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/70 p-1 [scrollbar-width:none] sm:mx-0">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) =>
-                  [
-                    "whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-zinc-100 text-zinc-900 shadow-sm ring-1 ring-zinc-200/70"
-                      : "text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100",
-                  ].join(" ")
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
+          <nav className="self-start max-w-full overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/70 p-1 [scrollbar-width:none] lg:self-auto">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/"}
+                  className={({ isActive }) =>
+                    [
+                      "whitespace-nowrap rounded-xl px-3 py-1.5 text-sm font-medium transition-colors sm:py-2",
+                      isActive
+                        ? "bg-zinc-100 text-zinc-900 shadow-sm ring-1 ring-zinc-200/70"
+                        : "text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100",
+                    ].join(" ")
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
           </nav>
         </div>
       </header>

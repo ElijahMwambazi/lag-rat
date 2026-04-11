@@ -310,7 +310,7 @@ export default function DevicesPage() {
 
       <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
         <div className="overflow-x-auto">
-          <table className="min-w-[880px] w-full text-sm">
+          <table className="w-full min-w-[880px] text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
               <tr>
                 <th className="px-4 py-3 text-left">
@@ -408,6 +408,7 @@ export default function DevicesPage() {
             </tbody>
           </table>
         </div>
+
         <DeviceDetailDrawer
           device={selectedDevice}
           open={selectedDevice !== null}
