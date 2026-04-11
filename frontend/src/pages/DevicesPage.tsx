@@ -406,14 +406,13 @@ export default function DevicesPage() {
             )}
           </tbody>
         </table>
+        <DeviceDetailDrawer
+          device={selectedDevice}
+          open={selectedDevice !== null}
+          onClose={() => setSelectedDevice(null)}
+          onEdit={startEdit}
+        />
       </div>
-
-      <DeviceDetailDrawer
-        device={selectedDevice}
-        open={selectedDevice !== null}
-        onClose={() => setSelectedDevice(null)}
-        onEdit={startEdit}
-      />
     </div>
   );
 }
