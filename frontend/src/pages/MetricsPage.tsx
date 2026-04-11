@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import ChartCard from "../components/ChartCard";
 import QueryState from "../components/QueryState";
+import StateCard from "../components/StateCard";
 import {
   api,
   type ProbeMetricsSummaryItem,
@@ -39,34 +40,6 @@ function hasMeaningfulMetricsData(
   item: ProbeMetricsSummaryItem,
 ) {
   return item.total_checks > 0;
-}
-
-function SummaryCardState({
-  title,
-  message,
-  tone = "neutral",
-}: {
-  title: string;
-  message: string;
-  tone?: "neutral" | "warning" | "error";
-}) {
-  const toneClasses =
-    tone === "error"
-      ? "border-red-900 bg-red-950/40 text-red-300"
-      : tone === "warning"
-        ? "border-amber-900 bg-amber-950/40 text-amber-300"
-        : "border-zinc-800 bg-zinc-900 text-zinc-400";
-
-  return (
-    <div
-      className={`rounded-2xl border p-5 ${toneClasses}`}
-    >
-      <h3 className="text-lg font-medium">
-        {title}
-      </h3>
-      <p className="mt-3 text-sm">{message}</p>
-    </div>
-  );
 }
 
 export default function MetricsPage() {
@@ -177,32 +150,32 @@ export default function MetricsPage() {
         {metricsSummaryQuery.isLoading &&
         metricsSummary.length === 0 ? (
           <>
-            <SummaryCardState
+            <StateCard
               title="Internet HTTP"
               message="Loading summary..."
             />
-            <SummaryCardState
+            <StateCard
               title="Internet TCP"
               message="Loading summary..."
             />
-            <SummaryCardState
+            <StateCard
               title="DNS"
               message="Loading summary..."
             />
           </>
         ) : metricsSummaryQuery.isError ? (
           <>
-            <SummaryCardState
+            <StateCard
               title="Internet HTTP"
               tone="error"
               message="Could not load summary."
             />
-            <SummaryCardState
+            <StateCard
               title="Internet TCP"
               tone="error"
               message="Could not load summary."
             />
-            <SummaryCardState
+            <StateCard
               title="DNS"
               tone="error"
               message="Could not load summary."
@@ -210,17 +183,17 @@ export default function MetricsPage() {
           </>
         ) : metricsSummary.length === 0 ? (
           <>
-            <SummaryCardState
+            <StateCard
               title="Internet HTTP"
               tone="warning"
               message="No summary data available yet."
             />
-            <SummaryCardState
+            <StateCard
               title="Internet TCP"
               tone="warning"
               message="No summary data available yet."
             />
-            <SummaryCardState
+            <StateCard
               title="DNS"
               tone="warning"
               message="No summary data available yet."
@@ -230,7 +203,7 @@ export default function MetricsPage() {
           metricsSummary.map(
             (item: ProbeMetricsSummaryItem) =>
               !hasMeaningfulMetricsData(item) ? (
-                <SummaryCardState
+                <StateCard
                   key={item.key}
                   title={item.label}
                   tone="warning"
