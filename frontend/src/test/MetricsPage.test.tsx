@@ -127,7 +127,7 @@ describe("MetricsPage", () => {
 
     expect(
       await screen.findByText(
-        "No metrics recorded yet",
+        "No metrics recorded in this window",
       ),
     ).toBeInTheDocument();
   });

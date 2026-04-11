@@ -123,7 +123,7 @@ describe("ReportsPage", () => {
 
     expect(
       await screen.findByText(
-        "No recent alert events in this window.",
+        "No recent alert events were recorded in this window.",
       ),
     ).toBeInTheDocument();
   });
