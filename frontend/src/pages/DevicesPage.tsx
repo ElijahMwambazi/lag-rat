@@ -193,7 +193,7 @@ export default function DevicesPage() {
 
   return (
     <div className="space-y-6">
-      <section className="flex items-start justify-between gap-4">
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold">
             Devices
@@ -205,7 +205,7 @@ export default function DevicesPage() {
           </p>
         </div>
 
-        <div className="text-right">
+        <div className="text-left sm:text-right">
           <p className="text-sm text-zinc-400">
             {devicesQuery.isLoading
               ? "Loading..."
@@ -252,14 +252,14 @@ export default function DevicesPage() {
           </label>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:flex lg:flex-row lg:items-center">
           <input
             value={search}
             onChange={(e) =>
               setSearch(e.target.value)
             }
             placeholder="Search label, host, IP, MAC, or notes..."
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:max-w-md"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 lg:max-w-md"
           />
 
           <select
@@ -267,7 +267,7 @@ export default function DevicesPage() {
             onChange={(e) =>
               setSortBy(e.target.value as SortKey)
             }
-            className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 sm:w-auto"
           >
             <option value="last_seen">
               Sort: Last seen
@@ -309,103 +309,105 @@ export default function DevicesPage() {
       ) : null}
 
       <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-        <table className="min-w-full text-sm">
-          <thead className="bg-zinc-800/50 text-zinc-300">
-            <tr>
-              <th className="px-4 py-3 text-left">
-                Device
-              </th>
-              <th className="px-4 py-3 text-left">
-                IP
-              </th>
-              <th className="px-4 py-3 text-left">
-                MAC
-              </th>
-              <th className="px-4 py-3 text-left">
-                Hostname
-              </th>
-              <th className="px-4 py-3 text-left">
-                Last seen
-              </th>
-              <th className="px-4 py-3 text-left">
-                Flags
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {devicesQuery.isLoading &&
-            devices.length === 0 ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-[880px] w-full text-sm">
+            <thead className="bg-zinc-800/50 text-zinc-300">
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-6 text-zinc-400"
-                >
-                  Loading devices...
-                </td>
+                <th className="px-4 py-3 text-left">
+                  Device
+                </th>
+                <th className="px-4 py-3 text-left">
+                  IP
+                </th>
+                <th className="px-4 py-3 text-left">
+                  MAC
+                </th>
+                <th className="px-4 py-3 text-left">
+                  Hostname
+                </th>
+                <th className="px-4 py-3 text-left">
+                  Last seen
+                </th>
+                <th className="px-4 py-3 text-left">
+                  Flags
+                </th>
               </tr>
-            ) : visibleDevices.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-6 text-zinc-400"
-                >
-                  {hasFiltersApplied
-                    ? "No devices match the current search or filters."
-                    : "No devices have been recorded yet."}
-                </td>
-              </tr>
-            ) : (
-              visibleDevices.map((device) => (
-                <DeviceRow
-                  key={device.id}
-                  device={device}
-                  editingId={editingId}
-                  isSaving={
-                    saveKnownDeviceMutation.isPending &&
-                    editingId === device.id
-                  }
-                  label={label}
-                  notes={notes}
-                  onStartEdit={startEdit}
-                  onCancelEdit={() => {
-                    if (
-                      saveKnownDeviceMutation.isPending
-                    ) {
-                      return;
+            </thead>
+            <tbody>
+              {devicesQuery.isLoading &&
+              devices.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-6 text-zinc-400"
+                  >
+                    Loading devices...
+                  </td>
+                </tr>
+              ) : visibleDevices.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-6 text-zinc-400"
+                  >
+                    {hasFiltersApplied
+                      ? "No devices match the current search or filters."
+                      : "No devices have been recorded yet."}
+                  </td>
+                </tr>
+              ) : (
+                visibleDevices.map((device) => (
+                  <DeviceRow
+                    key={device.id}
+                    device={device}
+                    editingId={editingId}
+                    isSaving={
+                      saveKnownDeviceMutation.isPending &&
+                      editingId === device.id
                     }
+                    label={label}
+                    notes={notes}
+                    onStartEdit={startEdit}
+                    onCancelEdit={() => {
+                      if (
+                        saveKnownDeviceMutation.isPending
+                      ) {
+                        return;
+                      }
 
-                    setEditingId(null);
-                    setLabel("");
-                    setNotes("");
-                  }}
-                  onSave={(device) => {
-                    if (
-                      saveKnownDeviceMutation.isPending
-                    ) {
-                      return;
+                      setEditingId(null);
+                      setLabel("");
+                      setNotes("");
+                    }}
+                    onSave={(device) => {
+                      if (
+                        saveKnownDeviceMutation.isPending
+                      ) {
+                        return;
+                      }
+
+                      saveKnownDeviceMutation.mutate(
+                        {
+                          ip_address:
+                            device.ip_address,
+                          mac_address:
+                            device.mac_address,
+                          label,
+                          notes,
+                        },
+                      );
+                    }}
+                    onLabelChange={setLabel}
+                    onNotesChange={setNotes}
+                    onOpenDetails={
+                      setSelectedDevice
                     }
-
-                    saveKnownDeviceMutation.mutate(
-                      {
-                        ip_address:
-                          device.ip_address,
-                        mac_address:
-                          device.mac_address,
-                        label,
-                        notes,
-                      },
-                    );
-                  }}
-                  onLabelChange={setLabel}
-                  onNotesChange={setNotes}
-                  onOpenDetails={
-                    setSelectedDevice
-                  }
-                />
-              ))
-            )}
-          </tbody>
-        </table>
+                  />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
         <DeviceDetailDrawer
           device={selectedDevice}
           open={selectedDevice !== null}

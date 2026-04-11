@@ -30,9 +30,9 @@ export default function SideDrawer({
         className={`h-full w-full ${widthClass} overflow-y-auto border-l border-zinc-800 bg-zinc-900 shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between border-b border-zinc-800 px-6 py-5">
-          <div>
-            <h3 className="text-xl font-semibold text-zinc-100">
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-800 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-zinc-100 sm:text-xl">
               {title}
             </h3>
             {subtitle ? (
@@ -43,14 +43,14 @@ export default function SideDrawer({
           </div>
 
           <button
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
+            className="shrink-0 rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
             onClick={onClose}
           >
             Close
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-5 text-sm">
+        <div className="space-y-4 px-4 py-4 text-sm sm:px-6 sm:py-5">
           {children}
         </div>
       </div>

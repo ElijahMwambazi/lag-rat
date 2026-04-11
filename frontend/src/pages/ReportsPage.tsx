@@ -729,14 +729,14 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h2 className="text-2xl font-semibold">
             Reports
           </h2>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <select
             value={windowHours}
             onChange={(e) =>
@@ -1279,7 +1279,7 @@ export default function ReportsPage() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-lg font-medium">
               Outage explorer
@@ -1308,15 +1308,15 @@ export default function ReportsPage() {
 
         {showOutageExplorer ? (
           <>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:flex xl:flex-row xl:items-center">
                 <input
                   value={search}
                   onChange={(e) =>
                     setSearch(e.target.value)
                   }
                   placeholder="Search target, type, status, error..."
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:min-w-[320px]"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 xl:min-w-[320px]"
                 />
 
                 <select
@@ -1327,7 +1327,7 @@ export default function ReportsPage() {
                         .value as TypeFilter,
                     )
                   }
-                  className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 xl:w-auto"
                 >
                   <option value="all">
                     All types
@@ -1391,120 +1391,122 @@ export default function ReportsPage() {
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-              <table className="min-w-full text-sm">
-                <thead className="bg-zinc-800/50 text-zinc-300">
-                  <tr>
-                    <th className="px-4 py-3 text-left">
-                      Incident
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Affected target
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Recovered
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Downtime
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      State
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Cause
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {outagesQuery.isLoading &&
-                  outages.length === 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-[980px] w-full text-sm">
+                  <thead className="bg-zinc-800/50 text-zinc-300">
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="px-4 py-6 text-zinc-400"
-                      >
-                        Loading outages...
-                      </td>
+                      <th className="px-4 py-3 text-left">
+                        Incident
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        Affected target
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        Recovered
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        Downtime
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        State
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        Cause
+                      </th>
                     </tr>
-                  ) : visibleOutages.length ===
-                    0 ? (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="px-4 py-6 text-zinc-400"
-                      >
-                        No outage records match
-                        the current search or
-                        filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    visibleOutages.map(
-                      (outage) => (
-                        <tr
-                          key={`${outage.id}-${outage.started_at}-${outage.target}`}
-                          className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
-                          onClick={() =>
-                            setSelectedOutage(
-                              outage,
-                            )
-                          }
+                  </thead>
+                  <tbody>
+                    {outagesQuery.isLoading &&
+                    outages.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-6 text-zinc-400"
                         >
-                          <td className="px-4 py-3">
-                            {formatIncidentType(
-                              outage.outage_type,
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {outage.target}
-                          </td>
-                          <td className="px-4 py-3">
-                            {formatDate(
-                              outage.started_at,
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {formatDate(
-                              outage.ended_at,
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {formatDuration(
-                              outage.duration_seconds,
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={
-                                outage.status ===
-                                "active"
-                                  ? "rounded-full border border-red-800 bg-red-950 px-2 py-0.5 text-xs text-red-300"
-                                  : "rounded-full border border-emerald-800 bg-emerald-950 px-2 py-0.5 text-xs text-emerald-300"
-                              }
-                            >
-                              {formatIncidentState(
-                                outage.status,
+                          Loading outages...
+                        </td>
+                      </tr>
+                    ) : visibleOutages.length ===
+                      0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-6 text-zinc-400"
+                        >
+                          No outage records match
+                          the current search or
+                          filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      visibleOutages.map(
+                        (outage) => (
+                          <tr
+                            key={`${outage.id}-${outage.started_at}-${outage.target}`}
+                            className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
+                            onClick={() =>
+                              setSelectedOutage(
+                                outage,
+                              )
+                            }
+                          >
+                            <td className="px-4 py-3">
+                              {formatIncidentType(
+                                outage.outage_type,
                               )}
-                            </span>
-                          </td>
-                          <td className="max-w-[420px] px-4 py-3 text-zinc-300">
-                            <div
-                              className="truncate"
-                              title={
-                                outage.start_error ??
-                                "—"
-                              }
-                            >
-                              {summarizeOutageCause(
-                                outage.start_error,
+                            </td>
+                            <td className="px-4 py-3">
+                              {outage.target}
+                            </td>
+                            <td className="px-4 py-3">
+                              {formatDate(
+                                outage.started_at,
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      ),
-                    )
-                  )}
-                </tbody>
-              </table>
+                            </td>
+                            <td className="px-4 py-3">
+                              {formatDate(
+                                outage.ended_at,
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {formatDuration(
+                                outage.duration_seconds,
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={
+                                  outage.status ===
+                                  "active"
+                                    ? "rounded-full border border-red-800 bg-red-950 px-2 py-0.5 text-xs text-red-300"
+                                    : "rounded-full border border-emerald-800 bg-emerald-950 px-2 py-0.5 text-xs text-emerald-300"
+                                }
+                              >
+                                {formatIncidentState(
+                                  outage.status,
+                                )}
+                              </span>
+                            </td>
+                            <td className="max-w-[420px] px-4 py-3 text-zinc-300">
+                              <div
+                                className="truncate"
+                                title={
+                                  outage.start_error ??
+                                  "—"
+                                }
+                              >
+                                {summarizeOutageCause(
+                                  outage.start_error,
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ),
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
               <OutageDetailDrawer
                 outage={selectedOutage}
                 open={!!selectedOutage}

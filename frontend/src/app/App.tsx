@@ -19,9 +19,9 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/85 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/75">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight">
+            <h1 className="text-lg font-semibold tracking-tight sm:text-xl">
               Lag Rat
             </h1>
             <p className="mt-0.5 text-xs text-zinc-500">
@@ -29,7 +29,7 @@ export default function App() {
             </p>
           </div>
 
-          <nav className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-1 sm:flex-nowrap sm:overflow-x-auto">
+          <nav className="-mx-1 flex items-center gap-2 overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/70 p-1 [scrollbar-width:none] sm:mx-0">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -37,7 +37,7 @@ export default function App() {
                 end={item.to === "/"}
                 className={({ isActive }) =>
                   [
-                    "rounded-xl px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
+                    "whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-colors",
                     isActive
                       ? "bg-zinc-100 text-zinc-900 shadow-sm ring-1 ring-zinc-200/70"
                       : "text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100",
@@ -51,7 +51,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <Routes>
           <Route
             path="/"
