@@ -272,17 +272,17 @@ export const api = {
     getJson<AlertHistoryItem[]>(
       `/api/alerts/${id}/history`,
     ),
-  getHealthHistory: () =>
+  getHealthHistory: (minutes = 60) =>
     getJson<TimeseriesPoint[]>(
-      "/api/health/history?minutes=60",
+      `/api/health/history?minutes=${minutes}`,
     ),
-  getHealthHistoryTcp: () =>
+  getHealthHistoryTcp: (minutes = 60) =>
     getJson<TimeseriesPoint[]>(
-      "/api/health/history/tcp?minutes=60",
+      `/api/health/history/tcp?minutes=${minutes}`,
     ),
-  getDnsHistory: () =>
+  getDnsHistory: (minutes = 60) =>
     getJson<TimeseriesPoint[]>(
-      "/api/dns/history?minutes=60",
+      `/api/dns/history?minutes=${minutes}`,
     ),
   getSummary: () =>
     getJson<SummaryResponse>(
