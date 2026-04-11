@@ -14,6 +14,7 @@ import {
   type RecentAlertEventItem,
   type RecentDeviceEventItem,
 } from "../services/api";
+import OutageDetailDrawer from "../components/OutageDetailDrawer";
 
 type StatusFilter = "all" | "active" | "resolved";
 type TypeFilter =
@@ -1430,120 +1431,13 @@ export default function ReportsPage() {
                   )}
                 </tbody>
               </table>
-              {selectedOutage ? (
-                <div
-                  className="fixed inset-0 z-50 flex justify-end bg-black/50"
-                  onClick={() =>
-                    setSelectedOutage(null)
-                  }
-                >
-                  <div
-                    className="h-full w-full max-w-xl overflow-y-auto border-l border-zinc-800 bg-zinc-900 shadow-2xl"
-                    onClick={(e) =>
-                      e.stopPropagation()
-                    }
-                  >
-                    <div className="flex items-start justify-between border-b border-zinc-800 px-6 py-5">
-                      <div>
-                        <h3 className="text-xl font-semibold text-zinc-100">
-                          {
-                            selectedOutage.outage_type
-                          }
-                        </h3>
-                        <p className="mt-1 text-sm text-zinc-400">
-                          Outage details
-                        </p>
-                      </div>
-
-                      <button
-                        className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
-                        onClick={() =>
-                          setSelectedOutage(null)
-                        }
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    <div className="space-y-4 px-6 py-5 text-sm">
-                      <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                        <div className="text-xs uppercase tracking-wide text-zinc-500">
-                          Target
-                        </div>
-                        <div className="mt-2 break-all text-zinc-100">
-                          {selectedOutage.target}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                          <div className="text-xs uppercase tracking-wide text-zinc-500">
-                            Started
-                          </div>
-                          <div className="mt-2 text-zinc-100">
-                            {formatDate(
-                              selectedOutage.started_at,
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                          <div className="text-xs uppercase tracking-wide text-zinc-500">
-                            Ended
-                          </div>
-                          <div className="mt-2 text-zinc-100">
-                            {formatDate(
-                              selectedOutage.ended_at,
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                          <div className="text-xs uppercase tracking-wide text-zinc-500">
-                            Duration
-                          </div>
-                          <div className="mt-2 text-zinc-100">
-                            {formatDuration(
-                              selectedOutage.duration_seconds,
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                          <div className="text-xs uppercase tracking-wide text-zinc-500">
-                            Status
-                          </div>
-                          <div className="mt-2 text-zinc-100">
-                            {
-                              selectedOutage.status
-                            }
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                        <div className="text-xs uppercase tracking-wide text-zinc-500">
-                          Error
-                        </div>
-                        <div className="mt-2 whitespace-pre-wrap break-words text-zinc-100">
-                          {selectedOutage.start_error ??
-                            "—"}
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                        <div className="text-xs uppercase tracking-wide text-zinc-500">
-                          Recovery note
-                        </div>
-                        <div className="mt-2 whitespace-pre-wrap break-words text-zinc-100">
-                          {selectedOutage.end_note ??
-                            "—"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
+              <OutageDetailDrawer
+                outage={selectedOutage}
+                open={!!selectedOutage}
+                onClose={() =>
+                  setSelectedOutage(null)
+                }
+              />
             </div>
           </>
         ) : (

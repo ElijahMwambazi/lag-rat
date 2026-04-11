@@ -14,6 +14,7 @@ import {
   type Alert,
   type AlertHistoryItem,
 } from "../services/api";
+import AlertDetailDrawer from "./AlertDetailDrawer";
 
 type StatusFilter = "all" | "active" | "resolved";
 type SeverityFilter =
@@ -536,200 +537,30 @@ export default function AlertsPanel({
           )}
         </div>
       </section>
-
-      {selectedAlert ? (
-        <div
-          className="fixed inset-0 z-50 flex justify-end bg-black/50"
-          onClick={() => setSelectedAlert(null)}
-        >
-          <div
-            className="h-full w-full max-w-xl overflow-y-auto border-l border-zinc-800 bg-zinc-900 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between border-b border-zinc-800 px-6 py-5">
-              <div>
-                <h3 className="text-xl font-semibold text-zinc-100">
-                  Alert details
-                </h3>
-                <p className="mt-1 text-sm text-zinc-400">
-                  {selectedAlert.alert_type}
-                </p>
-              </div>
-
-              <button
-                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
-                onClick={() =>
-                  setSelectedAlert(null)
-                }
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="space-y-4 px-6 py-5 text-sm">
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                <div className="text-xs uppercase tracking-wide text-zinc-500">
-                  Message
-                </div>
-                <div className="mt-2 whitespace-pre-wrap break-words text-zinc-100">
-                  {selectedAlert.message}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <div className="text-xs uppercase tracking-wide text-zinc-500">
-                    Entity type
-                  </div>
-                  <div className="mt-2 text-zinc-100">
-                    {selectedAlert.entity_type}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <div className="text-xs uppercase tracking-wide text-zinc-500">
-                    Entity key
-                  </div>
-                  <div className="mt-2 break-all text-zinc-100">
-                    {selectedAlert.entity_key}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <div className="text-xs uppercase tracking-wide text-zinc-500">
-                    Severity
-                  </div>
-                  <div className="mt-2 text-zinc-100">
-                    {selectedAlert.severity}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <div className="text-xs uppercase tracking-wide text-zinc-500">
-                    Status
-                  </div>
-                  <div className="mt-2 text-zinc-100">
-                    {selectedAlert.is_active
-                      ? "Active"
-                      : "Resolved"}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <div className="text-xs uppercase tracking-wide text-zinc-500">
-                    Created
-                  </div>
-                  <div className="mt-2 text-zinc-100">
-                    {formatDate(
-                      selectedAlert.created_at,
-                    )}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <div className="text-xs uppercase tracking-wide text-zinc-500">
-                    Resolved
-                  </div>
-                  <div className="mt-2 text-zinc-100">
-                    {formatDate(
-                      selectedAlert.resolved_at,
-                    )}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <div className="text-xs uppercase tracking-wide text-zinc-500">
-                    Acknowledged
-                  </div>
-                  <div className="mt-2 text-zinc-100">
-                    {formatDate(
-                      selectedAlert.acknowledged_at,
-                    )}
-                  </div>
-                </div>
-                {selectedAlert.is_active &&
-                !selectedAlert.acknowledged_at ? (
-                  <button
-                    type="button"
-                    disabled={
-                      acknowledgeMutation.isPending
-                    }
-                    onClick={() =>
-                      acknowledgeMutation.mutate(
-                        selectedAlert.id,
-                      )
-                    }
-                    className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {acknowledgeMutation.isPending
-                      ? "Acknowledging..."
-                      : "Acknowledge"}
-                  </button>
-                ) : null}
-                {acknowledgeMutation.isError ? (
-                  <div className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">
-                    {acknowledgeMutation.error instanceof
-                    Error
-                      ? acknowledgeMutation.error
-                          .message
-                      : "Failed to acknowledge alert."}
-                  </div>
-                ) : null}
-              </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                <div className="text-xs uppercase tracking-wide text-zinc-500">
-                  Timeline
-                </div>
-
-                <div className="mt-3 space-y-3">
-                  {alertHistoryQuery.isLoading ? (
-                    <p className="text-sm text-zinc-400">
-                      Loading timeline...
-                    </p>
-                  ) : (
-                      alertHistoryQuery.data ?? []
-                    ).length === 0 ? (
-                    <p className="text-sm text-zinc-400">
-                      No timeline events yet.
-                    </p>
-                  ) : (
-                    (
-                      alertHistoryQuery.data ?? []
-                    ).map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-medium text-zinc-100">
-                            {formatAlertEventType(
-                              item.event_type,
-                            )}
-                          </p>
-                          <p className="text-xs text-zinc-400">
-                            {formatDate(
-                              item.created_at,
-                            )}
-                          </p>
-                        </div>
-
-                        {formatAlertEventSummary(
-                          item,
-                        ) ? (
-                          <p className="mt-1 whitespace-pre-wrap break-words text-xs text-zinc-400">
-                            {formatAlertEventSummary(
-                              item,
-                            )}
-                          </p>
-                        ) : null}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <AlertDetailDrawer
+        alert={selectedAlert}
+        open={!!selectedAlert}
+        onClose={() => setSelectedAlert(null)}
+        history={alertHistoryQuery.data ?? []}
+        historyLoading={
+          alertHistoryQuery.isLoading
+        }
+        historyError={alertHistoryQuery.isError}
+        acknowledgePending={
+          acknowledgeMutation.isPending
+        }
+        acknowledgeErrorMessage={
+          acknowledgeMutation.isError
+            ? acknowledgeMutation.error instanceof
+              Error
+              ? acknowledgeMutation.error.message
+              : "Failed to acknowledge alert."
+            : null
+        }
+        onAcknowledge={(id) =>
+          acknowledgeMutation.mutate(id)
+        }
+      />
     </>
   );
 }
