@@ -1,22 +1,3 @@
-# Lag Rat
-
-This patch adds:
-
-- `internet_tcp` probe
-- `internet_http` probe
-- `router_tcp` probe classification
-- separate overview fields for `internet_tcp` and `internet_http`
-- separate metrics endpoint for TCP history
-- updated frontend overview and metrics pages
-
-## Apply in this order
-
-1. Add `backend/migrations/0004_multi_probe.sql`
-2. Update `backend/.env` and `.env.example`
-3. Replace the files in `backend/src/` included here
-4. Replace the files in `frontend/src/` included here
-5. Run:
-
 ```bash
 cd backend
 cargo check
