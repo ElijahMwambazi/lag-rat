@@ -243,6 +243,12 @@ function formatWindowLabel(
   return windowHours === 24 ? "24h" : "7d";
 }
 
+function formatReportsWindowLabel(
+  windowHours: 24 | 168,
+) {
+  return `Last ${windowHours === 24 ? "24h" : "7d"}`;
+}
+
 export default function ReportsPage() {
   const [selectedOutage, setSelectedOutage] =
     useState<Outage | null>(null);
@@ -882,7 +888,9 @@ export default function ReportsPage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
-              {windowHours === 24 ? "24h" : "7d"}
+              {formatReportsWindowLabel(
+                windowHours,
+              )}
             </span>
 
             <button
@@ -927,11 +935,11 @@ export default function ReportsPage() {
                 Recent alert events
               </h3>
               <p className="mt-1 text-sm text-zinc-400">
-                Last{" "}
-                {windowHours === 24
-                  ? "24h"
-                  : "7d"}{" "}
-                · {recentAlertEvents.length} shown
+                {formatReportsWindowLabel(
+                  windowHours,
+                )}{" "}
+                · {recentAlertEvents.length}{" "}
+                events
               </p>
             </div>
 
@@ -954,13 +962,13 @@ export default function ReportsPage() {
             {recentAlertEventsQuery.isLoading ? (
               <StateCard
                 title="Recent alert events"
-                message="Loading alert activity..."
+                message="Loading events..."
               />
             ) : recentAlertEventsQuery.isError ? (
               <StateCard
                 title="Recent alert events"
                 tone="error"
-                message="Could not load recent alert activity."
+                message="Could not load events."
               />
             ) : recentAlertEvents.length === 0 ? (
               <StateCard
@@ -1023,12 +1031,11 @@ export default function ReportsPage() {
                 Recent device changes
               </h3>
               <p className="mt-1 text-sm text-zinc-400">
-                Last{" "}
-                {windowHours === 24
-                  ? "24h"
-                  : "7d"}{" "}
+                {formatReportsWindowLabel(
+                  windowHours,
+                )}{" "}
                 · {recentDeviceEvents.length}{" "}
-                shown
+                events
               </p>
             </div>
 
@@ -1118,9 +1125,11 @@ export default function ReportsPage() {
               Top incident targets
             </h3>
             <p className="mt-1 text-sm text-zinc-400">
-              Last{" "}
-              {windowHours === 24 ? "24h" : "7d"}{" "}
-              · {topIncidentTargets.length} shown
+              {formatReportsWindowLabel(
+                windowHours,
+              )}{" "}
+              · {topIncidentTargets.length}{" "}
+              targets
             </p>
           </div>
 
@@ -1144,13 +1153,13 @@ export default function ReportsPage() {
             {topIncidentTargetsQuery.isLoading ? (
               <StateCard
                 title="Top incident targets"
-                message="Loading incident targets..."
+                message="Loading targets..."
               />
             ) : topIncidentTargetsQuery.isError ? (
               <StateCard
                 title="Top incident targets"
                 tone="error"
-                message="Could not load incident target summary."
+                message="Could not load targets."
               />
             ) : topIncidentTargets.length ===
               0 ? (

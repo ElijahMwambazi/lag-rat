@@ -28,6 +28,12 @@ function formatWindowLabel(minutes: number) {
   return match?.label ?? `${minutes}m`;
 }
 
+function formatMetricsWindowLabel(
+  minutes: number,
+) {
+  return `Last ${formatWindowLabel(minutes)}`;
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const parsed = new Date(value);
@@ -133,7 +139,7 @@ export default function MetricsPage() {
           <p className="text-sm text-zinc-400">
             {allFailed
               ? "All chart requests failed"
-              : `${formatWindowLabel(windowMinutes)} window · ${totalPointCount} points`}
+              : `${formatMetricsWindowLabel(windowMinutes)} · ${totalPointCount} points`}
           </p>
         </div>
       </section>
@@ -220,7 +226,11 @@ export default function MetricsPage() {
                         {item.label}
                       </h3>
                       <p className="mt-1 text-sm text-zinc-400">
-                        {item.total_checks} checks
+                        {formatMetricsWindowLabel(
+                          windowMinutes,
+                        )}{" "}
+                        · {item.total_checks}{" "}
+                        checks
                       </p>
                     </div>
 
@@ -291,7 +301,7 @@ export default function MetricsPage() {
       </section>
 
       <ChartCard
-        title={`Internet HTTP Latency (${formatWindowLabel(windowMinutes)})`}
+        title={`Internet HTTP latency · ${formatMetricsWindowLabel(windowMinutes)}`}
         data={httpQuery.data ?? []}
         isLoading={httpQuery.isLoading}
         isError={httpQuery.isError}
@@ -303,7 +313,7 @@ export default function MetricsPage() {
       />
 
       <ChartCard
-        title={`Internet TCP Latency (${formatWindowLabel(windowMinutes)})`}
+        title={`Internet TCP latency · ${formatMetricsWindowLabel(windowMinutes)}`}
         data={tcpQuery.data ?? []}
         isLoading={tcpQuery.isLoading}
         isError={tcpQuery.isError}
@@ -315,7 +325,7 @@ export default function MetricsPage() {
       />
 
       <ChartCard
-        title={`DNS Response Time (${formatWindowLabel(windowMinutes)})`}
+        title={`DNS response time · ${formatMetricsWindowLabel(windowMinutes)}`}
         data={dnsQuery.data ?? []}
         isLoading={dnsQuery.isLoading}
         isError={dnsQuery.isError}
