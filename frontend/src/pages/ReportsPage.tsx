@@ -912,8 +912,8 @@ export default function ReportsPage() {
               Window summary
             </h3>
             <p className="mt-1 text-sm text-zinc-400">
-              Export-friendly operational recap
-              for the selected reporting window.
+              Operational summary for the selected
+              reporting window.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -951,7 +951,7 @@ export default function ReportsPage() {
           ) : (
             <p className="text-sm text-zinc-400">
               No summary is available for this
-              window yet.
+              reporting window yet.
             </p>
           )}
         </div>
@@ -1004,7 +1004,7 @@ export default function ReportsPage() {
               <StateCard
                 title="Recent alert events"
                 tone="warning"
-                message="No recent alert events in this window."
+                message="No recent alert events were recorded in this window."
               />
             ) : (
               recentAlertEvents.map(
@@ -1218,7 +1218,7 @@ export default function ReportsPage() {
               <StateCard
                 title="Top incident targets"
                 tone="warning"
-                message="No incident targets in this window."
+                message="No incident targets were recorded in this window."
               />
             ) : (
               topIncidentTargets.map(
@@ -1432,8 +1432,9 @@ export default function ReportsPage() {
                         colSpan={7}
                         className="px-4 py-6 text-zinc-400"
                       >
-                        No reports match the
-                        current filters.
+                        No outage records match
+                        the current search or
+                        filters.
                       </td>
                     </tr>
                   ) : (

@@ -192,8 +192,8 @@ export default function OverviewPage() {
             </h2>
             <p className="mt-2 text-zinc-400">
               Current network health, active
-              issues, and the most important
-              signals to act on next.
+              incidents, and the next signals
+              worth reviewing.
             </p>
           </div>
 
@@ -328,8 +328,8 @@ export default function OverviewPage() {
             Attention now
           </h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Current service health and the main
-            signals worth scanning first.
+            The fastest read on current service
+            health and incident pressure.
           </p>
         </div>
 
@@ -499,8 +499,9 @@ export default function OverviewPage() {
             Current network state
           </h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Drill-down view of router, internet,
-            and DNS health from the latest probes.
+            Latest probe health for router
+            reachability, internet access, and
+            DNS.
           </p>
         </div>
 
@@ -653,7 +654,7 @@ export default function OverviewPage() {
           </h3>
           <p className="mt-1 text-sm text-zinc-400">
             Review active issues and work through
-            alerts that need attention.
+            alerts that need action.
           </p>
         </div>
 
@@ -674,8 +675,8 @@ export default function OverviewPage() {
             API diagnostics
           </h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Lower-priority request visibility for
-            local API troubleshooting.
+            Lower-priority API request visibility
+            for local troubleshooting.
           </p>
         </div>
 

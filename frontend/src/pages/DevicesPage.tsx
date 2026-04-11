@@ -200,8 +200,8 @@ export default function DevicesPage() {
           </h2>
           <p className="mt-2 text-zinc-400">
             Review devices seen on your local
-            network, save labels for known
-            devices, and inspect device history.
+            network, save labels, and inspect
+            device history.
           </p>
         </div>
 
@@ -219,7 +219,7 @@ export default function DevicesPage() {
               {hiddenLowConfidenceCount === 1
                 ? "device is"
                 : "devices are"}{" "}
-              hidden to reduce noise.
+              hidden to reduce scan noise.
             </p>
           ) : null}
         </div>
@@ -229,7 +229,7 @@ export default function DevicesPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-1">
             <h3 className="text-sm font-medium text-zinc-100">
-              Device explorer
+              Explorer
             </h3>
             <p className="text-sm text-zinc-400">
               Search by label, hostname, IP, MAC,
@@ -248,7 +248,7 @@ export default function DevicesPage() {
                 )
               }
             />
-            Show low-confidence devices
+            Include low-confidence devices
           </label>
         </div>
 

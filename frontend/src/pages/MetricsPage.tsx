@@ -159,7 +159,7 @@ export default function MetricsPage() {
           </h2>
           <p className="mt-2 text-zinc-400">
             Probe latency and DNS timing for the
-            selected operational window.
+            selected operating window.
           </p>
         </div>
 
@@ -191,7 +191,7 @@ export default function MetricsPage() {
 
       {allChartsFailed ? (
         <QueryState
-          title="Metrics chart requests failed"
+          title="Metric charts request failed"
           tone="error"
           message="All chart endpoints failed. Check the backend and API base URL."
         />
@@ -205,16 +205,16 @@ export default function MetricsPage() {
             metricsSummaryQuery.error instanceof
             Error
               ? metricsSummaryQuery.error.message
-              : "The metrics summary endpoint failed."
+              : "The metrics summary could not be loaded."
           }
         />
       ) : null}
 
       {everythingEmpty ? (
         <QueryState
-          title="No metrics recorded yet"
+          title="No metrics recorded in this window"
           tone="warning"
-          message={`No probe data was recorded in the selected window (${formatMetricsWindowLabel(
+          message={`No probe data was recorded in the selected window yet (${formatMetricsWindowLabel(
             windowMinutes,
           )}).`}
         />
@@ -281,7 +281,7 @@ export default function MetricsPage() {
                   key={item.key}
                   title={item.label}
                   tone="warning"
-                  message="No checks recorded in this window yet."
+                  message="No checks were recorded in this window yet."
                 />
               ) : (
                 <div
