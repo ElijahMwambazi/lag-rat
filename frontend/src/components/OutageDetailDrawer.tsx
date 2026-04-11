@@ -1,5 +1,6 @@
-import SideDrawer from "./SideDrawer";
 import type { Outage } from "../services/api";
+import DrawerDetailSection from "./DrawerDetailSection";
+import SideDrawer from "./SideDrawer";
 
 type Props = {
   outage: Outage | null;
@@ -42,72 +43,43 @@ export default function OutageDetailDrawer({
       subtitle="Outage details"
       onClose={onClose}
     >
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <div className="text-xs uppercase tracking-wide text-zinc-500">
-          Target
-        </div>
-        <div className="mt-2 break-all text-zinc-100">
+      <DrawerDetailSection label="Target">
+        <div className="break-all">
           {outage.target}
         </div>
-      </div>
+      </DrawerDetailSection>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Started
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {formatDate(outage.started_at)}
-          </div>
-        </div>
+        <DrawerDetailSection label="Started">
+          {formatDate(outage.started_at)}
+        </DrawerDetailSection>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Ended
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {formatDate(outage.ended_at)}
-          </div>
-        </div>
+        <DrawerDetailSection label="Ended">
+          {formatDate(outage.ended_at)}
+        </DrawerDetailSection>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Duration
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {formatDuration(
-              outage.duration_seconds,
-            )}
-          </div>
-        </div>
+        <DrawerDetailSection label="Duration">
+          {formatDuration(
+            outage.duration_seconds,
+          )}
+        </DrawerDetailSection>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Status
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {outage.status}
-          </div>
-        </div>
+        <DrawerDetailSection label="Status">
+          {outage.status}
+        </DrawerDetailSection>
       </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <div className="text-xs uppercase tracking-wide text-zinc-500">
-          Error
-        </div>
-        <div className="mt-2 whitespace-pre-wrap break-words text-zinc-100">
+      <DrawerDetailSection label="Error">
+        <div className="whitespace-pre-wrap break-words">
           {outage.start_error ?? "—"}
         </div>
-      </div>
+      </DrawerDetailSection>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <div className="text-xs uppercase tracking-wide text-zinc-500">
-          Recovery note
-        </div>
-        <div className="mt-2 whitespace-pre-wrap break-words text-zinc-100">
+      <DrawerDetailSection label="Recovery note">
+        <div className="whitespace-pre-wrap break-words">
           {outage.end_note ?? "—"}
         </div>
-      </div>
+      </DrawerDetailSection>
     </SideDrawer>
   );
 }

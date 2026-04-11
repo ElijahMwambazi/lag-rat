@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import DeviceFlags from "./DeviceFlags";
 import DeviceMetaItem from "./DeviceMetaItem";
+import DrawerDetailSection from "../DrawerDetailSection";
 import { api } from "../../services/api";
 import type { Device } from "../../services/api";
 import SideDrawer from "../SideDrawer";
@@ -121,14 +122,11 @@ export default function DeviceDetailDrawer({
         </div>
 
         {device.notes ? (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <div className="text-xs uppercase tracking-wide text-zinc-500">
-              Notes
-            </div>
-            <div className="mt-2 text-sm text-zinc-200">
+          <DrawerDetailSection label="Notes">
+            <div className="text-sm text-zinc-200">
               {device.notes}
             </div>
-          </div>
+          </DrawerDetailSection>
         ) : null}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -174,12 +172,8 @@ export default function DeviceDetailDrawer({
           />
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Timeline
-          </div>
-
-          <div className="mt-3 space-y-3">
+        <DrawerDetailSection label="Timeline">
+          <div className="mt-1 space-y-3">
             {historyQuery.isLoading ? (
               <p className="text-sm text-zinc-400">
                 Loading history...
@@ -230,7 +224,7 @@ export default function DeviceDetailDrawer({
               </p>
             )}
           </div>
-        </div>
+        </DrawerDetailSection>
 
         <div className="flex flex-wrap gap-3">
           <button

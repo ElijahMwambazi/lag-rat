@@ -3,6 +3,7 @@ import type {
   AlertHistoryItem,
 } from "../services/api";
 import SideDrawer from "./SideDrawer";
+import DrawerDetailSection from "./DrawerDetailSection";
 
 type Props = {
   alert: Alert | null;
@@ -99,80 +100,44 @@ export default function AlertDetailDrawer({
       subtitle={alert.alert_type}
       onClose={onClose}
     >
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <div className="text-xs uppercase tracking-wide text-zinc-500">
-          Message
-        </div>
-        <div className="mt-2 whitespace-pre-wrap break-words text-zinc-100">
+      <DrawerDetailSection label="Message">
+        <div className="whitespace-pre-wrap break-words">
           {alert.message}
         </div>
-      </div>
+      </DrawerDetailSection>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Entity type
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {alert.entity_type}
-          </div>
-        </div>
+        <DrawerDetailSection label="Entity type">
+          {alert.entity_type}
+        </DrawerDetailSection>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Entity key
-          </div>
-          <div className="mt-2 break-all text-zinc-100">
+        <DrawerDetailSection label="Entity key">
+          <div className="break-all">
             {alert.entity_key}
           </div>
-        </div>
+        </DrawerDetailSection>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Severity
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {alert.severity}
-          </div>
-        </div>
+        <DrawerDetailSection label="Severity">
+          {alert.severity}
+        </DrawerDetailSection>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Status
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {alert.is_active
-              ? "Active"
-              : "Resolved"}
-          </div>
-        </div>
+        <DrawerDetailSection label="Status">
+          {alert.is_active
+            ? "Active"
+            : "Resolved"}
+        </DrawerDetailSection>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Created
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {formatDate(alert.created_at)}
-          </div>
-        </div>
+        <DrawerDetailSection label="Created">
+          {formatDate(alert.created_at)}
+        </DrawerDetailSection>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Resolved
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {formatDate(alert.resolved_at)}
-          </div>
-        </div>
+        <DrawerDetailSection label="Resolved">
+          {formatDate(alert.resolved_at)}
+        </DrawerDetailSection>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Acknowledged
-          </div>
-          <div className="mt-2 text-zinc-100">
-            {formatDate(alert.acknowledged_at)}
-          </div>
-        </div>
+        <DrawerDetailSection label="Acknowledged">
+          {formatDate(alert.acknowledged_at)}
+        </DrawerDetailSection>
       </div>
 
       {alert.is_active &&
@@ -195,12 +160,8 @@ export default function AlertDetailDrawer({
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <div className="text-xs uppercase tracking-wide text-zinc-500">
-          Timeline
-        </div>
-
-        <div className="mt-3 space-y-3">
+      <DrawerDetailSection label="Timeline">
+        <div className="mt-1 space-y-3">
           {historyLoading ? (
             <p className="text-sm text-zinc-400">
               Loading timeline...
@@ -241,7 +202,7 @@ export default function AlertDetailDrawer({
             ))
           )}
         </div>
-      </div>
+      </DrawerDetailSection>
     </SideDrawer>
   );
 }
