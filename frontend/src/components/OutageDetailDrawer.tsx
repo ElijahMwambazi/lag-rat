@@ -4,7 +4,6 @@ import SideDrawer from "./SideDrawer";
 import {
   formatIncidentState,
   formatIncidentType,
-  summarizeOutageCause,
 } from "../utils/incidentText";
 
 type Props = {

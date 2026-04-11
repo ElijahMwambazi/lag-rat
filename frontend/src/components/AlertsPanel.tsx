@@ -10,17 +10,18 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
-  buildAlertHeadline,
-  buildAlertSubtext,
-  formatIncidentState,
-  formatIncidentType,
-} from "../utils/incidentText";
-import {
   api,
   type Alert,
   type AlertHistoryItem,
 } from "../services/api";
 import AlertDetailDrawer from "./AlertDetailDrawer";
+import {
+  buildAlertHeadline,
+  buildAlertSubtext,
+  formatAlertEventTransition,
+  formatIncidentState,
+  formatIncidentType,
+} from "../utils/incidentText";
 
 type StatusFilter = "all" | "active" | "resolved";
 type SeverityFilter =
@@ -63,42 +64,6 @@ function formatAlertEventType(eventType: string) {
       return "Resolved";
     default:
       return eventType.replace(/_/g, " ");
-  }
-}
-
-function formatAlertEventSummary(
-  item: AlertHistoryItem,
-) {
-  switch (item.event_type) {
-    case "opened":
-      return item.new_value
-        ? `Initial severity: ${item.new_value}`
-        : "Alert opened";
-
-    case "severity_changed":
-      return item.previous_value && item.new_value
-        ? `${item.previous_value} → ${item.new_value}`
-        : "Severity changed";
-
-    case "message_changed":
-      return item.previous_value && item.new_value
-        ? `Previous: ${item.previous_value}\nNew: ${item.new_value}`
-        : "Message updated";
-
-    case "acknowledged":
-      return "Marked as acknowledged";
-
-    case "resolved":
-      return item.previous_value && item.new_value
-        ? `${item.previous_value} → ${item.new_value}`
-        : "Alert resolved";
-
-    default:
-      if (item.previous_value || item.new_value) {
-        return `${item.previous_value ?? "—"} → ${item.new_value ?? "—"}`;
-      }
-
-      return null;
   }
 }
 

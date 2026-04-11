@@ -5,9 +5,6 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QueryState from "../components/QueryState";
-import ReportsTrendCharts from "../components/ReportsTrendCharts";
-import StatCard from "../components/StatCard";
-import StateCard from "../components/StateCard";
 import {
   api,
   Outage,
@@ -15,12 +12,18 @@ import {
   type RecentAlertEventItem,
   type RecentDeviceEventItem,
 } from "../services/api";
+import ReportsTrendCharts from "../components/ReportsTrendCharts";
+import StatCard from "../components/StatCard";
+import StateCard from "../components/StateCard";
+import OutageDetailDrawer from "../components/OutageDetailDrawer";
 import {
+  buildAlertHeadline,
+  buildAlertSubtext,
+  formatAlertEventTransition,
   formatIncidentState,
   formatIncidentType,
   summarizeOutageCause,
 } from "../utils/incidentText";
-import OutageDetailDrawer from "../components/OutageDetailDrawer";
 
 type StatusFilter = "all" | "active" | "resolved";
 type TypeFilter =
@@ -1018,11 +1021,25 @@ export default function ReportsPage() {
                           )}
                         </p>
                         <p className="mt-1 line-clamp-2 text-sm text-zinc-300">
-                          {item.message}
+                          {buildAlertHeadline({
+                            entityType:
+                              item.entity_type,
+                            entityKey:
+                              item.entity_key,
+                            message: item.message,
+                          })}
                         </p>
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {item.entity_type} ·{" "}
-                          {item.alert_type}
+                        <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
+                          {
+                            buildAlertSubtext({
+                              entityType:
+                                item.entity_type,
+                              entityKey:
+                                item.entity_key,
+                              message:
+                                item.message,
+                            }).targetLabel
+                          }
                         </p>
                       </div>
 
@@ -1033,14 +1050,22 @@ export default function ReportsPage() {
                       </span>
                     </div>
 
-                    {formatTransition(
-                      item.previous_value,
-                      item.new_value,
-                    ) ? (
+                    {formatAlertEventTransition({
+                      eventType: item.event_type,
+                      previousValue:
+                        item.previous_value,
+                      newValue: item.new_value,
+                    }) ? (
                       <p className="mt-2 text-xs text-zinc-400">
-                        {formatTransition(
-                          item.previous_value,
-                          item.new_value,
+                        {formatAlertEventTransition(
+                          {
+                            eventType:
+                              item.event_type,
+                            previousValue:
+                              item.previous_value,
+                            newValue:
+                              item.new_value,
+                          },
                         )}
                       </p>
                     ) : null}

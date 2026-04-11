@@ -51,6 +51,10 @@ export function summarizeOutageCause(
     return "Web probe request failed";
   }
 
+  if (lower.includes("recovered")) {
+    return "Service recovered";
+  }
+
   return value;
 }
 
@@ -61,19 +65,18 @@ export function buildAlertHeadline(params: {
 }) {
   const { entityType, message } = params;
   const incident = formatIncidentType(entityType);
-
   const lower = message.toLowerCase();
 
   if (lower.includes("timed out")) {
     return `${incident} probe timed out`;
   }
 
-  if (lower.includes("failed")) {
-    return `${incident} check failed`;
-  }
-
   if (lower.includes("recovered")) {
     return `${incident} recovered`;
+  }
+
+  if (lower.includes("failed")) {
+    return `${incident} check failed`;
   }
 
   return incident;
@@ -85,10 +88,48 @@ export function buildAlertSubtext(params: {
   message: string;
 }) {
   const { entityKey, message } = params;
-  const cause = summarizeOutageCause(message);
 
   return {
     targetLabel: `Target: ${entityKey}`,
-    causeLabel: cause,
+    causeLabel: summarizeOutageCause(message),
   };
+}
+
+export function formatAlertEventTransition(params: {
+  eventType: string;
+  previousValue?: string | null;
+  newValue?: string | null;
+}) {
+  const { eventType, previousValue, newValue } =
+    params;
+
+  switch (eventType) {
+    case "opened":
+      return newValue
+        ? `Severity set to ${newValue}`
+        : "Alert opened";
+
+    case "severity_changed":
+      return previousValue && newValue
+        ? `Severity: ${previousValue} → ${newValue}`
+        : "Severity changed";
+
+    case "message_changed":
+      return "Alert message updated";
+
+    case "acknowledged":
+      return "Marked as acknowledged";
+
+    case "resolved":
+      return "Alert recovered";
+
+    default:
+      if (!previousValue && !newValue)
+        return null;
+      if (!previousValue && newValue)
+        return `Set to ${newValue}`;
+      if (previousValue && !newValue)
+        return `Removed: ${previousValue}`;
+      return `${previousValue} → ${newValue}`;
+  }
 }
