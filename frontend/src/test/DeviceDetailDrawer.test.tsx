@@ -212,7 +212,7 @@ describe("DeviceDetailDrawer", () => {
     ).toBeInTheDocument();
 
     expect(
-      await screen.findByText("Notes changed"),
+      await screen.findByText("Notes updated"),
     ).toBeInTheDocument();
 
     expect(

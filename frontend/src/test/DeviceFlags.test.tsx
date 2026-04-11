@@ -35,7 +35,7 @@ describe("DeviceFlags", () => {
       screen.getByText("Gateway"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("This Device"),
+      screen.getByText("This device"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Known"),
