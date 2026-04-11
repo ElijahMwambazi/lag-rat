@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import QueryState from "../components/QueryState";
 import ReportsTrendCharts from "../components/ReportsTrendCharts";
 import StatCard from "../components/StatCard";
+import StateCard from "../components/StateCard";
 import {
   api,
   Outage,
@@ -951,19 +952,22 @@ export default function ReportsPage() {
 
           <div className={alertEventsPanelClass}>
             {recentAlertEventsQuery.isLoading ? (
-              <p className="text-sm text-zinc-400">
-                Loading alert activity...
-              </p>
+              <StateCard
+                title="Recent alert events"
+                message="Loading alert activity..."
+              />
             ) : recentAlertEventsQuery.isError ? (
-              <p className="text-sm text-red-400">
-                Could not load recent alert
-                activity.
-              </p>
+              <StateCard
+                title="Recent alert events"
+                tone="error"
+                message="Could not load recent alert activity."
+              />
             ) : recentAlertEvents.length === 0 ? (
-              <p className="text-sm text-zinc-400">
-                No recent alert events in this
-                window.
-              </p>
+              <StateCard
+                title="Recent alert events"
+                tone="warning"
+                message="No recent alert events in this window."
+              />
             ) : (
               recentAlertEvents.map(
                 (item: RecentAlertEventItem) => (
@@ -1045,20 +1049,23 @@ export default function ReportsPage() {
 
           <div className={deviceEventsPanelClass}>
             {recentDeviceEventsQuery.isLoading ? (
-              <p className="text-sm text-zinc-400">
-                Loading device activity...
-              </p>
+              <StateCard
+                title="Recent device changes"
+                message="Loading device activity..."
+              />
             ) : recentDeviceEventsQuery.isError ? (
-              <p className="text-sm text-red-400">
-                Could not load recent device
-                activity.
-              </p>
+              <StateCard
+                title="Recent device changes"
+                tone="error"
+                message="Could not load recent device activity."
+              />
             ) : recentDeviceEvents.length ===
               0 ? (
-              <p className="text-sm text-zinc-400">
-                No recent device events in this
-                window.
-              </p>
+              <StateCard
+                title="Recent device changes"
+                tone="warning"
+                message="No recent device events in this window."
+              />
             ) : (
               recentDeviceEvents.map(
                 (item: RecentDeviceEventItem) => (
@@ -1135,20 +1142,23 @@ export default function ReportsPage() {
         {showTopIncidentTargets ? (
           <div className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
             {topIncidentTargetsQuery.isLoading ? (
-              <p className="text-sm text-zinc-400">
-                Loading incident targets...
-              </p>
+              <StateCard
+                title="Top incident targets"
+                message="Loading incident targets..."
+              />
             ) : topIncidentTargetsQuery.isError ? (
-              <p className="text-sm text-red-400">
-                Could not load incident target
-                summary.
-              </p>
+              <StateCard
+                title="Top incident targets"
+                tone="error"
+                message="Could not load incident target summary."
+              />
             ) : topIncidentTargets.length ===
               0 ? (
-              <p className="text-sm text-zinc-400">
-                No incident targets in this
-                window.
-              </p>
+              <StateCard
+                title="Top incident targets"
+                tone="warning"
+                message="No incident targets in this window."
+              />
             ) : (
               topIncidentTargets.map(
                 (
