@@ -183,9 +183,9 @@ export default function OverviewPage() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <section>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-2xl font-semibold">
               Overview
@@ -219,8 +219,8 @@ export default function OverviewPage() {
       ) : null}
 
       {shouldShowCriticalBanner ? (
-        <section className="rounded-2xl border border-red-900 bg-red-950/40 px-5 py-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <section className="rounded-2xl border border-red-900 bg-red-950/40 px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wide text-red-300">
                 Immediate attention needed
@@ -285,7 +285,7 @@ export default function OverviewPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-red-800 bg-red-950 px-2.5 py-1 text-xs text-red-300">
                 {
                   activeUnacknowledgedCriticalCount
@@ -333,7 +333,7 @@ export default function OverviewPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Router"
             value={
@@ -416,7 +416,7 @@ export default function OverviewPage() {
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Ongoing outages"
             value={

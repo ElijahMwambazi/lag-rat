@@ -151,8 +151,8 @@ export default function MetricsPage() {
   ]);
 
   return (
-    <div className="space-y-8">
-      <section className="flex items-start justify-between gap-4">
+    <div className="space-y-6 sm:space-y-8">
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold">
             Metrics
@@ -163,7 +163,7 @@ export default function MetricsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 sm:items-end">
           <select
             value={windowMinutes}
             onChange={(e) =>
@@ -171,7 +171,7 @@ export default function MetricsPage() {
                 Number(e.target.value),
               )
             }
-            className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 sm:w-auto"
           >
             {METRICS_WINDOWS.map((option) => (
               <option
@@ -183,7 +183,7 @@ export default function MetricsPage() {
             ))}
           </select>
 
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-zinc-400 sm:text-right">
             {statusText}
           </p>
         </div>
@@ -220,7 +220,7 @@ export default function MetricsPage() {
         />
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {metricsSummaryQuery.isLoading &&
         metricsSummary.length === 0 ? (
           <>
