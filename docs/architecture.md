@@ -1,8 +1,16 @@
 # Architecture
 
-Lag Rat is a local observability system for home-network diagnostics.
+## Purpose
 
-It is built around three main layers:
+This document describes the current architecture of Lag Rat and the intended platform boundary for future expansion.
+
+Lag Rat should be treated as a **local observability platform** with a current primary focus on **home network observability**.
+
+---
+
+## Core layers
+
+Lag Rat is built around three main layers:
 
 1. collector and monitoring logic
 2. local storage and aggregation
@@ -43,9 +51,52 @@ It is built around three main layers:
 
 ---
 
+## Platform boundary
+
+Lag Rat should be treated as a small observability platform with a shared core and pluggable collector/modules.
+
+### Shared platform responsibilities
+
+The shared platform should own:
+
+- scheduling and collector execution
+- persistence
+- incident lifecycle primitives
+- alerts and history timelines
+- report aggregation
+- local API delivery
+- dashboard presentation patterns
+
+### Module responsibilities
+
+Each module should own:
+
+- its own observation/collection logic
+- module-specific targets and identifiers
+- module-specific summaries
+- module-specific drill-down details
+
+---
+
+## Current module
+
+The current implemented module is **home network observability**.
+
+It currently covers:
+
+- router TCP reachability
+- internet TCP reachability
+- internet HTTP reachability
+- DNS checks
+- device inventory/activity
+- outages and alerts
+- reports and metrics summaries
+
+---
+
 ## Backend responsibilities
 
-The backend owns:
+The backend currently owns:
 
 - scheduled probe execution
 - connectivity checks
@@ -61,27 +112,32 @@ The backend owns:
 ### Current backend domains
 
 #### Connectivity
+
 - router TCP probe
 - internet TCP probe
 - internet HTTP probe
 
 #### DNS
+
 - DNS lookup timing
 - DNS success/failure recording
 - DNS outage linkage
 
 #### Devices
+
 - device upsert flow
 - known device labeling
 - device history events
 - local host registration and inventory parsing
 
 #### Incident state
+
 - outage open/recover lifecycle
 - alert open/escalate/acknowledge/resolve lifecycle
 - alert history timeline
 
 #### Reporting
+
 - reports summary
 - report trends
 - recent alert events
@@ -94,7 +150,7 @@ The backend owns:
 
 ## Frontend responsibilities
 
-The frontend owns:
+The frontend currently owns:
 
 - dashboard navigation
 - current-state presentation
@@ -125,7 +181,7 @@ The frontend owns:
 
 ## Storage model
 
-SQLite is the system of record for:
+SQLite is currently the system of record for:
 
 - raw connectivity checks
 - raw DNS checks
@@ -145,23 +201,69 @@ The database supports both raw-event storage and higher-level dashboard aggregat
 
 Lag Rat is currently in a productization phase.
 
-That means architectural emphasis is now on:
+Architectural emphasis is now on:
 
 - preserving continuity
 - keeping the backend contract stable
 - making the dashboard easier to trust
 - separating operator-friendly surface language from technical drawer detail
 - improving cohesion without redesigning from scratch
+- defining a clean collector/plugin boundary for future observability domains
+
+---
+
+## Near-term additions
+
+These are the most likely next architectural extensions:
+
+- responsive/mobile dashboard polish
+- room-based Wi-Fi sampling
+- traffic summaries / top talkers
+- optional packet capture export hooks
+
+---
+
+## Future modules
+
+The architecture should leave room for future modules such as:
+
+- Wi-Fi sampling
+- traffic summaries / top talkers
+- Bitcoin node observability
+- Lightning observability
 
 ---
 
 ## Not yet implemented
 
-These are not yet core architectural modules:
+These are not yet core architectural modules or completed platform capabilities:
 
-- Wi-Fi signal mapping
-- Prometheus export
+- room-based Wi-Fi workflows
+- traffic summaries
+- optional packet capture export
+- Prometheus-compatible export
 - Docker packaging
-- PCAP/packet analysis
+- PCAP/packet analysis inside Lag Rat
 - cloud sync / remote access
 - richer notification channels
+- Bitcoin node observability
+- Lightning observability
+
+Recommended separation:
+
+- Lag Rat: operational observability and summaries
+- discovery tools: inventory enrichment
+- packet capture tools: deep forensic analysis
+- Wireshark: external protocol-level drill-down
+
+---
+
+## Maintenance notes
+
+When updating this file:
+
+- keep **current implemented architecture** separate from **future platform direction**
+- document shared platform responsibilities before module-specific details
+- add new domains under **Current module** or **Future modules** as appropriate
+- treat near-term additions as likely next implementation work, not as already-built capabilities
+- prefer additive edits rather than reshaping the whole file

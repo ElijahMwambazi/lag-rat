@@ -1,14 +1,24 @@
 # API
 
-Lag Rat exposes a local HTTP API used by the React dashboard.
+## Purpose
 
-Base URL during local development:
+This document describes the current local HTTP API exposed by Lag Rat for the dashboard and other local operator-facing workflows.
+
+Lag Rat is a **local observability platform** with a current primary focus on **home network observability**.
+
+The current API is therefore primarily the API surface of the **network observability module**, which is the first implemented module in the platform.
+
+## Base URL
+
+During local development:
 
 ```text
 http://127.0.0.1:8080
 ```
 
-The API currently serves four broad categories:
+## Current API shape
+
+The current API serves four broad categories:
 
 - operational status
 - historical probe data
@@ -20,6 +30,7 @@ The API currently serves four broad categories:
 ## Status
 
 ### `GET /api/status/overview`
+
 Returns a dashboard-oriented operational summary including:
 
 - router health
@@ -32,7 +43,8 @@ Returns a dashboard-oriented operational summary including:
 - alert summary
 
 ### `GET /api/health/current`
-Returns the latest high-level current health state:
+
+Returns the latest current health state including:
 
 - router reachable
 - internet reachable
@@ -44,16 +56,20 @@ Returns the latest high-level current health state:
 ## Historical probe data
 
 ### `GET /api/health/history?minutes=60`
+
 Returns time-series latency data for the internet HTTP probe.
 
 ### `GET /api/health/history/tcp?minutes=60`
+
 Returns time-series latency data for the internet TCP probe.
 
 ### `GET /api/dns/history?minutes=60`
+
 Returns time-series DNS response-time data.
 
 ### `GET /api/stats/summary`
-Returns a compact 24-hour summary:
+
+Returns a compact 24-hour summary including:
 
 - uptime percentage
 - average latency
@@ -64,6 +80,7 @@ Returns a compact 24-hour summary:
 ## Alerts
 
 ### `GET /api/alerts`
+
 Lists alerts with optional filters.
 
 Supported query params:
@@ -75,10 +92,14 @@ Supported query params:
 - `limit=<n>`
 
 ### `POST /api/alerts/{id}/acknowledge`
+
 Acknowledges an active alert and returns the updated alert record.
 
 ### `GET /api/alerts/{id}/history`
-Returns lifecycle history for a single alert, including events such as:
+
+Returns lifecycle history for a single alert.
+
+Typical events include:
 
 - opened
 - severity changed
@@ -91,6 +112,7 @@ Returns lifecycle history for a single alert, including events such as:
 ## Outages
 
 ### `GET /api/outages`
+
 Lists outages with optional filters.
 
 Supported query params:
@@ -117,9 +139,11 @@ Returned items include:
 ## Devices
 
 ### `GET /api/devices`
+
 Returns enriched devices for the dashboard, including label and confidence information.
 
 ### `POST /api/devices/known`
+
 Creates or updates a known device label record.
 
 Request body:
@@ -134,6 +158,7 @@ Request body:
 ```
 
 ### `GET /api/devices/{ip}/history`
+
 Returns historical device events for a single IP.
 
 ---
@@ -141,6 +166,7 @@ Returns historical device events for a single IP.
 ## Reports
 
 ### `GET /api/reports/summary?hours=24`
+
 Returns summary metrics for the selected reporting window.
 
 Fields include:
@@ -156,6 +182,7 @@ Fields include:
 - active unacknowledged alert count
 
 ### `GET /api/reports/trends?hours=24`
+
 Returns bucketed report trend data for charts.
 
 Fields include per-bucket counts for:
@@ -166,15 +193,19 @@ Fields include per-bucket counts for:
 - internet TCP failures
 
 ### `GET /api/reports/alerts/recent?hours=24`
+
 Returns recent alert lifecycle events for the selected report window.
 
 ### `GET /api/reports/devices/recent?hours=24`
+
 Returns recent device history events for the selected report window.
 
 ### `GET /api/reports/incidents/top?hours=24`
+
 Returns ranked incident targets for the selected report window.
 
 ### `GET /api/reports/snapshot?hours=24`
+
 Returns an export-oriented composite report payload containing:
 
 - generated timestamp
@@ -191,6 +222,7 @@ Returns an export-oriented composite report payload containing:
 ## Metrics
 
 ### `GET /api/metrics/summary?minutes=60`
+
 Returns probe-level summary metrics for the selected operational window.
 
 Current summary items include:
@@ -211,8 +243,64 @@ Each item includes:
 
 ---
 
+## Current module scope
+
+Today, this API is primarily the API contract for the **home network observability** module.
+
+That includes:
+
+- router monitoring
+- internet monitoring
+- DNS monitoring
+- device activity
+- outages
+- alerts
+- reports
+- metrics
+
+---
+
+## Future API direction
+
+As Lag Rat grows into a broader observability platform, API expansion will likely follow two patterns.
+
+### Shared platform patterns
+
+These should stay familiar across modules:
+
+- alerts
+- histories / timelines
+- reports
+- metrics summaries
+
+### Module-specific resources
+
+These may expand over time:
+
+- Wi-Fi sampling data
+- traffic summary endpoints
+- optional capture/export endpoints
+- Bitcoin node observability summaries
+- Lightning observability summaries
+
+The goal is to keep the dashboard contract familiar even as new observability modules are added.
+
+---
+
 ## Notes
 
 - This API is local-first and intended for dashboard use.
 - Query parameters are currently simple and operator-focused.
-- Reports and metrics endpoints are now integration-tested and form part of the stable dashboard contract.
+- Reports and metrics endpoints form part of the stable dashboard-facing contract.
+
+---
+
+## Maintenance notes
+
+When updating this file:
+
+- add new endpoints under the relevant domain section
+- keep shared platform patterns separate from module-specific resources
+- document current implemented behavior first
+- place speculative or future endpoints only in **Future API direction**
+- prefer small edits over large rewrites
