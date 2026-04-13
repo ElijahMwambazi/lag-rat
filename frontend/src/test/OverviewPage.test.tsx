@@ -166,5 +166,13 @@ describe("OverviewPage", () => {
     expect(
       screen.getByText("Review alerts"),
     ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Take action"),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Activity snapshot"),
+    ).toBeInTheDocument();
   });
 });

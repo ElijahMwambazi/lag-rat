@@ -416,6 +416,16 @@ export default function OverviewPage() {
           />
         </div>
 
+        <div className="pt-1">
+          <h4 className="text-base font-medium text-zinc-100">
+            Activity snapshot
+          </h4>
+          <p className="mt-1 text-sm text-zinc-400">
+            Recent activity, outage pressure, and
+            latest dashboard refresh context.
+          </p>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Ongoing outages"
@@ -650,7 +660,7 @@ export default function OverviewPage() {
       <section className="space-y-4">
         <div>
           <h3 className="text-lg font-medium">
-            Action area
+            Take action
           </h3>
           <p className="mt-1 text-sm text-zinc-400">
             Review active issues and work through
