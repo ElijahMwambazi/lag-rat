@@ -325,3 +325,37 @@ pub struct MetricsSummaryResponse {
     pub window_minutes: u32,
     pub items: Vec<ProbeMetricsSummaryItem>,
 }
+
+#[derive(Debug, Clone)]
+pub enum CollectorObservation {
+    Connectivity(ServiceObservation),
+    Dns(DnsObservation),
+}
+
+#[derive(Debug, Clone)]
+pub struct ServiceObservation {
+    pub module: String,
+    pub collector_type: String,
+    pub target: String,
+    pub target_type: String,
+    pub entity_type: String,
+    pub entity_key: String,
+    pub observed_at: DateTime<Utc>,
+    pub success: bool,
+    pub latency_ms: Option<f64>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DnsObservation {
+    pub module: String,
+    pub collector_type: String,
+    pub domain: String,
+    pub resolver: String,
+    pub entity_type: &'static str,
+    pub entity_key: String,
+    pub observed_at: DateTime<Utc>,
+    pub success: bool,
+    pub response_time_ms: Option<f64>,
+    pub error_message: Option<String>,
+}
