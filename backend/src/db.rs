@@ -8,7 +8,7 @@ use crate::models::{
     Alert, ConnectivityCheck, Device, DeviceHistoryEvent, DnsCheck, IncidentTargetSummaryItem,
     KnownDevice, MetricsSummaryResponse, Outage, ProbeMetricsSummaryItem, RecentAlertEventItem,
     RecentDeviceEventItem, ReportSummaryResponse, ReportTrendPoint, SummaryResponse,
-    TimeseriesPoint,
+    TimeseriesPoint, WifiSample,
 };
 
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
@@ -1663,4 +1663,66 @@ pub async fn top_incident_targets(
             latest_started_at: row.try_get("latest_started_at").ok(),
         })
         .collect())
+}
+
+pub async fn insert_wifi_sample(
+    pool: &SqlitePool,
+    location_label: &str,
+    interface_name: &str,
+    ssid: Option<&str>,
+    bssid: Option<&str>,
+    rssi_dbm: Option<i64>,
+    frequency_mhz: Option<i64>,
+    band: Option<&str>,
+    sampled_at: DateTime<Utc>,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO wifi_samples (
+            location_label,
+            interface_name,
+            ssid,
+            bssid,
+            rssi_dbm,
+            frequency_mhz,
+            band,
+            sampled_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        "#,
+    )
+    .bind(location_label)
+    .bind(interface_name)
+    .bind(ssid)
+    .bind(bssid)
+    .bind(rssi_dbm)
+    .bind(frequency_mhz)
+    .bind(band)
+    .bind(sampled_at)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn list_wifi_samples(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<WifiSample>> {
+    Ok(sqlx::query_as::<_, WifiSample>(
+        r#"
+        SELECT
+            id,
+            location_label,
+            interface_name,
+            ssid,
+            bssid,
+            rssi_dbm,
+            frequency_mhz,
+            band,
+            sampled_at
+        FROM wifi_samples
+        ORDER BY sampled_at DESC
+        LIMIT ?1
+        "#,
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await?)
 }

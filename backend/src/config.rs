@@ -19,6 +19,10 @@ pub struct AppConfig {
     pub local_subnet_cidr: String,
     pub active_discovery_enabled: bool,
     pub active_discovery_timeout_ms: u64,
+    pub wifi_interval_seconds: u64,
+    pub wifi_sampling_enabled: bool,
+    pub wifi_interface: String,
+    pub wifi_location_label: String,
 }
 
 impl AppConfig {
@@ -55,6 +59,14 @@ impl AppConfig {
             active_discovery_timeout_ms: env("ACTIVE_DISCOVERY_TIMEOUT_MS")?
                 .parse()
                 .context("invalid ACTIVE_DISCOVERY_TIMEOUT_MS")?,
+            wifi_interval_seconds: env("WIFI_INTERVAL_SECONDS")?
+                .parse()
+                .context("invalid WIFI_INTERVAL_SECONDS")?,
+            wifi_sampling_enabled: env("WIFI_SAMPLING_ENABLED")?
+                .parse()
+                .context("invalid WIFI_SAMPLING_ENABLED")?,
+            wifi_interface: env("WIFI_INTERFACE")?,
+            wifi_location_label: env("WIFI_LOCATION_LABEL")?,
         })
     }
 }

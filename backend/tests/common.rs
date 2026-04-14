@@ -72,6 +72,10 @@ impl TestHarness {
             arp_table_path: "/proc/net/arp".to_string(),
             internet_tcp_host: "1.1.1.1".to_string(),
             internet_tcp_port: 443,
+            wifi_interval_seconds: 60,
+            wifi_sampling_enabled: false,
+            wifi_interface: "wlan0".to_string(),
+            wifi_location_label: "office".to_string(),
         };
 
         db::seed_default_known_devices(&pool, &config.router_ip).await?;

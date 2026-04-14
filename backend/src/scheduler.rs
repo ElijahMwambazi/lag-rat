@@ -4,9 +4,12 @@ use tracing::{error, info};
 use crate::{monitors, state::AppState};
 
 pub async fn start(state: AppState) {
-    let mut connectivity_tick = interval(Duration::from_secs(state.config.connectivity_interval_seconds));
+    let mut connectivity_tick = interval(Duration::from_secs(
+        state.config.connectivity_interval_seconds,
+    ));
     let mut dns_tick = interval(Duration::from_secs(state.config.dns_interval_seconds));
     let mut device_tick = interval(Duration::from_secs(state.config.device_interval_seconds));
+    let mut wifi_tick = interval(Duration::from_secs(state.config.wifi_interval_seconds));
 
     info!("scheduler started");
 
@@ -25,6 +28,11 @@ pub async fn start(state: AppState) {
             _ = device_tick.tick() => {
                 if let Err(err) = monitors::devices::run(&state).await {
                     error!(error = %err, "device inventory pass failed");
+                }
+            }
+            _ = wifi_tick.tick() => {
+                if let Err(err) = monitors::wifi::run(&state).await {
+                    error!(error = %err, "wifi probe failed");
                 }
             }
         }

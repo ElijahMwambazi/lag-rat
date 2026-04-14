@@ -331,6 +331,7 @@ pub enum CollectorObservation {
     Connectivity(ServiceObservation),
     Dns(DnsObservation),
     Device(DeviceObservation),
+    Wifi(WifiObservation),
 }
 
 #[derive(Debug, Clone)]
@@ -370,5 +371,34 @@ pub struct DeviceObservation {
     pub hostname: Option<String>,
     pub entity_type: String,
     pub entity_key: String,
+    pub observed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, FromRow, Clone)]
+pub struct WifiSample {
+    pub id: i64,
+    pub location_label: String,
+    pub interface_name: String,
+    pub ssid: Option<String>,
+    pub bssid: Option<String>,
+    pub rssi_dbm: Option<i64>,
+    pub frequency_mhz: Option<i64>,
+    pub band: Option<String>,
+    pub sampled_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WifiObservation {
+    pub module: String,
+    pub collector_type: String,
+    pub entity_type: String,
+    pub entity_key: String,
+    pub location_label: String,
+    pub interface_name: String,
+    pub ssid: Option<String>,
+    pub bssid: Option<String>,
+    pub rssi_dbm: Option<i64>,
+    pub frequency_mhz: Option<i64>,
+    pub band: Option<String>,
     pub observed_at: DateTime<Utc>,
 }

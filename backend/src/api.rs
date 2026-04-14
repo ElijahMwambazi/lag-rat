@@ -56,6 +56,11 @@ pub struct ReportsSummaryQuery {
     pub hours: Option<u32>,
 }
 
+#[derive(Deserialize)]
+pub struct WifiSamplesQuery {
+    pub limit: Option<u32>,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/status/overview", get(get_status_overview))
@@ -87,6 +92,7 @@ pub fn router(state: AppState) -> Router {
             "/api/reports/incidents/top",
             get(get_top_report_incident_targets),
         )
+        .route("/api/wifi/samples", get(get_wifi_samples))
         .with_state(state)
 }
 
@@ -591,6 +597,19 @@ async fn get_device_history(
         .collect();
 
     Ok(Json(items))
+}
+
+async fn get_wifi_samples(
+    State(state): State<AppState>,
+    Query(query): Query<WifiSamplesQuery>,
+) -> Result<Json<Vec<crate::models::WifiSample>>, (StatusCode, Json<serde_json::Value>)> {
+    let limit = query.limit.unwrap_or(50).min(500) as i64;
+
+    Ok(Json(
+        db::list_wifi_samples(&state.db, limit)
+            .await
+            .map_err(internal_error)?,
+    ))
 }
 
 fn format_duration_compact(seconds: i64) -> String {

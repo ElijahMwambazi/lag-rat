@@ -1,6 +1,9 @@
 use crate::{
     db,
-    models::{CollectorObservation, DeviceObservation, DnsObservation, ServiceObservation},
+    models::{
+        CollectorObservation, DeviceObservation, DnsObservation, ServiceObservation,
+        WifiObservation,
+    },
     services::alerts,
     state::AppState,
 };
@@ -13,6 +16,7 @@ pub async fn ingest(state: &AppState, observation: CollectorObservation) -> anyh
         }
         CollectorObservation::Dns(observation) => ingest_dns(state, &observation).await,
         CollectorObservation::Device(observation) => ingest_device(state, &observation).await,
+        CollectorObservation::Wifi(observation) => ingest_wifi(state, &observation).await,
     }
 }
 
@@ -86,6 +90,32 @@ async fn ingest_device(state: &AppState, observation: &DeviceObservation) -> any
         &observation.ip_address,
         observation.mac_address.as_deref(),
         observation.hostname.as_deref(),
+        observation.observed_at,
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn ingest_wifi(state: &AppState, observation: &WifiObservation) -> anyhow::Result<()> {
+    debug!(
+        module = %observation.module,
+        collector_type = %observation.collector_type,
+        entity_type = %observation.entity_type,
+        entity_key = %observation.entity_key,
+        location_label = %observation.location_label,
+        "ingesting wifi observation",
+    );
+
+    db::insert_wifi_sample(
+        &state.db,
+        &observation.location_label,
+        &observation.interface_name,
+        observation.ssid.as_deref(),
+        observation.bssid.as_deref(),
+        observation.rssi_dbm,
+        observation.frequency_mhz,
+        observation.band.as_deref(),
         observation.observed_at,
     )
     .await?;
