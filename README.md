@@ -136,12 +136,14 @@ Next major testing step:
 lag-rat/
 ├── README.md
 ├── docs/
+│   ├── docs-index.md
+│   ├── docs-crosslink-guide.md
 │   ├── architecture.md
 │   ├── api.md
 │   ├── database-schema.md
 │   ├── roadmap.md
 │   ├── experiments.md
-│   └── lag_rat.md
+│   └── lag-rat.md
 ├── backend/
 ├── frontend/
 └── scripts/
