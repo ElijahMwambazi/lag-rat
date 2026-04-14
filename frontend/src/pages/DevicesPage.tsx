@@ -10,12 +10,19 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 type SortKey =
   | "last_seen"
   | "name"
   | "confidence";
+
+const SHOW_LOW_CONFIDENCE_STORAGE_KEY =
+  "lag-rat:devices:show-low-confidence";
 
 function confidenceRank(
   value: "high" | "medium" | "low",
@@ -37,7 +44,22 @@ export default function DevicesPage() {
   const [
     showLowConfidence,
     setShowLowConfidence,
-  ] = useState(false);
+  ] = useState<boolean>(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      return (
+        window.localStorage.getItem(
+          SHOW_LOW_CONFIDENCE_STORAGE_KEY,
+        ) === "true"
+      );
+    } catch {
+      return false;
+    }
+  });
+
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] =
     useState<SortKey>("last_seen");
@@ -53,6 +75,21 @@ export default function DevicesPage() {
     useState<(typeof devices)[number] | null>(
       null,
     );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        SHOW_LOW_CONFIDENCE_STORAGE_KEY,
+        String(showLowConfidence),
+      );
+    } catch {
+      // ignore storage failures
+    }
+  }, [showLowConfidence]);
 
   const saveKnownDeviceMutation = useMutation<
     KnownDevice,
@@ -231,14 +268,14 @@ export default function DevicesPage() {
             <h3 className="text-sm font-medium text-zinc-100">
               Explorer
             </h3>
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm leading-6 text-zinc-400">
               Search by label, hostname, IP, MAC,
-              or notes. Click a row to open device
-              details.
+              or notes. Open a row for full device
+              details and history.
             </p>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <label className="flex w-full items-start gap-2 rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-300 lg:w-auto lg:items-center">
             <input
               type="checkbox"
               checked={showLowConfidence}
@@ -247,19 +284,22 @@ export default function DevicesPage() {
                   e.target.checked,
                 )
               }
+              className="mt-0.5 lg:mt-0"
             />
-            Include low-confidence devices
+            <span>
+              Include low-confidence devices
+            </span>
           </label>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:flex lg:flex-row lg:items-center">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px]">
           <input
             value={search}
             onChange={(e) =>
               setSearch(e.target.value)
             }
             placeholder="Search label, host, IP, MAC, or notes..."
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 lg:max-w-md"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 lg:col-span-1"
           />
 
           <select
@@ -267,7 +307,7 @@ export default function DevicesPage() {
             onChange={(e) =>
               setSortBy(e.target.value as SortKey)
             }
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 sm:w-auto"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
           >
             <option value="last_seen">
               Sort: Last seen
@@ -308,7 +348,13 @@ export default function DevicesPage() {
         />
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
+      <div className="rounded-t-2xl border border-zinc-800 border-b-0 bg-zinc-950/40 px-4 py-3 text-sm leading-6 text-zinc-400">
+        Swipe horizontally to view all device
+        columns. Tap a row to open full device
+        details.
+      </div>
+
+      <div className="overflow-hidden rounded-b-2xl border border-zinc-800 bg-zinc-900">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[880px] text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">

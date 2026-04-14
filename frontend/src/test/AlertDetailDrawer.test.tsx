@@ -7,6 +7,13 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../utils/incidentText", () => ({
   formatIncidentType: () => "Web connectivity",
+  formatIncidentState: (value: string) =>
+    value === "active" ? "Ongoing" : "Recovered",
+  buildAlertHeadline: () =>
+    "Web connectivity check failed",
+  buildAlertSubtext: () => ({
+    targetLabel: "Target: https://example.com",
+  }),
 }));
 
 describe("AlertDetailDrawer", () => {
@@ -56,26 +63,60 @@ describe("AlertDetailDrawer", () => {
     );
 
     expect(
-      screen.getByText("Alert details"),
+      screen.getByRole("heading", {
+        name: "Web connectivity check failed",
+      }),
     ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Entity type"),
+    ).toBeInTheDocument();
+
     expect(
       screen.getAllByText("Web connectivity")
         .length,
-    ).toBeGreaterThan(0);
+    ).toBeGreaterThan(1);
+
+    expect(
+      screen.getByText("Status"),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        "Target: https://example.com",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Message summary"),
+    ).toBeInTheDocument();
+
     expect(
       screen.getByText("Technical message"),
     ).toBeInTheDocument();
+
     expect(
       screen.getByText(
         "internet_http check failed: timeout",
       ),
     ).toBeInTheDocument();
+
     expect(
       screen.getByText("Acknowledge"),
     ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Copy target"),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Copy message"),
+    ).toBeInTheDocument();
+
     expect(
       screen.getByText("Timeline"),
     ).toBeInTheDocument();
+
     expect(
       screen.getByText("Opened"),
     ).toBeInTheDocument();

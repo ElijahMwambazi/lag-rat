@@ -15,6 +15,24 @@ type Props = {
   onOpenDetails: (device: Device) => void;
 };
 
+function buildSecondaryIdentity(device: Device) {
+  if (
+    device.hostname &&
+    device.hostname !== device.display_name
+  ) {
+    return device.hostname;
+  }
+
+  if (
+    device.label &&
+    device.label !== device.display_name
+  ) {
+    return device.label;
+  }
+
+  return null;
+}
+
 export default function DeviceRow({
   device,
   editingId,
@@ -30,12 +48,15 @@ export default function DeviceRow({
 }: Props) {
   const isEditing = editingId === device.id;
 
+  const secondaryIdentity =
+    buildSecondaryIdentity(device);
+
   return (
     <tr
       className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
       onClick={() => onOpenDetails(device)}
     >
-      <td className="w-[28%] px-4 py-3 align-top">
+      <td className="w-[32%] px-4 py-3 align-top">
         {isEditing ? (
           <div className="space-y-2">
             <input
@@ -86,32 +107,38 @@ export default function DeviceRow({
           </div>
         ) : (
           <div className="space-y-1">
-            <div className="font-medium text-zinc-100">
-              {device.display_name}
-            </div>
+            <div className="space-y-2">
+              <div className="min-w-0">
+                <div className="font-medium text-zinc-100">
+                  {device.display_name}
+                </div>
 
-            {device.notes ? (
-              <div className="line-clamp-2 text-xs text-zinc-400">
-                {device.notes}
+                {secondaryIdentity ? (
+                  <div className="mt-1 text-xs text-zinc-500">
+                    {secondaryIdentity}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
 
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <button
-                className="text-left text-xs text-zinc-300 underline underline-offset-2 hover:text-zinc-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStartEdit(device);
-                }}
-              >
-                {device.is_known
-                  ? "Edit label"
-                  : "Add label"}
-              </button>
+              {device.notes ? (
+                <div className="line-clamp-2 text-xs leading-5 text-zinc-400">
+                  {device.notes}
+                </div>
+              ) : null}
 
-              <span className="text-[11px] text-zinc-500">
-                Click row for details
-              </span>
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                <button
+                  className="rounded-md border border-zinc-700 px-2.5 py-1 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStartEdit(device);
+                  }}
+                >
+                  {device.is_known
+                    ? "Edit label"
+                    : "Add label"}
+                </button>
+              </div>
             </div>
           </div>
         )}

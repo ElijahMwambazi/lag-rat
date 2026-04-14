@@ -277,94 +277,92 @@ it("refetches reports queries when the window changes to 7d", async () => {
   ).toHaveBeenCalledWith(168);
 });
 
-it("collapses top incident targets", async () => {
-  const user = userEvent.setup();
+it("renders recent alert events as a fixed inspection panel", async () => {
   seedReportsSuccessState();
 
   renderWithQueryClient(<ReportsPage />);
 
-  await screen.findByText("Top incident targets");
-
-  const collapseButtons =
-    await screen.findAllByRole("button", {
-      name: "Collapse",
-    });
-
-  await user.click(collapseButtons[0]);
+  expect(
+    await screen.findByText(
+      "Recent alert events",
+    ),
+  ).toBeInTheDocument();
 
   expect(
     screen.getByText(
-      "Incident target ranking is collapsed.",
+      "Web connectivity check failed",
     ),
   ).toBeInTheDocument();
-});
-
-it("collapses outage explorer", async () => {
-  const user = userEvent.setup();
-  seedReportsSuccessState();
-
-  renderWithQueryClient(<ReportsPage />);
-
-  await screen.findByText("Outage explorer");
-
-  const collapseButtons = screen.getAllByRole(
-    "button",
-    {
-      name: "Collapse",
-    },
-  );
-
-  await user.click(collapseButtons[1]);
 
   expect(
-    screen.getByText(
-      "Outage explorer is collapsed.",
-    ),
-  ).toBeInTheDocument();
-});
-
-it("toggles recent alert events between compact and expanded", async () => {
-  const user = userEvent.setup();
-  seedReportsSuccessState();
-
-  renderWithQueryClient(<ReportsPage />);
-
-  const buttons = await screen.findAllByRole(
-    "button",
-    {
+    screen.queryByRole("button", {
       name: "Show all",
-    },
-  );
+    }),
+  ).not.toBeInTheDocument();
+});
 
-  await user.click(buttons[0]);
+it("renders recent device changes as a fixed inspection panel", async () => {
+  seedReportsSuccessState();
+
+  renderWithQueryClient(<ReportsPage />);
+
+  expect(
+    await screen.findByText(
+      "Recent device changes",
+    ),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByText("Hostname changed"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByRole("button", {
+      name: "Show all",
+    }),
+  ).not.toBeInTheDocument();
+});
+
+it("renders top incident targets as a fixed inspection panel", async () => {
+  seedReportsSuccessState();
+
+  renderWithQueryClient(<ReportsPage />);
+
+  expect(
+    await screen.findByText(
+      "Top incident targets",
+    ),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByText("2 incidents"),
+  ).toBeInTheDocument();
 
   expect(
     screen.getByRole("button", {
-      name: "Show compact",
+      name: "Collapse",
     }),
   ).toBeInTheDocument();
 });
 
-it("toggles recent device events between compact and expanded", async () => {
-  const user = userEvent.setup();
+it("still renders outage explorer controls", async () => {
   seedReportsSuccessState();
 
   renderWithQueryClient(<ReportsPage />);
 
-  const buttons = await screen.findAllByRole(
-    "button",
-    {
-      name: "Show all",
-    },
-  );
-
-  await user.click(buttons[1]);
+  expect(
+    await screen.findByText("Outage explorer"),
+  ).toBeInTheDocument();
 
   expect(
-    screen.getAllByRole("button", {
-      name: "Show compact",
-    }).length,
-  ).toBeGreaterThan(0);
+    screen.getByText("Explorer controls"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByPlaceholderText(
+      "Search target, type, status, error...",
+    ),
+  ).toBeInTheDocument();
 });
 
 it("opens outage detail drawer when an outage row is clicked", async () => {

@@ -294,15 +294,6 @@ export default function ReportsPage() {
   ] = useState(true);
 
   const [
-    showAllAlertEvents,
-    setShowAllAlertEvents,
-  ] = useState(false);
-  const [
-    showAllDeviceEvents,
-    setShowAllDeviceEvents,
-  ] = useState(false);
-
-  const [
     showOutageExplorer,
     setShowOutageExplorer,
   ] = useState(true);
@@ -471,14 +462,31 @@ export default function ReportsPage() {
     (outage) => outage.status === "active",
   ).length;
 
-  const alertEventsPanelClass = showAllAlertEvents
-    ? "mt-4 space-y-3"
-    : "mt-4 max-h-[26rem] space-y-3 overflow-y-auto pr-1";
+  const inspectionPanelBodyClass =
+    "mt-3 max-h-[22rem] space-y-2.5 overflow-y-auto pr-1";
+
+  const inspectionCardClass =
+    "rounded-xl border border-zinc-800 bg-zinc-950/60 p-2.5";
+
+  const mutedBadgeClass =
+    "rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-400";
+
+  const warmBadgeClass =
+    "rounded-full border border-amber-800 bg-amber-950/70 px-2 py-0.5 text-[11px] text-amber-300";
+
+  const dangerBadgeClass =
+    "rounded-full border border-red-800 bg-red-950 px-2 py-0.5 text-[11px] text-red-300";
+
+  const alertEventsPanelClass =
+    inspectionPanelBodyClass;
 
   const deviceEventsPanelClass =
-    showAllDeviceEvents
-      ? "mt-4 space-y-3"
-      : "mt-4 max-h-[26rem] space-y-3 overflow-y-auto pr-1";
+    inspectionPanelBodyClass;
+
+  const topIncidentTargetsPanelClass =
+    showTopIncidentTargets
+      ? inspectionPanelBodyClass
+      : "";
 
   async function copySummaryToClipboard() {
     if (!reportNarrative) return;
@@ -722,62 +730,64 @@ export default function ReportsPage() {
     );
   }
 
-  useEffect(() => {
-    setShowAllAlertEvents(false);
-    setShowAllDeviceEvents(false);
-  }, [windowHours]);
-
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <section className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h2 className="text-2xl font-semibold">
             Reports
           </h2>
+          <p className="mt-2 text-zinc-400">
+            Reporting summaries, recent incidents,
+            and exportable operational history for
+            the selected window.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <select
-            value={windowHours}
-            onChange={(e) =>
-              setWindowHours(
-                Number(e.target.value) as
-                  | 24
-                  | 168,
-              )
-            }
-            className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
-          >
-            <option value={24}>Last 24h</option>
-            <option value={168}>Last 7d</option>
-          </select>
+        <div className="flex w-full flex-col gap-3 xl:w-auto xl:items-end">
+          <div className="grid gap-3 sm:grid-cols-3 xl:flex xl:flex-wrap xl:justify-end">
+            <select
+              value={windowHours}
+              onChange={(e) =>
+                setWindowHours(
+                  Number(e.target.value) as
+                    | 24
+                    | 168,
+                )
+              }
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 xl:w-auto"
+            >
+              <option value={24}>Last 24h</option>
+              <option value={168}>Last 7d</option>
+            </select>
 
-          <button
-            type="button"
-            onClick={exportReportsJson}
-            disabled={isExportingSnapshot}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isExportingSnapshot
-              ? "Exporting..."
-              : "Export JSON"}
-          </button>
+            <button
+              type="button"
+              onClick={exportReportsJson}
+              disabled={isExportingSnapshot}
+              className="w-full rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 xl:w-auto"
+            >
+              {isExportingSnapshot
+                ? "Exporting..."
+                : "Export JSON"}
+            </button>
 
-          <button
-            type="button"
-            onClick={exportReportsCsv}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
-          >
-            Export CSV
-          </button>
+            <button
+              type="button"
+              onClick={exportReportsCsv}
+              className="w-full rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 xl:w-auto"
+            >
+              Export CSV
+            </button>
+          </div>
 
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-zinc-400 xl:text-right">
             {outagesQuery.isLoading
               ? "Loading..."
               : `${visibleOutages.length} shown · ${windowedOutages.length} in window · ${activeCount} active`}
           </p>
         </div>
-      </div>
+      </section>
 
       {reportsSummaryQuery.isError ? (
         <QueryState
@@ -911,7 +921,7 @@ export default function ReportsPage() {
             <h3 className="text-lg font-medium">
               Window summary
             </h3>
-            <p className="mt-1 text-sm text-zinc-400">
+            <p className="mt-1 text-xs text-zinc-500">
               Operational summary for the selected
               reporting window.
             </p>
@@ -957,14 +967,14 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-          <div className="flex items-center justify-between gap-4">
+      <section className="grid gap-4 xl:grid-cols-3">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">
+          <div>
             <div>
               <h3 className="text-lg font-medium">
                 Recent alert events
               </h3>
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="mt-1 text-xs text-zinc-500">
                 {formatReportsWindowLabel(
                   windowHours,
                 )}{" "}
@@ -972,20 +982,6 @@ export default function ReportsPage() {
                 events
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                setShowAllAlertEvents(
-                  (current) => !current,
-                )
-              }
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
-            >
-              {showAllAlertEvents
-                ? "Show compact"
-                : "Show all"}
-            </button>
           </div>
 
           <div className={alertEventsPanelClass}>
@@ -1011,7 +1007,9 @@ export default function ReportsPage() {
                 (item: RecentAlertEventItem) => (
                   <div
                     key={`${item.alert_id}-${item.created_at}-${item.event_type}`}
-                    className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+                    className={
+                      inspectionCardClass
+                    }
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1020,7 +1018,7 @@ export default function ReportsPage() {
                             item.event_type,
                           )}
                         </p>
-                        <p className="mt-1 line-clamp-2 text-sm text-zinc-300">
+                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-zinc-300">
                           {buildAlertHeadline({
                             entityType:
                               item.entity_type,
@@ -1056,7 +1054,7 @@ export default function ReportsPage() {
                         item.previous_value,
                       newValue: item.new_value,
                     }) ? (
-                      <p className="mt-2 text-xs text-zinc-400">
+                      <p className="mt-2 text-[11px] text-zinc-500">
                         {formatAlertEventTransition(
                           {
                             eventType:
@@ -1076,13 +1074,13 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-          <div className="flex items-center justify-between gap-4">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">
+          <div>
             <div>
               <h3 className="text-lg font-medium">
                 Recent device changes
               </h3>
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="mt-1 text-xs text-zinc-500">
                 {formatReportsWindowLabel(
                   windowHours,
                 )}{" "}
@@ -1090,20 +1088,6 @@ export default function ReportsPage() {
                 events
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                setShowAllDeviceEvents(
-                  (current) => !current,
-                )
-              }
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
-            >
-              {showAllDeviceEvents
-                ? "Show compact"
-                : "Show all"}
-            </button>
           </div>
 
           <div className={deviceEventsPanelClass}>
@@ -1130,7 +1114,9 @@ export default function ReportsPage() {
                 (item: RecentDeviceEventItem) => (
                   <div
                     key={`${item.device_ip_address}-${item.created_at}-${item.event_type}`}
-                    className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+                    className={
+                      inspectionCardClass
+                    }
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1155,7 +1141,7 @@ export default function ReportsPage() {
                       item.previous_value,
                       item.new_value,
                     ) ? (
-                      <p className="mt-2 whitespace-pre-wrap break-words text-xs text-zinc-400">
+                      <p className="mt-2 whitespace-pre-wrap break-words text-[11px] text-zinc-500">
                         {formatTransition(
                           item.previous_value,
                           item.new_value,
@@ -1168,114 +1154,120 @@ export default function ReportsPage() {
             )}
           </div>
         </div>
-      </section>
 
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-medium">
-              Top incident targets
-            </h3>
-            <p className="mt-1 text-sm text-zinc-400">
-              {formatReportsWindowLabel(
-                windowHours,
-              )}{" "}
-              · {topIncidentTargets.length}{" "}
-              targets
-            </p>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-medium">
+                Top incident targets
+              </h3>
+              <p className="mt-1 text-xs text-zinc-500">
+                {formatReportsWindowLabel(
+                  windowHours,
+                )}{" "}
+                · {topIncidentTargets.length}{" "}
+                targets
+              </p>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              setShowTopIncidentTargets(
-                (current) => !current,
-              )
-            }
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
-          >
-            {showTopIncidentTargets
-              ? "Collapse"
-              : "Expand"}
-          </button>
-        </div>
+          {showTopIncidentTargets ? (
+            <div
+              className={
+                topIncidentTargetsPanelClass
+              }
+            >
+              {topIncidentTargetsQuery.isLoading ? (
+                <StateCard
+                  title="Top incident targets"
+                  message="Loading targets..."
+                />
+              ) : topIncidentTargetsQuery.isError ? (
+                <StateCard
+                  title="Top incident targets"
+                  tone="error"
+                  message="Could not load targets."
+                />
+              ) : topIncidentTargets.length ===
+                0 ? (
+                <StateCard
+                  title="Top incident targets"
+                  tone="warning"
+                  message="No incident targets were recorded in this window."
+                />
+              ) : (
+                topIncidentTargets.map(
+                  (
+                    item: IncidentTargetSummaryItem,
+                  ) => (
+                    <div
+                      key={`${item.incident_type}-${item.target}`}
+                      className={
+                        inspectionCardClass
+                      }
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-zinc-100">
+                            {item.target}
+                          </p>
+                          <p className="mt-1 text-[11px] text-zinc-500">
+                            {formatIncidentType(
+                              item.incident_type,
+                            )}
+                          </p>
+                        </div>
 
-        {showTopIncidentTargets ? (
-          <div className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
-            {topIncidentTargetsQuery.isLoading ? (
-              <StateCard
-                title="Top incident targets"
-                message="Loading targets..."
-              />
-            ) : topIncidentTargetsQuery.isError ? (
-              <StateCard
-                title="Top incident targets"
-                tone="error"
-                message="Could not load targets."
-              />
-            ) : topIncidentTargets.length ===
-              0 ? (
-              <StateCard
-                title="Top incident targets"
-                tone="warning"
-                message="No incident targets were recorded in this window."
-              />
-            ) : (
-              topIncidentTargets.map(
-                (
-                  item: IncidentTargetSummaryItem,
-                ) => (
-                  <div
-                    key={`${item.incident_type}-${item.target}`}
-                    className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
-                  >
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-zinc-100">
-                          {item.target}
-                        </p>
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {formatIncidentType(
-                            item.incident_type,
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-zinc-300">
-                          {item.count} incidents
-                        </span>
-                        <span className="rounded-full border border-amber-800 bg-amber-950 px-2.5 py-1 text-amber-300">
-                          {formatDurationCompact(
-                            item.total_downtime_seconds,
-                          )}{" "}
-                          downtime
-                        </span>
                         {item.active_count > 0 ? (
-                          <span className="rounded-full border border-red-800 bg-red-950 px-2.5 py-1 text-red-300">
+                          <span
+                            className={
+                              dangerBadgeClass
+                            }
+                          >
                             {item.active_count}{" "}
                             active
                           </span>
                         ) : null}
                       </div>
-                    </div>
 
-                    <p className="mt-2 text-xs text-zinc-400">
-                      Latest incident{" "}
-                      {formatDate(
-                        item.latest_started_at,
-                      )}
-                    </p>
-                  </div>
-                ),
-              )
-            )}
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-zinc-400">
-            Incident target ranking is collapsed.
-          </p>
-        )}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span
+                          className={
+                            mutedBadgeClass
+                          }
+                        >
+                          {item.count} incidents
+                        </span>
+                        <span
+                          className={
+                            warmBadgeClass
+                          }
+                        >
+                          {formatDurationCompact(
+                            item.total_downtime_seconds,
+                          )}{" "}
+                          downtime
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-[11px] text-zinc-500">
+                        Latest incident{" "}
+                        {formatDate(
+                          item.latest_started_at,
+                        )}
+                      </p>
+                    </div>
+                  ),
+                )
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-zinc-400">
+              Incident target ranking is
+              collapsed.
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="space-y-3">
@@ -1284,7 +1276,7 @@ export default function ReportsPage() {
             <h3 className="text-lg font-medium">
               Outage explorer
             </h3>
-            <p className="mt-1 text-sm text-zinc-400">
+            <p className="mt-1 text-xs text-zinc-500">
               Search, filter, and inspect outage
               records within the selected
               reporting window.
@@ -1298,7 +1290,7 @@ export default function ReportsPage() {
                 (current) => !current,
               )
             }
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
+            className="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
           >
             {showOutageExplorer
               ? "Collapse"
@@ -1308,15 +1300,26 @@ export default function ReportsPage() {
 
         {showOutageExplorer ? (
           <>
-            <div className="flex flex-col gap-3">
-              <div className="grid gap-3 sm:grid-cols-2 xl:flex xl:flex-row xl:items-center">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+              <div className="space-y-1">
+                <h4 className="text-sm font-medium text-zinc-100">
+                  Explorer controls
+                </h4>
+                <p className="text-sm leading-6 text-zinc-400">
+                  Filter outage records by target,
+                  incident type, state, and sort
+                  order.
+                </p>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,180px))]">
                 <input
                   value={search}
                   onChange={(e) =>
                     setSearch(e.target.value)
                   }
                   placeholder="Search target, type, status, error..."
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 xl:min-w-[320px]"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 xl:col-span-1"
                 />
 
                 <select
@@ -1327,7 +1330,7 @@ export default function ReportsPage() {
                         .value as TypeFilter,
                     )
                   }
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 xl:w-auto"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
                 >
                   <option value="all">
                     All types
@@ -1352,7 +1355,7 @@ export default function ReportsPage() {
                         .value as StatusFilter,
                     )
                   }
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 xl:w-auto"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
                 >
                   <option value="all">
                     All statuses
@@ -1372,7 +1375,7 @@ export default function ReportsPage() {
                       e.target.value as SortKey,
                     )
                   }
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 xl:w-auto"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
                 >
                   <option value="started_desc">
                     Newest first
@@ -1390,7 +1393,13 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
+            <div className="rounded-t-2xl border border-zinc-800 border-b-0 bg-zinc-950/40 px-4 py-3 text-sm leading-6 text-zinc-400">
+              Swipe horizontally to view all
+              outage columns. Tap a row to inspect
+              full incident details.
+            </div>
+
+            <div className="overflow-hidden rounded-b-2xl border border-zinc-800 bg-zinc-900">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] text-sm">
                   <thead className="bg-zinc-800/50 text-zinc-300">

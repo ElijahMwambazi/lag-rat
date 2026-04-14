@@ -9,6 +9,8 @@ vi.mock("../utils/incidentText", () => ({
   formatIncidentType: () => "Web connectivity",
   formatIncidentState: (value: string) =>
     value === "active" ? "Ongoing" : "Recovered",
+  summarizeOutageCause: () =>
+    "Web probe request failed",
 }));
 
 describe("OutageDetailDrawer", () => {
@@ -45,7 +47,9 @@ describe("OutageDetailDrawer", () => {
     );
 
     expect(
-      screen.getByText("Web connectivity"),
+      screen.getByRole("heading", {
+        name: "Web connectivity",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Incident details"),
@@ -57,10 +61,21 @@ describe("OutageDetailDrawer", () => {
       screen.getByText("Recovered"),
     ).toBeInTheDocument();
     expect(
+      screen.getByText(
+        "Web probe request failed",
+      ),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText("error sending request"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Recovered after retry"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Copy target"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Copy cause"),
     ).toBeInTheDocument();
   });
 });
