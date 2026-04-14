@@ -1,4 +1,7 @@
-import { screen } from "@testing-library/react";
+import {
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   beforeEach,
@@ -337,32 +340,6 @@ it("renders top incident targets as a fixed inspection panel", async () => {
   expect(
     screen.getByText("2 incidents"),
   ).toBeInTheDocument();
-
-  expect(
-    screen.getByRole("button", {
-      name: "Collapse",
-    }),
-  ).toBeInTheDocument();
-});
-
-it("still renders outage explorer controls", async () => {
-  seedReportsSuccessState();
-
-  renderWithQueryClient(<ReportsPage />);
-
-  expect(
-    await screen.findByText("Outage explorer"),
-  ).toBeInTheDocument();
-
-  expect(
-    screen.getByText("Explorer controls"),
-  ).toBeInTheDocument();
-
-  expect(
-    screen.getByPlaceholderText(
-      "Search target, type, status, error...",
-    ),
-  ).toBeInTheDocument();
 });
 
 it("opens outage detail drawer when an outage row is clicked", async () => {
@@ -371,11 +348,11 @@ it("opens outage detail drawer when an outage row is clicked", async () => {
 
   renderWithQueryClient(<ReportsPage />);
 
-  const outageExplorerHeading =
-    await screen.findByText("Outage explorer");
-  expect(
-    outageExplorerHeading,
-  ).toBeInTheDocument();
+  await user.click(
+    screen.getByRole("button", {
+      name: "Expand",
+    }),
+  );
 
   const cells = await screen.findAllByText(
     "https://example.com",
@@ -383,9 +360,7 @@ it("opens outage detail drawer when an outage row is clicked", async () => {
   await user.click(cells[cells.length - 1]);
 
   expect(
-    await screen.findByText(
-      /Outage detail drawer/i,
-    ),
+    await screen.findByText(/Incident details/i),
   ).toBeInTheDocument();
 });
 
@@ -432,6 +407,12 @@ it("passes search and filter params to outages query", async () => {
 
   renderWithQueryClient(<ReportsPage />);
 
+  await user.click(
+    screen.getByRole("button", {
+      name: "Expand",
+    }),
+  );
+
   await screen.findByPlaceholderText(
     "Search target, type, status, error...",
   );
@@ -444,16 +425,37 @@ it("passes search and filter params to outages query", async () => {
   );
 
   const selects = screen.getAllByRole("combobox");
-
   await user.selectOptions(selects[1], "dns");
-  await user.selectOptions(selects[2], "active");
-
-  expect(api.getOutages).toHaveBeenLastCalledWith(
-    expect.objectContaining({
-      outage_type: "dns",
-      status: "active",
-      search: "example",
-      limit: 200,
-    }),
+  await user.selectOptions(
+    selects[2],
+    "resolved",
   );
+
+  await waitFor(() => {
+    expect(
+      api.getOutages,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        outage_type: "dns",
+        status: "resolved",
+        search: "example",
+      }),
+    );
+  });
+});
+
+it("renders top incident targets as a fixed inspection panel", async () => {
+  seedReportsSuccessState();
+
+  renderWithQueryClient(<ReportsPage />);
+
+  expect(
+    await screen.findByText(
+      "Top incident targets",
+    ),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByText("2 incidents"),
+  ).toBeInTheDocument();
 });

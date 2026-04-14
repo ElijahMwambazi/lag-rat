@@ -296,7 +296,7 @@ export default function ReportsPage() {
   const [
     showOutageExplorer,
     setShowOutageExplorer,
-  ] = useState(true);
+  ] = useState(false);
 
   const reportsSummaryQuery = useQuery({
     queryKey: ["reports-summary", windowHours],
