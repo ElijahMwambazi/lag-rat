@@ -1748,3 +1748,120 @@ pub async fn latest_wifi_sample(pool: &SqlitePool) -> anyhow::Result<Option<Wifi
     .fetch_optional(pool)
     .await?)
 }
+
+pub async fn list_wifi_samples_filtered(
+    pool: &SqlitePool,
+    minutes: i64,
+    location_label: Option<&str>,
+    limit: i64,
+) -> anyhow::Result<Vec<WifiSample>> {
+    Ok(sqlx::query_as::<_, WifiSample>(
+        r#"
+        SELECT
+            id,
+            location_label,
+            interface_name,
+            ssid,
+            bssid,
+            rssi_dbm,
+            frequency_mhz,
+            band,
+            sampled_at
+        FROM wifi_samples
+        WHERE sampled_at >= datetime('now', '-' || ?1 || ' minutes')
+          AND (?2 IS NULL OR location_label = ?2)
+        ORDER BY sampled_at DESC
+        LIMIT ?3
+        "#,
+    )
+    .bind(minutes)
+    .bind(location_label)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?)
+}
+
+pub async fn list_wifi_locations(pool: &SqlitePool) -> anyhow::Result<Vec<String>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT DISTINCT location_label
+        FROM wifi_samples
+        WHERE location_label IS NOT NULL
+          AND TRIM(location_label) != ''
+        ORDER BY location_label ASC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .filter_map(|row| row.try_get::<String, _>("location_label").ok())
+        .collect())
+}
+
+pub async fn wifi_summary(
+    pool: &SqlitePool,
+    minutes: i64,
+    location_label: Option<&str>,
+) -> anyhow::Result<(
+    Option<WifiSample>,
+    u32,
+    Option<f64>,
+    Option<i64>,
+    Option<i64>,
+)> {
+    let latest = sqlx::query_as::<_, WifiSample>(
+        r#"
+        SELECT
+            id,
+            location_label,
+            interface_name,
+            ssid,
+            bssid,
+            rssi_dbm,
+            frequency_mhz,
+            band,
+            sampled_at
+        FROM wifi_samples
+        WHERE sampled_at >= datetime('now', '-' || ?1 || ' minutes')
+          AND (?2 IS NULL OR location_label = ?2)
+        ORDER BY sampled_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(minutes)
+    .bind(location_label)
+    .fetch_optional(pool)
+    .await?;
+
+    let row = sqlx::query(
+        r#"
+        SELECT
+            COUNT(*) AS sample_count,
+            AVG(rssi_dbm) AS avg_rssi_dbm,
+            MIN(rssi_dbm) AS min_rssi_dbm,
+            MAX(rssi_dbm) AS max_rssi_dbm
+        FROM wifi_samples
+        WHERE sampled_at >= datetime('now', '-' || ?1 || ' minutes')
+          AND (?2 IS NULL OR location_label = ?2)
+        "#,
+    )
+    .bind(minutes)
+    .bind(location_label)
+    .fetch_one(pool)
+    .await?;
+
+    let sample_count: i64 = row.get("sample_count");
+    let avg_rssi_dbm: Option<f64> = row.try_get("avg_rssi_dbm").ok();
+    let min_rssi_dbm: Option<i64> = row.try_get("min_rssi_dbm").ok();
+    let max_rssi_dbm: Option<i64> = row.try_get("max_rssi_dbm").ok();
+
+    Ok((
+        latest,
+        sample_count as u32,
+        avg_rssi_dbm,
+        min_rssi_dbm,
+        max_rssi_dbm,
+    ))
+}

@@ -219,6 +219,20 @@ export type WifiSample = {
   sampled_at: string;
 };
 
+export type WifiSummaryResponse = {
+  window_minutes: number;
+  location_label?: string | null;
+  sample_count: number;
+  avg_rssi_dbm?: number | null;
+  min_rssi_dbm?: number | null;
+  max_rssi_dbm?: number | null;
+  latest_sample?: WifiSample | null;
+};
+
+export type WifiLocationsResponse = {
+  items: string[];
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -383,10 +397,31 @@ export const api = {
     getJson<DeviceHistoryItem[]>(
       `/api/devices/${encodeURIComponent(ip)}/history`,
     ),
-  getWifiSamples: (limit = 50) =>
-    getJson<WifiSample[]>(
-      `/api/wifi/samples?limit=${limit}`,
-    ),
+  getWifiSamples: (params?: {
+    minutes?: number;
+    location_label?: string;
+    limit?: number;
+  }) => {
+    const query = new URLSearchParams();
+
+    if (params?.minutes)
+      query.set(
+        "minutes",
+        String(params.minutes),
+      );
+    if (params?.location_label?.trim())
+      query.set(
+        "location_label",
+        params.location_label.trim(),
+      );
+    if (params?.limit)
+      query.set("limit", String(params.limit));
+
+    const suffix = query.toString();
+    return getJson<WifiSample[]>(
+      `/api/wifi/samples${suffix ? `?${suffix}` : ""}`,
+    );
+  },
 
   getLatestWifiSample:
     async (): Promise<WifiSample | null> => {
@@ -406,4 +441,32 @@ export const api = {
 
       return response.json() as Promise<WifiSample>;
     },
+
+  getWifiSummary: (params?: {
+    minutes?: number;
+    location_label?: string;
+  }) => {
+    const query = new URLSearchParams();
+
+    if (params?.minutes)
+      query.set(
+        "minutes",
+        String(params.minutes),
+      );
+    if (params?.location_label?.trim())
+      query.set(
+        "location_label",
+        params.location_label.trim(),
+      );
+
+    const suffix = query.toString();
+    return getJson<WifiSummaryResponse>(
+      `/api/wifi/summary${suffix ? `?${suffix}` : ""}`,
+    );
+  },
+
+  getWifiLocations: () =>
+    getJson<WifiLocationsResponse>(
+      "/api/wifi/locations",
+    ),
 };

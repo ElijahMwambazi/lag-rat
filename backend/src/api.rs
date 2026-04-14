@@ -61,6 +61,29 @@ pub struct WifiSamplesQuery {
     pub limit: Option<u32>,
 }
 
+#[derive(Deserialize)]
+pub struct WifiQuery {
+    pub minutes: Option<u32>,
+    pub location_label: Option<String>,
+    pub limit: Option<u32>,
+}
+
+#[derive(serde::Serialize)]
+pub struct WifiSummaryResponse {
+    pub window_minutes: u32,
+    pub location_label: Option<String>,
+    pub sample_count: u32,
+    pub avg_rssi_dbm: Option<f64>,
+    pub min_rssi_dbm: Option<i64>,
+    pub max_rssi_dbm: Option<i64>,
+    pub latest_sample: Option<crate::models::WifiSample>,
+}
+
+#[derive(serde::Serialize)]
+pub struct WifiLocationsResponse {
+    pub items: Vec<String>,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/status/overview", get(get_status_overview))
@@ -94,6 +117,8 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/wifi/samples", get(get_wifi_samples))
         .route("/api/wifi/latest", get(get_latest_wifi_sample))
+        .route("/api/wifi/summary", get(get_wifi_summary))
+        .route("/api/wifi/locations", get(get_wifi_locations))
         .with_state(state)
 }
 
@@ -602,12 +627,13 @@ async fn get_device_history(
 
 async fn get_wifi_samples(
     State(state): State<AppState>,
-    Query(query): Query<WifiSamplesQuery>,
+    Query(query): Query<WifiQuery>,
 ) -> Result<Json<Vec<crate::models::WifiSample>>, (StatusCode, Json<serde_json::Value>)> {
-    let limit = query.limit.unwrap_or(50).min(500) as i64;
+    let minutes = query.minutes.unwrap_or(60).min(60 * 24 * 7) as i64;
+    let limit = query.limit.unwrap_or(100).min(500) as i64;
 
     Ok(Json(
-        db::list_wifi_samples(&state.db, limit)
+        db::list_wifi_samples_filtered(&state.db, minutes, query.location_label.as_deref(), limit)
             .await
             .map_err(internal_error)?,
     ))
@@ -627,6 +653,38 @@ async fn get_latest_wifi_sample(
             Json(json!({ "error": "wifi sample not found" })),
         )),
     }
+}
+
+async fn get_wifi_summary(
+    State(state): State<AppState>,
+    Query(query): Query<WifiQuery>,
+) -> Result<Json<WifiSummaryResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let minutes = query.minutes.unwrap_or(60).min(60 * 24 * 7) as i64;
+
+    let (latest_sample, sample_count, avg_rssi_dbm, min_rssi_dbm, max_rssi_dbm) =
+        db::wifi_summary(&state.db, minutes, query.location_label.as_deref())
+            .await
+            .map_err(internal_error)?;
+
+    Ok(Json(WifiSummaryResponse {
+        window_minutes: minutes as u32,
+        location_label: query.location_label,
+        sample_count,
+        avg_rssi_dbm,
+        min_rssi_dbm,
+        max_rssi_dbm,
+        latest_sample,
+    }))
+}
+
+async fn get_wifi_locations(
+    State(state): State<AppState>,
+) -> Result<Json<WifiLocationsResponse>, (StatusCode, Json<serde_json::Value>)> {
+    Ok(Json(WifiLocationsResponse {
+        items: db::list_wifi_locations(&state.db)
+            .await
+            .map_err(internal_error)?,
+    }))
 }
 
 fn format_duration_compact(seconds: i64) -> String {

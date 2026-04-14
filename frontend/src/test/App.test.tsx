@@ -22,6 +22,10 @@ vi.mock("../pages/ReportsPage", () => ({
   default: () => <div>Reports page</div>,
 }));
 
+vi.mock("../pages/WifiPage", () => ({
+  default: () => <div>Wi-Fi page</div>,
+}));
+
 describe("App", () => {
   it("renders shell and overview route", () => {
     render(
@@ -52,6 +56,18 @@ describe("App", () => {
 
     expect(
       screen.getByText("Reports page"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders wifi route", () => {
+    render(
+      <MemoryRouter initialEntries={["/wifi"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText("Wi-Fi page"),
     ).toBeInTheDocument();
   });
 });
