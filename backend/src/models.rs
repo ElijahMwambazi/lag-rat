@@ -330,6 +330,7 @@ pub struct MetricsSummaryResponse {
 pub enum CollectorObservation {
     Connectivity(ServiceObservation),
     Dns(DnsObservation),
+    Device(DeviceObservation),
 }
 
 #[derive(Debug, Clone)]
@@ -352,10 +353,22 @@ pub struct DnsObservation {
     pub collector_type: String,
     pub domain: String,
     pub resolver: String,
-    pub entity_type: &'static str,
+    pub entity_type: String,
     pub entity_key: String,
     pub observed_at: DateTime<Utc>,
     pub success: bool,
     pub response_time_ms: Option<f64>,
     pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DeviceObservation {
+    pub module: String,
+    pub collector_type: String,
+    pub ip_address: String,
+    pub mac_address: Option<String>,
+    pub hostname: Option<String>,
+    pub entity_type: String,
+    pub entity_key: String,
+    pub observed_at: DateTime<Utc>,
 }

@@ -3,7 +3,12 @@ use tokio::{fs, process::Command, sync::Semaphore};
 
 use std::{collections::HashSet, net::Ipv4Addr, sync::Arc, time::Duration};
 
-use crate::{db, state::AppState};
+use crate::{
+    db,
+    models::{CollectorObservation, DeviceObservation},
+    services::collector_ingest,
+    state::AppState,
+};
 
 pub async fn run(state: &AppState) -> anyhow::Result<()> {
     register_local_host(state).await?;
@@ -42,12 +47,18 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
                 None => resolve_hostname_for_ip(&ip).await,
             };
 
-            db::upsert_device(
-                &state.db,
-                &ip,
-                mac.as_deref(),
-                resolved_host.as_deref(),
-                Utc::now(),
+            collector_ingest::ingest(
+                state,
+                CollectorObservation::Device(DeviceObservation {
+                    module: "home_network".to_string(),
+                    collector_type: "device_inventory".to_string(),
+                    ip_address: ip.clone(),
+                    mac_address: mac.clone(),
+                    hostname: resolved_host.clone(),
+                    entity_type: "device".to_string(),
+                    entity_key: ip.clone(),
+                    observed_at: Utc::now(),
+                }),
             )
             .await?;
         }
@@ -120,8 +131,21 @@ async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
 
                             let host = hostname.clone().or_else(|| normalize_host(&iface));
                             let mac = linux_mac_for_interface(&iface).await;
-                            db::upsert_device(&state.db, &ip, mac.as_deref(), host.as_deref(), now)
-                                .await?;
+
+                            collector_ingest::ingest(
+                                state,
+                                CollectorObservation::Device(DeviceObservation {
+                                    module: "home_network".to_string(),
+                                    collector_type: "local_host_registration".to_string(),
+                                    ip_address: ip.clone(),
+                                    mac_address: mac.clone(),
+                                    hostname: host.clone(),
+                                    entity_type: "device".to_string(),
+                                    entity_key: ip.clone(),
+                                    observed_at: now,
+                                }),
+                            )
+                            .await?;
                         }
                     }
                 }
@@ -143,7 +167,20 @@ async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
                             continue;
                         }
 
-                        db::upsert_device(&state.db, &ip, None, hostname.as_deref(), now).await?;
+                        collector_ingest::ingest(
+                            state,
+                            CollectorObservation::Device(DeviceObservation {
+                                module: "home_network".to_string(),
+                                collector_type: "local_host_registration".to_string(),
+                                ip_address: ip.clone(),
+                                mac_address: None,
+                                hostname: hostname.clone(),
+                                entity_type: "device".to_string(),
+                                entity_key: ip.clone(),
+                                observed_at: now,
+                            }),
+                        )
+                        .await?;
                     }
                 }
             }
@@ -164,7 +201,20 @@ async fn register_local_host(state: &AppState) -> anyhow::Result<()> {
                             continue;
                         }
 
-                        db::upsert_device(&state.db, &ip, None, hostname.as_deref(), now).await?;
+                        collector_ingest::ingest(
+                            state,
+                            CollectorObservation::Device(DeviceObservation {
+                                module: "home_network".to_string(),
+                                collector_type: "local_host_registration".to_string(),
+                                ip_address: ip.clone(),
+                                mac_address: None,
+                                hostname: hostname.clone(),
+                                entity_type: "device".to_string(),
+                                entity_key: ip.clone(),
+                                observed_at: now,
+                            }),
+                        )
+                        .await?;
                     }
                 }
             }

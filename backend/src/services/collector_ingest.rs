@@ -1,6 +1,6 @@
 use crate::{
     db,
-    models::{CollectorObservation, DnsObservation, ServiceObservation},
+    models::{CollectorObservation, DeviceObservation, DnsObservation, ServiceObservation},
     services::alerts,
     state::AppState,
 };
@@ -12,6 +12,7 @@ pub async fn ingest(state: &AppState, observation: CollectorObservation) -> anyh
             ingest_connectivity(state, &observation).await
         }
         CollectorObservation::Dns(observation) => ingest_dns(state, &observation).await,
+        CollectorObservation::Device(observation) => ingest_device(state, &observation).await,
     }
 }
 
@@ -67,6 +68,27 @@ async fn ingest_dns(state: &AppState, observation: &DnsObservation) -> anyhow::R
     .await?;
 
     alerts::evaluate_dns_observation(state, observation).await?;
+
+    Ok(())
+}
+
+async fn ingest_device(state: &AppState, observation: &DeviceObservation) -> anyhow::Result<()> {
+    debug!(
+        module = %observation.module,
+        collector_type = %observation.collector_type,
+        entity_type = %observation.entity_type,
+        entity_key = %observation.entity_key,
+        "ingesting device observation",
+    );
+
+    db::upsert_device(
+        &state.db,
+        &observation.ip_address,
+        observation.mac_address.as_deref(),
+        observation.hostname.as_deref(),
+        observation.observed_at,
+    )
+    .await?;
 
     Ok(())
 }
