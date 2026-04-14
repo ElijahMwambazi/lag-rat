@@ -80,6 +80,12 @@ function severityClasses(severity: string) {
   return "border-zinc-700 bg-zinc-800 text-zinc-300";
 }
 
+function statusClasses(isActive: boolean) {
+  return isActive
+    ? "border-red-800 bg-red-950 text-red-300"
+    : "border-zinc-700 bg-zinc-800 text-zinc-300";
+}
+
 function readNotifiedAlertIds(): number[] {
   if (typeof window === "undefined") {
     return [];
@@ -321,15 +327,19 @@ export default function AlertsPanel({
 
   return (
     <>
-      <section className="flex h-[32rem] min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-        <div className="flex items-start justify-between gap-4">
+      <section className="flex h-[32rem] min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-lg font-medium">
               Alerts
             </h3>
+            <p className="mt-1 text-xs text-zinc-500">
+              Active and recent alert activity
+              across monitored services.
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             {typeof Notification !==
               "undefined" &&
             Notification.permission !==
@@ -337,7 +347,7 @@ export default function AlertsPanel({
               <button
                 type="button"
                 onClick={enableNotifications}
-                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+                className="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
               >
                 Enable notifications
               </button>
@@ -347,15 +357,15 @@ export default function AlertsPanel({
               </span>
             ) : null}
 
-            <p className="text-sm text-zinc-400">
+            <span className="text-xs text-zinc-500">
               {alertsQuery.isLoading
                 ? "Loading..."
                 : `${visibleAlerts.length} shown · ${activeCount} active`}
-            </p>
+            </span>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="mt-3 flex flex-col gap-3">
           <input
             value={search}
             onChange={(e) =>
@@ -364,6 +374,16 @@ export default function AlertsPanel({
             placeholder="Search message, entity, type..."
             className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500"
           />
+
+          <div className="space-y-1">
+            <h4 className="text-sm font-medium text-zinc-100">
+              Explorer controls
+            </h4>
+            <p className="text-xs text-zinc-500">
+              Filter alerts by status, severity,
+              entity, or matching message text.
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <select
@@ -450,19 +470,19 @@ export default function AlertsPanel({
               No alerts match the current filters.
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {visibleAlerts.map((alert) => (
                 <button
                   key={alert.id}
                   type="button"
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-left transition-colors hover:bg-zinc-800/60"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 text-left transition-colors hover:bg-zinc-800/60"
                   onClick={() =>
                     setSelectedAlert(alert)
                   }
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 font-medium text-zinc-100">
+                      <p className="line-clamp-2 text-sm font-medium text-zinc-100">
                         {buildAlertHeadline({
                           entityType:
                             alert.entity_type,
@@ -485,7 +505,7 @@ export default function AlertsPanel({
                         }
                       </p>
 
-                      <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
+                      <p className="mt-1 line-clamp-1 text-[11px] text-zinc-500">
                         {formatIncidentType(
                           alert.entity_type,
                         )}{" "}
@@ -496,9 +516,9 @@ export default function AlertsPanel({
                       </p>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                       <span
-                        className={`rounded-full border px-2.5 py-1 text-xs ${severityClasses(
+                        className={`rounded-full border px-2 py-0.5 text-[11px] ${severityClasses(
                           alert.severity,
                         )}`}
                       >
@@ -506,11 +526,9 @@ export default function AlertsPanel({
                       </span>
 
                       <span
-                        className={`rounded-full border px-2.5 py-1 text-xs ${
-                          alert.is_active
-                            ? "border-red-800 bg-red-950 text-red-300"
-                            : "border-zinc-700 bg-zinc-800 text-zinc-300"
-                        }`}
+                        className={`rounded-full border px-2 py-0.5 text-[11px] ${statusClasses(
+                          alert.is_active,
+                        )}`}
                       >
                         {formatIncidentState(
                           alert.is_active
@@ -518,9 +536,10 @@ export default function AlertsPanel({
                             : "resolved",
                         )}
                       </span>
+
                       {alert.is_active &&
                       alert.acknowledged_at ? (
-                        <span className="rounded-full border border-amber-800 bg-amber-950 px-2.5 py-1 text-xs text-amber-300">
+                        <span className="rounded-full border border-amber-800 bg-amber-950 px-2 py-0.5 text-[11px] text-amber-300">
                           Acknowledged
                         </span>
                       ) : null}
