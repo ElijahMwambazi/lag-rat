@@ -18,6 +18,15 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
 
     let sample = sample_wifi_linux(&interface_name).await?;
 
+    if sample.ssid.is_none()
+        && sample.bssid.is_none()
+        && sample.rssi_dbm.is_none()
+        && sample.frequency_mhz.is_none()
+        && sample.band.is_none()
+    {
+        return Ok(());
+    }
+
     collector_ingest::ingest(
         state,
         CollectorObservation::Wifi(WifiObservation {
@@ -84,7 +93,11 @@ async fn sample_wifi_linux(interface_name: &str) -> anyhow::Result<LinuxWifiSamp
                 .map(|v| v.round() as i64);
             rssi_dbm = dbm;
         } else if let Some(value) = line.strip_prefix("freq: ") {
-            frequency_mhz = value.trim().parse::<i64>().ok();
+            frequency_mhz = value
+                .trim()
+                .parse::<f64>()
+                .ok()
+                .map(|mhz| mhz.round() as i64);
         } else if line.starts_with("Connected to ") {
             let maybe_bssid = line.trim_start_matches("Connected to ").trim();
             if !maybe_bssid.is_empty() {

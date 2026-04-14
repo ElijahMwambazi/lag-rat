@@ -17,6 +17,8 @@ type ChartCardProps = {
   isLoading?: boolean;
   isError?: boolean;
   errorMessage?: string;
+  valueFormatter?: (value: number) => string;
+  valueLabel?: string;
 };
 
 function formatXAxisLabel(value: string) {
@@ -61,6 +63,9 @@ export default function ChartCard({
   isLoading = false,
   isError = false,
   errorMessage,
+  valueFormatter = (value) =>
+    `${value.toFixed(1)} ms`,
+  valueLabel = "Latency",
 }: ChartCardProps) {
   if (isError) {
     return (
@@ -133,8 +138,8 @@ export default function ChartCard({
             <Tooltip
               labelFormatter={formatTooltipLabel}
               formatter={(value: number) => [
-                `${value.toFixed(1)} ms`,
-                "Latency",
+                valueFormatter(value),
+                valueLabel,
               ]}
               contentStyle={{
                 backgroundColor: "#18181b",

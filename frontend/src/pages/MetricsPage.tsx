@@ -6,6 +6,7 @@ import StateCard from "../components/StateCard";
 import {
   api,
   type ProbeMetricsSummaryItem,
+  type WifiSample,
 } from "../services/api";
 
 type MetricsWindowOption = {
@@ -42,10 +43,38 @@ function formatDate(value?: string | null) {
     : parsed.toLocaleString();
 }
 
+function formatRssi(value?: number | null) {
+  if (value === null || value === undefined)
+    return "—";
+  return `${value} dBm`;
+}
+
 function hasMeaningfulMetricsData(
   item: ProbeMetricsSummaryItem,
 ) {
   return item.total_checks > 0;
+}
+
+function getWifiSampleLimit(minutes: number) {
+  if (minutes <= 60) return 60;
+  if (minutes <= 60 * 6) return 120;
+  if (minutes <= 60 * 24) return 240;
+  return 500;
+}
+
+function filterWifiSamplesToWindow(
+  samples: WifiSample[],
+  minutes: number,
+) {
+  const windowStart =
+    Date.now() - minutes * 60 * 1000;
+
+  return samples.filter((sample) => {
+    const parsed = new Date(sample.sampled_at);
+    if (Number.isNaN(parsed.getTime()))
+      return false;
+    return parsed.getTime() >= windowStart;
+  });
 }
 
 export default function MetricsPage() {
@@ -80,6 +109,15 @@ export default function MetricsPage() {
     queryKey: ["metrics-summary", windowMinutes],
     queryFn: () =>
       api.getMetricsSummary(windowMinutes),
+    refetchInterval: 30000,
+  });
+
+  const wifiSamplesQuery = useQuery({
+    queryKey: ["wifi-samples", windowMinutes],
+    queryFn: () =>
+      api.getWifiSamples(
+        getWifiSampleLimit(windowMinutes),
+      ),
     refetchInterval: 30000,
   });
 
@@ -123,6 +161,35 @@ export default function MetricsPage() {
     !allChartsFailed &&
     chartPointCount === 0 &&
     summaryEmpty;
+
+  const wifiSamplesInWindow = useMemo(
+    () =>
+      filterWifiSamplesToWindow(
+        wifiSamplesQuery.data ?? [],
+        windowMinutes,
+      ),
+    [wifiSamplesQuery.data, windowMinutes],
+  );
+
+  const latestWifiSample = useMemo(
+    () => wifiSamplesInWindow[0] ?? null,
+    [wifiSamplesInWindow],
+  );
+
+  const wifiChartData = useMemo(
+    () =>
+      wifiSamplesInWindow
+        .filter(
+          (sample) =>
+            sample.rssi_dbm !== null &&
+            sample.rssi_dbm !== undefined,
+        )
+        .map((sample) => ({
+          timestamp: sample.sampled_at,
+          value: sample.rssi_dbm as number,
+        })),
+    [wifiSamplesInWindow],
+  );
 
   const statusText = useMemo(() => {
     if (allChartsFailed && summaryFailed) {
@@ -368,6 +435,120 @@ export default function MetricsPage() {
         )}
       </section>
 
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium">
+            Wi-Fi signal
+          </h3>
+          <p className="mt-1 text-sm text-zinc-400">
+            Recent Wi-Fi sampling across the
+            selected operating window.
+          </p>
+        </div>
+
+        {wifiSamplesQuery.isLoading &&
+        !latestWifiSample ? (
+          <StateCard
+            title="Wi-Fi latest sample"
+            message="Loading Wi-Fi samples..."
+          />
+        ) : wifiSamplesQuery.isError ? (
+          <StateCard
+            title="Wi-Fi latest sample"
+            tone="error"
+            message={
+              wifiSamplesQuery.error instanceof
+              Error
+                ? wifiSamplesQuery.error.message
+                : "Could not load Wi-Fi samples."
+            }
+          />
+        ) : !latestWifiSample ? (
+          <StateCard
+            title="Wi-Fi latest sample"
+            tone="warning"
+            message="No Wi-Fi samples were recorded in this window yet."
+          />
+        ) : (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-lg font-medium">
+                  {
+                    latestWifiSample.location_label
+                  }
+                </h3>
+                <p className="mt-1 text-sm text-zinc-400">
+                  Interface{" "}
+                  {
+                    latestWifiSample.interface_name
+                  }
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {latestWifiSample.band ? (
+                  <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
+                    {latestWifiSample.band}
+                  </span>
+                ) : null}
+
+                {latestWifiSample.ssid ? (
+                  <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
+                    {latestWifiSample.ssid}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Signal
+                </div>
+                <div className="mt-2 text-sm text-zinc-100">
+                  {formatRssi(
+                    latestWifiSample.rssi_dbm,
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Frequency
+                </div>
+                <div className="mt-2 text-sm text-zinc-100">
+                  {latestWifiSample.frequency_mhz !=
+                  null
+                    ? `${latestWifiSample.frequency_mhz} MHz`
+                    : "—"}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  BSSID
+                </div>
+                <div className="mt-2 break-all text-sm text-zinc-100">
+                  {latestWifiSample.bssid ?? "—"}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Sampled
+                </div>
+                <div className="mt-2 text-sm text-zinc-100">
+                  {formatDate(
+                    latestWifiSample.sampled_at,
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
       <ChartCard
         title={`Internet HTTP latency · ${formatMetricsWindowLabel(windowMinutes)}`}
         data={httpQuery.data ?? []}
@@ -402,6 +583,22 @@ export default function MetricsPage() {
             ? dnsQuery.error.message
             : "DNS history request failed."
         }
+      />
+
+      <ChartCard
+        title={`Wi-Fi signal strength · ${formatMetricsWindowLabel(windowMinutes)}`}
+        data={wifiChartData}
+        isLoading={wifiSamplesQuery.isLoading}
+        isError={wifiSamplesQuery.isError}
+        errorMessage={
+          wifiSamplesQuery.error instanceof Error
+            ? wifiSamplesQuery.error.message
+            : "Wi-Fi history request failed."
+        }
+        valueFormatter={(value) =>
+          `${value.toFixed(0)} dBm`
+        }
+        valueLabel="Signal"
       />
     </div>
   );
