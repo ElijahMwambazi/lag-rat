@@ -969,6 +969,120 @@ export default function ReportsPage() {
 
       <section className="grid gap-4 xl:grid-cols-3">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-medium">
+                Top incident targets
+              </h3>
+              <p className="mt-1 text-xs text-zinc-500">
+                {formatReportsWindowLabel(
+                  windowHours,
+                )}{" "}
+                · {topIncidentTargets.length}{" "}
+                targets
+              </p>
+            </div>
+          </div>
+
+          {showTopIncidentTargets ? (
+            <div
+              className={
+                topIncidentTargetsPanelClass
+              }
+            >
+              {topIncidentTargetsQuery.isLoading ? (
+                <StateCard
+                  title="Top incident targets"
+                  message="Loading targets..."
+                />
+              ) : topIncidentTargetsQuery.isError ? (
+                <StateCard
+                  title="Top incident targets"
+                  tone="error"
+                  message="Could not load targets."
+                />
+              ) : topIncidentTargets.length ===
+                0 ? (
+                <StateCard
+                  title="Top incident targets"
+                  tone="warning"
+                  message="No incident targets were recorded in this window."
+                />
+              ) : (
+                topIncidentTargets.map(
+                  (
+                    item: IncidentTargetSummaryItem,
+                  ) => (
+                    <div
+                      key={`${item.incident_type}-${item.target}`}
+                      className={
+                        inspectionCardClass
+                      }
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-zinc-100">
+                            {item.target}
+                          </p>
+                          <p className="mt-1 text-[11px] text-zinc-500">
+                            {formatIncidentType(
+                              item.incident_type,
+                            )}
+                          </p>
+                        </div>
+
+                        {item.active_count > 0 ? (
+                          <span
+                            className={
+                              dangerBadgeClass
+                            }
+                          >
+                            {item.active_count}{" "}
+                            active
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span
+                          className={
+                            mutedBadgeClass
+                          }
+                        >
+                          {item.count} incidents
+                        </span>
+                        <span
+                          className={
+                            warmBadgeClass
+                          }
+                        >
+                          {formatDurationCompact(
+                            item.total_downtime_seconds,
+                          )}{" "}
+                          downtime
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-[11px] text-zinc-500">
+                        Latest incident{" "}
+                        {formatDate(
+                          item.latest_started_at,
+                        )}
+                      </p>
+                    </div>
+                  ),
+                )
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-zinc-400">
+              Incident target ranking is
+              collapsed.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">
           <div>
             <div>
               <h3 className="text-lg font-medium">
@@ -1153,120 +1267,6 @@ export default function ReportsPage() {
               )
             )}
           </div>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-medium">
-                Top incident targets
-              </h3>
-              <p className="mt-1 text-xs text-zinc-500">
-                {formatReportsWindowLabel(
-                  windowHours,
-                )}{" "}
-                · {topIncidentTargets.length}{" "}
-                targets
-              </p>
-            </div>
-          </div>
-
-          {showTopIncidentTargets ? (
-            <div
-              className={
-                topIncidentTargetsPanelClass
-              }
-            >
-              {topIncidentTargetsQuery.isLoading ? (
-                <StateCard
-                  title="Top incident targets"
-                  message="Loading targets..."
-                />
-              ) : topIncidentTargetsQuery.isError ? (
-                <StateCard
-                  title="Top incident targets"
-                  tone="error"
-                  message="Could not load targets."
-                />
-              ) : topIncidentTargets.length ===
-                0 ? (
-                <StateCard
-                  title="Top incident targets"
-                  tone="warning"
-                  message="No incident targets were recorded in this window."
-                />
-              ) : (
-                topIncidentTargets.map(
-                  (
-                    item: IncidentTargetSummaryItem,
-                  ) => (
-                    <div
-                      key={`${item.incident_type}-${item.target}`}
-                      className={
-                        inspectionCardClass
-                      }
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-zinc-100">
-                            {item.target}
-                          </p>
-                          <p className="mt-1 text-[11px] text-zinc-500">
-                            {formatIncidentType(
-                              item.incident_type,
-                            )}
-                          </p>
-                        </div>
-
-                        {item.active_count > 0 ? (
-                          <span
-                            className={
-                              dangerBadgeClass
-                            }
-                          >
-                            {item.active_count}{" "}
-                            active
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span
-                          className={
-                            mutedBadgeClass
-                          }
-                        >
-                          {item.count} incidents
-                        </span>
-                        <span
-                          className={
-                            warmBadgeClass
-                          }
-                        >
-                          {formatDurationCompact(
-                            item.total_downtime_seconds,
-                          )}{" "}
-                          downtime
-                        </span>
-                      </div>
-
-                      <p className="mt-3 text-[11px] text-zinc-500">
-                        Latest incident{" "}
-                        {formatDate(
-                          item.latest_started_at,
-                        )}
-                      </p>
-                    </div>
-                  ),
-                )
-              )}
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-zinc-400">
-              Incident target ranking is
-              collapsed.
-            </p>
-          )}
         </div>
       </section>
 
