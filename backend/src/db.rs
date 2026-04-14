@@ -1726,3 +1726,25 @@ pub async fn list_wifi_samples(pool: &SqlitePool, limit: i64) -> anyhow::Result<
     .fetch_all(pool)
     .await?)
 }
+
+pub async fn latest_wifi_sample(pool: &SqlitePool) -> anyhow::Result<Option<WifiSample>> {
+    Ok(sqlx::query_as::<_, WifiSample>(
+        r#"
+        SELECT
+            id,
+            location_label,
+            interface_name,
+            ssid,
+            bssid,
+            rssi_dbm,
+            frequency_mhz,
+            band,
+            sampled_at
+        FROM wifi_samples
+        ORDER BY sampled_at DESC
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?)
+}

@@ -93,6 +93,7 @@ pub fn router(state: AppState) -> Router {
             get(get_top_report_incident_targets),
         )
         .route("/api/wifi/samples", get(get_wifi_samples))
+        .route("/api/wifi/latest", get(get_latest_wifi_sample))
         .with_state(state)
 }
 
@@ -610,6 +611,22 @@ async fn get_wifi_samples(
             .await
             .map_err(internal_error)?,
     ))
+}
+
+async fn get_latest_wifi_sample(
+    State(state): State<AppState>,
+) -> Result<Json<crate::models::WifiSample>, (StatusCode, Json<serde_json::Value>)> {
+    let sample = db::latest_wifi_sample(&state.db)
+        .await
+        .map_err(internal_error)?;
+
+    match sample {
+        Some(sample) => Ok(Json(sample)),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "wifi sample not found" })),
+        )),
+    }
 }
 
 fn format_duration_compact(seconds: i64) -> String {
