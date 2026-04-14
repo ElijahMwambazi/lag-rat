@@ -115,9 +115,10 @@ export default function MetricsPage() {
   const wifiSamplesQuery = useQuery({
     queryKey: ["wifi-samples", windowMinutes],
     queryFn: () =>
-      api.getWifiSamples(
-        getWifiSampleLimit(windowMinutes),
-      ),
+      api.getWifiSamples({
+        minutes: windowMinutes,
+        limit: getWifiSampleLimit(windowMinutes),
+      }),
     refetchInterval: 30000,
   });
 
