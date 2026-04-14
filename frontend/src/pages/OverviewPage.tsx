@@ -27,6 +27,12 @@ function formatMs(value?: number | null) {
   return `${value.toFixed(1)} ms`;
 }
 
+function formatRssi(value?: number | null) {
+  if (value === null || value === undefined)
+    return "—";
+  return `${value} dBm`;
+}
+
 function getQueryStatus(
   isLoading: boolean,
   isError: boolean,
@@ -61,6 +67,13 @@ export default function OverviewPage() {
     queryKey: ["summary"],
     queryFn: api.getSummary,
     refetchInterval: 30000,
+  });
+
+  const wifiLatestQuery = useQuery({
+    queryKey: ["wifi-latest"],
+    queryFn: api.getLatestWifiSample,
+    refetchInterval: 30000,
+    retry: false,
   });
 
   const overview = overviewQuery.data;
@@ -179,6 +192,29 @@ export default function OverviewPage() {
           ? criticalAlertsQuery.error.message
           : "Alerts request failed",
       ),
+    },
+    {
+      name: "/api/wifi/latest",
+      ...(wifiLatestQuery.isLoading
+        ? {
+            status: "loading" as const,
+            detail: "Waiting for Wi-Fi sample",
+          }
+        : wifiLatestQuery.isError
+          ? {
+              status: "error" as const,
+              detail: "Wi-Fi request failed",
+            }
+          : wifiLatestQuery.data
+            ? {
+                status: "ok" as const,
+                detail: `Latest Wi-Fi sample for ${wifiLatestQuery.data.location_label}`,
+              }
+            : {
+                status: "ok" as const,
+                detail:
+                  "No Wi-Fi sample recorded yet",
+              }),
     },
   ];
 
@@ -655,6 +691,109 @@ export default function OverviewPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium">
+            Wi-Fi sample
+          </h3>
+          <p className="mt-1 text-sm text-zinc-400">
+            Latest room-tagged Wi-Fi reading from
+            the local collector.
+          </p>
+        </div>
+
+        {wifiLatestQuery.isLoading ? (
+          <QueryState
+            title="Wi-Fi sample loading"
+            message="Waiting for the latest Wi-Fi sample."
+          />
+        ) : wifiLatestQuery.isError ? (
+          <QueryState
+            title="Wi-Fi request failed"
+            tone="error"
+            message="The latest Wi-Fi sample could not be loaded."
+          />
+        ) : !wifiLatestQuery.data ? (
+          <QueryState
+            title="No Wi-Fi sample yet"
+            tone="warning"
+            message="Wi-Fi sampling has not produced a sample yet."
+          />
+        ) : wifiLatestQuery.data ? (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h4 className="text-base font-medium text-zinc-100">
+                  {
+                    wifiLatestQuery.data
+                      .location_label
+                  }
+                </h4>
+                <p className="mt-1 text-sm text-zinc-400">
+                  Interface{" "}
+                  {
+                    wifiLatestQuery.data
+                      .interface_name
+                  }
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {wifiLatestQuery.data.band ? (
+                  <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
+                    {wifiLatestQuery.data.band}
+                  </span>
+                ) : null}
+
+                {wifiLatestQuery.data.ssid ? (
+                  <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
+                    {wifiLatestQuery.data.ssid}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                label="Signal"
+                value={formatRssi(
+                  wifiLatestQuery.data.rssi_dbm,
+                )}
+                hint="Latest RSSI"
+              />
+
+              <StatCard
+                label="Frequency"
+                value={
+                  wifiLatestQuery.data
+                    .frequency_mhz != null
+                    ? `${wifiLatestQuery.data.frequency_mhz} MHz`
+                    : "—"
+                }
+                hint="Latest channel frequency"
+              />
+
+              <StatCard
+                label="BSSID"
+                value={
+                  wifiLatestQuery.data.bssid ??
+                  "—"
+                }
+                hint="Connected access point"
+              />
+
+              <StatCard
+                label="Sampled"
+                value={formatDate(
+                  wifiLatestQuery.data.sampled_at,
+                )}
+                hint="Latest Wi-Fi reading"
+              />
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="space-y-4">

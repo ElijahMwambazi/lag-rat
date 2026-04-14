@@ -207,6 +207,18 @@ export type ReportSnapshotResponse = {
   outages: Outage[];
 };
 
+export type WifiSample = {
+  id: number;
+  location_label: string;
+  interface_name: string;
+  ssid?: string | null;
+  bssid?: string | null;
+  rssi_dbm?: number | null;
+  frequency_mhz?: number | null;
+  band?: string | null;
+  sampled_at: string;
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -371,4 +383,27 @@ export const api = {
     getJson<DeviceHistoryItem[]>(
       `/api/devices/${encodeURIComponent(ip)}/history`,
     ),
+  getWifiSamples: (limit = 50) =>
+    getJson<WifiSample[]>(
+      `/api/wifi/samples?limit=${limit}`,
+    ),
+
+  getLatestWifiSample:
+    async (): Promise<WifiSample | null> => {
+      const response = await fetch(
+        `${API_BASE}/api/wifi/latest`,
+      );
+
+      if (response.status === 404) {
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          `Request failed: ${response.status}`,
+        );
+      }
+
+      return response.json() as Promise<WifiSample>;
+    },
 };
