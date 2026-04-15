@@ -56,6 +56,18 @@ function getRoomCardClasses(active: boolean) {
   ].join(" ");
 }
 
+function getViewingLabel(locationLabel: string) {
+  return locationLabel || "All locations";
+}
+
+function getRecentSamplesTitle(
+  locationLabel: string,
+) {
+  return locationLabel
+    ? `Recent samples · ${locationLabel}`
+    : "Recent samples";
+}
+
 export default function WifiPage() {
   const [windowMinutes, setWindowMinutes] =
     useState(60);
@@ -237,15 +249,36 @@ export default function WifiPage() {
       ) : null}
 
       <section className="space-y-4">
-        <div>
-          <h3 className="text-lg font-medium">
-            Room comparison
-          </h3>
-          <p className="mt-1 text-sm text-zinc-400">
-            Compare the latest sampled Wi-Fi state
-            by location and jump directly into a
-            room.
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-lg font-medium">
+              Room comparison
+            </h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              Compare the latest sampled Wi-Fi
+              state by location and jump directly
+              into a room.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
+              Viewing:{" "}
+              {getViewingLabel(locationLabel)}
+            </span>
+
+            {locationLabel ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setLocationLabel("")
+                }
+                className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1 text-xs text-zinc-300 transition hover:bg-zinc-900"
+              >
+                Clear room filter
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {locationsQuery.isLoading &&
@@ -279,9 +312,16 @@ export default function WifiPage() {
                   </p>
                 </div>
 
-                <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                  {locationOptions.length} rooms
-                </span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                    {locationOptions.length} rooms
+                  </span>
+                  {locationLabel === "" ? (
+                    <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-100">
+                      Selected
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </button>
 
@@ -290,6 +330,8 @@ export default function WifiPage() {
                 const latest =
                   query.data?.latest_sample ??
                   null;
+                const isActive =
+                  locationLabel === location;
 
                 return (
                   <button
@@ -299,7 +341,7 @@ export default function WifiPage() {
                       setLocationLabel(location)
                     }
                     className={getRoomCardClasses(
-                      locationLabel === location,
+                      isActive,
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -315,11 +357,19 @@ export default function WifiPage() {
                         </p>
                       </div>
 
-                      {latest?.band ? (
-                        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                          {latest.band}
-                        </span>
-                      ) : null}
+                      <div className="flex flex-col items-end gap-2">
+                        {latest?.band ? (
+                          <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                            {latest.band}
+                          </span>
+                        ) : null}
+
+                        {isActive ? (
+                          <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-100">
+                            Selected
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
 
                     <div className="mt-4 text-xl font-semibold text-zinc-100">
@@ -482,14 +532,24 @@ export default function WifiPage() {
       />
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-        <div className="mb-4">
-          <h3 className="text-lg font-medium">
-            Recent samples
-          </h3>
-          <p className="mt-1 text-sm text-zinc-400">
-            Most recent Wi-Fi observations for the
-            selected window.
-          </p>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-lg font-medium">
+              {getRecentSamplesTitle(
+                locationLabel,
+              )}
+            </h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              Most recent Wi-Fi observations for
+              the selected window.
+            </p>
+          </div>
+
+          {locationLabel ? (
+            <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+              Filtered to {locationLabel}
+            </span>
+          ) : null}
         </div>
 
         {samplesQuery.isLoading &&
