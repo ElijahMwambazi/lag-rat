@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
 import {
   beforeEach,
@@ -33,28 +34,62 @@ describe("WifiPage", () => {
     });
   });
 
-  it("renders wifi summary and recent samples", async () => {
+  it("renders room comparison, wifi summary, and recent samples", async () => {
     vi.mocked(
       api.getWifiSummary,
-    ).mockResolvedValue({
-      window_minutes: 60,
-      location_label: "office",
-      sample_count: 2,
-      avg_rssi_dbm: -45,
-      min_rssi_dbm: -48,
-      max_rssi_dbm: -42,
-      latest_sample: {
-        id: 2,
-        location_label: "office",
-        interface_name: "wlo1",
-        ssid: "TheReal",
-        bssid: "d5:8a:f7:59:88:f1",
-        rssi_dbm: -42,
-        frequency_mhz: 5180,
-        band: "5ghz",
-        sampled_at: new Date().toISOString(),
+    ).mockImplementation(
+      async (params?: {
+        minutes?: number;
+        location_label?: string;
+      }) => {
+        if (
+          params?.location_label === "bedroom"
+        ) {
+          return {
+            window_minutes: 60,
+            location_label: "bedroom",
+            sample_count: 1,
+            avg_rssi_dbm: -58,
+            min_rssi_dbm: -58,
+            max_rssi_dbm: -58,
+            latest_sample: {
+              id: 3,
+              location_label: "bedroom",
+              interface_name: "wlo1",
+              ssid: "TheReal",
+              bssid: "d5:8a:f7:59:88:f1",
+              rssi_dbm: -58,
+              frequency_mhz: 5180,
+              band: "5ghz",
+              sampled_at: new Date(
+                Date.now() - 2 * 60 * 1000,
+              ).toISOString(),
+            },
+          };
+        }
+
+        return {
+          window_minutes: 60,
+          location_label:
+            params?.location_label ?? "office",
+          sample_count: 2,
+          avg_rssi_dbm: -45,
+          min_rssi_dbm: -48,
+          max_rssi_dbm: -42,
+          latest_sample: {
+            id: 2,
+            location_label: "office",
+            interface_name: "wlo1",
+            ssid: "TheReal",
+            bssid: "d5:8a:f7:59:88:f1",
+            rssi_dbm: -42,
+            frequency_mhz: 5180,
+            band: "5ghz",
+            sampled_at: new Date().toISOString(),
+          },
+        };
       },
-    });
+    );
 
     vi.mocked(
       api.getWifiSamples,
@@ -92,12 +127,32 @@ describe("WifiPage", () => {
     ).toBeInTheDocument();
 
     expect(
-      await screen.findByText("Recent samples"),
+      await screen.findByText("Room comparison"),
     ).toBeInTheDocument();
 
     expect(
-      await screen.findAllByText("-42 dBm"),
+      await screen.findAllByText("All locations"),
     ).toHaveLength(2);
+
+    expect(
+      await screen.findAllByText("office"),
+    ).toHaveLength(4);
+
+    expect(
+      await screen.findAllByText("bedroom"),
+    ).toHaveLength(2);
+
+    expect(
+      await screen.findAllByText("-42 dBm"),
+    ).toHaveLength(3);
+
+    expect(
+      await screen.findByText("-58 dBm"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText("Recent samples"),
+    ).toBeInTheDocument();
 
     expect(
       await screen.findByText("5180 MHz"),
@@ -105,11 +160,182 @@ describe("WifiPage", () => {
 
     expect(
       await screen.findAllByText("5ghz"),
-    ).toHaveLength(3);
+    ).toHaveLength(5);
+  });
+
+  it("filters to a room when a comparison card is clicked", async () => {
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockImplementation(
+      async (params?: {
+        minutes?: number;
+        location_label?: string;
+      }) => {
+        if (
+          params?.location_label === "bedroom"
+        ) {
+          return {
+            window_minutes: 60,
+            location_label: "bedroom",
+            sample_count: 1,
+            avg_rssi_dbm: -58,
+            min_rssi_dbm: -58,
+            max_rssi_dbm: -58,
+            latest_sample: {
+              id: 3,
+              location_label: "bedroom",
+              interface_name: "wlo1",
+              ssid: "TheReal",
+              bssid: "d5:8a:f7:59:88:f1",
+              rssi_dbm: -58,
+              frequency_mhz: 5180,
+              band: "5ghz",
+              sampled_at:
+                new Date().toISOString(),
+            },
+          };
+        }
+
+        return {
+          window_minutes: 60,
+          location_label: "office",
+          sample_count: 2,
+          avg_rssi_dbm: -45,
+          min_rssi_dbm: -48,
+          max_rssi_dbm: -42,
+          latest_sample: {
+            id: 2,
+            location_label: "office",
+            interface_name: "wlo1",
+            ssid: "TheReal",
+            bssid: "d5:8a:f7:59:88:f1",
+            rssi_dbm: -42,
+            frequency_mhz: 5180,
+            band: "5ghz",
+            sampled_at: new Date().toISOString(),
+          },
+        };
+      },
+    );
+
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
+      {
+        id: 3,
+        location_label: "bedroom",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -58,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    const user = userEvent.setup();
+
+    renderWithQueryClient(<WifiPage />);
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /bedroom/i,
+      }),
+    );
 
     expect(
-      await screen.findAllByText("office"),
-    ).toHaveLength(3);
+      await screen.findByText(
+        "Last 1h · bedroom",
+      ),
+    ).toBeInTheDocument();
+  });
+  it("filters to a room when a comparison card is clicked", async () => {
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockImplementation(
+      async (params?: {
+        minutes?: number;
+        location_label?: string;
+      }) => {
+        if (
+          params?.location_label === "bedroom"
+        ) {
+          return {
+            window_minutes: 60,
+            location_label: "bedroom",
+            sample_count: 1,
+            avg_rssi_dbm: -58,
+            min_rssi_dbm: -58,
+            max_rssi_dbm: -58,
+            latest_sample: {
+              id: 3,
+              location_label: "bedroom",
+              interface_name: "wlo1",
+              ssid: "TheReal",
+              bssid: "d5:8a:f7:59:88:f1",
+              rssi_dbm: -58,
+              frequency_mhz: 5180,
+              band: "5ghz",
+              sampled_at:
+                new Date().toISOString(),
+            },
+          };
+        }
+
+        return {
+          window_minutes: 60,
+          location_label: "office",
+          sample_count: 2,
+          avg_rssi_dbm: -45,
+          min_rssi_dbm: -48,
+          max_rssi_dbm: -42,
+          latest_sample: {
+            id: 2,
+            location_label: "office",
+            interface_name: "wlo1",
+            ssid: "TheReal",
+            bssid: "d5:8a:f7:59:88:f1",
+            rssi_dbm: -42,
+            frequency_mhz: 5180,
+            band: "5ghz",
+            sampled_at: new Date().toISOString(),
+          },
+        };
+      },
+    );
+
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
+      {
+        id: 3,
+        location_label: "bedroom",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -58,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    const user = userEvent.setup();
+
+    renderWithQueryClient(<WifiPage />);
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /bedroom/i,
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Last 1h · bedroom",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("renders empty state when no wifi samples exist", async () => {

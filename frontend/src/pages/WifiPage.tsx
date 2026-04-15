@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import {
+  useQueries,
+  useQuery,
+} from "@tanstack/react-query";
 import ChartCard from "../components/ChartCard";
 import QueryState from "../components/QueryState";
 import StateCard from "../components/StateCard";
@@ -42,6 +45,15 @@ function formatRssi(value?: number | null) {
   if (value === null || value === undefined)
     return "—";
   return `${value} dBm`;
+}
+
+function getRoomCardClasses(active: boolean) {
+  return [
+    "rounded-2xl border p-4 text-left transition-colors",
+    active
+      ? "border-zinc-500 bg-zinc-800/80"
+      : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/60",
+  ].join(" ");
 }
 
 export default function WifiPage() {
@@ -94,6 +106,31 @@ export default function WifiPage() {
 
   const locationOptions: string[] =
     locationsQuery.data?.items ?? [];
+
+  const comparisonQueries = useQueries({
+    queries: locationOptions.map((location) => ({
+      queryKey: [
+        "wifi-summary",
+        "comparison",
+        windowMinutes,
+        location,
+      ],
+      queryFn: () =>
+        api.getWifiSummary({
+          minutes: windowMinutes,
+          location_label: location,
+        }),
+      refetchInterval: 30000,
+      enabled: locationOptions.length > 0,
+    })),
+  });
+
+  const roomComparisonItems = locationOptions.map(
+    (location, index) => ({
+      location,
+      query: comparisonQueries[index],
+    }),
+  );
 
   const wifiSamples: WifiSample[] =
     samplesQuery.data ?? [];
@@ -198,6 +235,117 @@ export default function WifiPage() {
           }
         />
       ) : null}
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium">
+            Room comparison
+          </h3>
+          <p className="mt-1 text-sm text-zinc-400">
+            Compare the latest sampled Wi-Fi state
+            by location and jump directly into a
+            room.
+          </p>
+        </div>
+
+        {locationsQuery.isLoading &&
+        locationOptions.length === 0 ? (
+          <QueryState
+            title="Room comparison"
+            message="Loading Wi-Fi locations..."
+          />
+        ) : locationOptions.length === 0 ? (
+          <QueryState
+            title="Room comparison"
+            tone="warning"
+            message="No Wi-Fi locations have been recorded yet."
+          />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <button
+              type="button"
+              onClick={() => setLocationLabel("")}
+              className={getRoomCardClasses(
+                locationLabel === "",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-zinc-100">
+                    All locations
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Combined Wi-Fi view
+                  </p>
+                </div>
+
+                <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                  {locationOptions.length} rooms
+                </span>
+              </div>
+            </button>
+
+            {roomComparisonItems.map(
+              ({ location, query }) => {
+                const latest =
+                  query.data?.latest_sample ??
+                  null;
+
+                return (
+                  <button
+                    key={location}
+                    type="button"
+                    onClick={() =>
+                      setLocationLabel(location)
+                    }
+                    className={getRoomCardClasses(
+                      locationLabel === location,
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-medium text-zinc-100">
+                          {location}
+                        </div>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {query.isLoading
+                            ? "Loading summary..."
+                            : (latest?.ssid ??
+                              "SSID unavailable")}
+                        </p>
+                      </div>
+
+                      {latest?.band ? (
+                        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                          {latest.band}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-4 text-xl font-semibold text-zinc-100">
+                      {query.isLoading
+                        ? "…"
+                        : latest
+                          ? formatRssi(
+                              latest.rssi_dbm,
+                            )
+                          : "—"}
+                    </div>
+
+                    <p className="mt-2 text-xs text-zinc-500">
+                      {query.isLoading
+                        ? "Loading latest sample"
+                        : latest
+                          ? `Sampled ${formatDate(latest.sampled_at)}`
+                          : "No Wi-Fi sample in this window"}
+                    </p>
+                  </button>
+                );
+              },
+            )}
+          </div>
+        )}
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryQuery.isLoading &&
