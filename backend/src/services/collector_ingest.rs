@@ -120,5 +120,8 @@ async fn ingest_wifi(state: &AppState, observation: &WifiObservation) -> anyhow:
     )
     .await?;
 
+    alerts::evaluate_wifi_observation(state, observation).await?;
+    alerts::evaluate_all_wifi_sample_freshness(state).await?;
+
     Ok(())
 }
