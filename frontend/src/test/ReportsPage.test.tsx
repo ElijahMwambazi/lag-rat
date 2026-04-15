@@ -112,6 +112,24 @@ function seedReportsSuccessState() {
     recent_device_events: [],
     outages: [],
   } as never);
+
+  vi.mocked(
+    api.getRecentReportAlertEvents,
+  ).mockResolvedValue([
+    {
+      alert_id: 1,
+      event_type: "opened",
+      severity: "warning",
+      entity_type: "wifi",
+      entity_key: "office",
+      alert_type: "wifi_signal_weak",
+      message:
+        "wifi signal is weak in office: -72 dBm",
+      previous_value: null,
+      new_value: "warning",
+      created_at: "2026-04-11T10:00:00Z",
+    },
+  ]);
 }
 
 vi.mock("recharts", async () => {

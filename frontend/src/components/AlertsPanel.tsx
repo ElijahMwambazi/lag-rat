@@ -33,7 +33,8 @@ type EntityFilter =
   | "all"
   | "router"
   | "internet"
-  | "dns";
+  | "dns"
+  | "wifi";
 type AlertsPanelFocusMode =
   | "default"
   | "active-critical";
@@ -447,6 +448,7 @@ export default function AlertsPanel({
                 internet
               </option>
               <option value="dns">dns</option>
+              <option value="wifi">wifi</option>
             </select>
           </div>
         </div>

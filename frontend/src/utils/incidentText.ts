@@ -11,6 +11,8 @@ export function formatIncidentType(
     case "router":
     case "router_tcp":
       return "Router";
+    case "wifi":
+      return "Wi-Fi";
     default:
       return value
         ? value.replace(/_/g, " ")
@@ -51,6 +53,36 @@ export function summarizeOutageCause(
     return "Web probe request failed";
   }
 
+  if (
+    lower.includes("wifi signal is very weak")
+  ) {
+    return "Very weak Wi-Fi signal";
+  }
+
+  if (lower.includes("wifi signal is weak")) {
+    return "Weak Wi-Fi signal";
+  }
+
+  if (lower.includes("wifi samples are stale")) {
+    return "Wi-Fi samples are stale";
+  }
+
+  if (
+    lower.includes(
+      "wifi samples are getting stale",
+    )
+  ) {
+    return "Wi-Fi samples are getting stale";
+  }
+
+  if (lower.includes("wifi sampling recovered")) {
+    return "Wi-Fi sampling recovered";
+  }
+
+  if (lower.includes("wifi signal recovered")) {
+    return "Wi-Fi signal recovered";
+  }
+
   if (lower.includes("recovered")) {
     return "Service recovered";
   }
@@ -63,9 +95,48 @@ export function buildAlertHeadline(params: {
   entityKey: string;
   message: string;
 }) {
-  const { entityType, message } = params;
+  const { entityType, entityKey, message } =
+    params;
   const incident = formatIncidentType(entityType);
   const lower = message.toLowerCase();
+
+  if (entityType === "wifi") {
+    if (
+      lower.includes("wifi signal is very weak")
+    ) {
+      return `Very weak Wi-Fi signal in ${entityKey}`;
+    }
+
+    if (lower.includes("wifi signal is weak")) {
+      return `Weak Wi-Fi signal in ${entityKey}`;
+    }
+
+    if (
+      lower.includes("wifi samples are stale")
+    ) {
+      return `Wi-Fi samples stale in ${entityKey}`;
+    }
+
+    if (
+      lower.includes(
+        "wifi samples are getting stale",
+      )
+    ) {
+      return `Wi-Fi samples getting stale in ${entityKey}`;
+    }
+
+    if (lower.includes("wifi signal recovered")) {
+      return `Wi-Fi signal recovered in ${entityKey}`;
+    }
+
+    if (
+      lower.includes("wifi sampling recovered")
+    ) {
+      return `Wi-Fi sampling recovered in ${entityKey}`;
+    }
+
+    return `Wi-Fi alert in ${entityKey}`;
+  }
 
   if (lower.includes("timed out")) {
     return `${incident} probe timed out`;
@@ -87,10 +158,14 @@ export function buildAlertSubtext(params: {
   entityKey: string;
   message: string;
 }) {
-  const { entityKey, message } = params;
+  const { entityType, entityKey, message } =
+    params;
 
   return {
-    targetLabel: `Target: ${entityKey}`,
+    targetLabel:
+      entityType === "wifi"
+        ? `Room: ${entityKey}`
+        : `Target: ${entityKey}`,
     causeLabel: summarizeOutageCause(message),
   };
 }

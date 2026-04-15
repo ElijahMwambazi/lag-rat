@@ -21,17 +21,45 @@ vi.mock(
 );
 
 vi.mock("../utils/incidentText", () => ({
-  buildAlertHeadline: () =>
-    "Web connectivity check failed",
-  buildAlertSubtext: () => ({
-    targetLabel: "Target: https://example.com",
-    causeLabel: "Web probe request failed",
-  }),
-  formatAlertEventTransition: () =>
-    "Alert recovered",
+  formatIncidentType: (value: string) => {
+    if (value === "wifi") return "Wi-Fi";
+    return "Web connectivity";
+  },
   formatIncidentState: (value: string) =>
     value === "active" ? "Ongoing" : "Recovered",
-  formatIncidentType: () => "Web connectivity",
+  buildAlertHeadline: ({
+    entityType,
+    entityKey,
+    message,
+  }: {
+    entityType: string;
+    entityKey: string;
+    message: string;
+  }) => {
+    if (
+      entityType === "wifi" &&
+      message
+        .toLowerCase()
+        .includes("wifi signal is weak")
+    ) {
+      return `Weak Wi-Fi signal in ${entityKey}`;
+    }
+
+    return "Web connectivity check failed";
+  },
+  buildAlertSubtext: ({
+    entityType,
+    entityKey,
+  }: {
+    entityType: string;
+    entityKey: string;
+    message: string;
+  }) => ({
+    targetLabel:
+      entityType === "wifi"
+        ? `Room: ${entityKey}`
+        : "Target: https://example.com",
+  }),
 }));
 
 vi.mock("../services/api", () => ({
@@ -217,5 +245,41 @@ describe("AlertsPanel", () => {
         "Alert detail drawer",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("passes wifi entity filter to alerts query", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.getAlerts).mockResolvedValue(
+      [],
+    );
+    vi.mocked(
+      api.getAlertHistory,
+    ).mockResolvedValue([]);
+    vi.mocked(
+      api.acknowledgeAlert,
+    ).mockResolvedValue({} as never);
+
+    renderWithQueryClient(<AlertsPanel />);
+
+    const selects =
+      await screen.findAllByRole("combobox");
+    await user.selectOptions(selects[2], "wifi");
+
+    await waitFor(() => {
+      expect(
+        api.getAlerts,
+      ).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          entity_type: "wifi",
+        }),
+      );
+
+      expect(
+        screen.getByRole("option", {
+          name: "wifi",
+        }),
+      ).toBeInTheDocument();
+    });
   });
 });
