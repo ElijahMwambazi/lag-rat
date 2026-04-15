@@ -1704,29 +1704,6 @@ pub async fn insert_wifi_sample(
     Ok(())
 }
 
-pub async fn list_wifi_samples(pool: &SqlitePool, limit: i64) -> anyhow::Result<Vec<WifiSample>> {
-    Ok(sqlx::query_as::<_, WifiSample>(
-        r#"
-        SELECT
-            id,
-            location_label,
-            interface_name,
-            ssid,
-            bssid,
-            rssi_dbm,
-            frequency_mhz,
-            band,
-            sampled_at
-        FROM wifi_samples
-        ORDER BY sampled_at DESC
-        LIMIT ?1
-        "#,
-    )
-    .bind(limit)
-    .fetch_all(pool)
-    .await?)
-}
-
 pub async fn latest_wifi_sample(pool: &SqlitePool) -> anyhow::Result<Option<WifiSample>> {
     Ok(sqlx::query_as::<_, WifiSample>(
         r#"
@@ -1864,4 +1841,37 @@ pub async fn wifi_summary(
         min_rssi_dbm,
         max_rssi_dbm,
     ))
+}
+
+pub async fn wifi_location_summaries(
+    pool: &SqlitePool,
+    minutes: i64,
+) -> anyhow::Result<
+    Vec<(
+        String,
+        Option<WifiSample>,
+        u32,
+        Option<f64>,
+        Option<i64>,
+        Option<i64>,
+    )>,
+> {
+    let locations = list_wifi_locations(pool).await?;
+    let mut items = Vec::with_capacity(locations.len());
+
+    for location in locations {
+        let (latest_sample, sample_count, avg_rssi_dbm, min_rssi_dbm, max_rssi_dbm) =
+            wifi_summary(pool, minutes, Some(location.as_str())).await?;
+
+        items.push((
+            location,
+            latest_sample,
+            sample_count,
+            avg_rssi_dbm,
+            min_rssi_dbm,
+            max_rssi_dbm,
+        ));
+    }
+
+    Ok(items)
 }

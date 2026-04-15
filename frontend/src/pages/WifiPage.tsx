@@ -1,13 +1,11 @@
 import { useMemo, useState } from "react";
-import {
-  useQueries,
-  useQuery,
-} from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import ChartCard from "../components/ChartCard";
 import QueryState from "../components/QueryState";
 import StateCard from "../components/StateCard";
 import {
   api,
+  type WifiLocationSummariesResponse,
   type WifiLocationsResponse,
   type WifiSample,
   type WifiSummaryResponse,
@@ -119,30 +117,21 @@ export default function WifiPage() {
   const locationOptions: string[] =
     locationsQuery.data?.items ?? [];
 
-  const comparisonQueries = useQueries({
-    queries: locationOptions.map((location) => ({
+  const locationSummariesQuery =
+    useQuery<WifiLocationSummariesResponse>({
       queryKey: [
-        "wifi-summary",
-        "comparison",
+        "wifi-location-summaries",
         windowMinutes,
-        location,
       ],
       queryFn: () =>
-        api.getWifiSummary({
+        api.getWifiLocationSummaries({
           minutes: windowMinutes,
-          location_label: location,
         }),
       refetchInterval: 30000,
-      enabled: locationOptions.length > 0,
-    })),
-  });
+    });
 
-  const roomComparisonItems = locationOptions.map(
-    (location, index) => ({
-      location,
-      query: comparisonQueries[index],
-    }),
-  );
+  const roomComparisonItems =
+    locationSummariesQuery.data?.items ?? [];
 
   const wifiSamples: WifiSample[] =
     samplesQuery.data ?? [];
@@ -281,11 +270,24 @@ export default function WifiPage() {
           </div>
         </div>
 
-        {locationsQuery.isLoading &&
+        {(locationsQuery.isLoading ||
+          locationSummariesQuery.isLoading) &&
         locationOptions.length === 0 ? (
           <QueryState
             title="Room comparison"
             message="Loading Wi-Fi locations..."
+          />
+        ) : locationSummariesQuery.isError ? (
+          <QueryState
+            title="Room comparison"
+            tone="error"
+            message={
+              locationSummariesQuery.error instanceof
+              Error
+                ? locationSummariesQuery.error
+                    .message
+                : "Room summaries could not be loaded."
+            }
           />
         ) : locationOptions.length === 0 ? (
           <QueryState
@@ -325,74 +327,67 @@ export default function WifiPage() {
               </div>
             </button>
 
-            {roomComparisonItems.map(
-              ({ location, query }) => {
-                const latest =
-                  query.data?.latest_sample ??
-                  null;
-                const isActive =
-                  locationLabel === location;
+            {roomComparisonItems.map((item) => {
+              const location =
+                item.location_label;
+              const latest =
+                item.latest_sample ?? null;
+              const isActive =
+                locationLabel === location;
 
-                return (
-                  <button
-                    key={location}
-                    type="button"
-                    onClick={() =>
-                      setLocationLabel(location)
-                    }
-                    className={getRoomCardClasses(
-                      isActive,
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-medium text-zinc-100">
-                          {location}
-                        </div>
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {query.isLoading
-                            ? "Loading summary..."
-                            : (latest?.ssid ??
-                              "SSID unavailable")}
-                        </p>
+              return (
+                <button
+                  key={location}
+                  type="button"
+                  onClick={() =>
+                    setLocationLabel(location)
+                  }
+                  className={getRoomCardClasses(
+                    isActive,
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-zinc-100">
+                        {location}
                       </div>
-
-                      <div className="flex flex-col items-end gap-2">
-                        {latest?.band ? (
-                          <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                            {latest.band}
-                          </span>
-                        ) : null}
-
-                        {isActive ? (
-                          <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-100">
-                            Selected
-                          </span>
-                        ) : null}
-                      </div>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {latest?.ssid ??
+                          "SSID unavailable"}
+                      </p>
                     </div>
 
-                    <div className="mt-4 text-xl font-semibold text-zinc-100">
-                      {query.isLoading
-                        ? "…"
-                        : latest
-                          ? formatRssi(
-                              latest.rssi_dbm,
-                            )
-                          : "—"}
-                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      {latest?.band ? (
+                        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                          {latest.band}
+                        </span>
+                      ) : null}
 
-                    <p className="mt-2 text-xs text-zinc-500">
-                      {query.isLoading
-                        ? "Loading latest sample"
-                        : latest
-                          ? `Sampled ${formatDate(latest.sampled_at)}`
-                          : "No Wi-Fi sample in this window"}
-                    </p>
-                  </button>
-                );
-              },
-            )}
+                      {isActive ? (
+                        <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-100">
+                          Selected
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 text-xl font-semibold text-zinc-100">
+                    {latest
+                      ? formatRssi(
+                          latest.rssi_dbm,
+                        )
+                      : "—"}
+                  </div>
+
+                  <p className="mt-2 text-xs text-zinc-500">
+                    {latest
+                      ? `Sampled ${formatDate(latest.sampled_at)}`
+                      : "No Wi-Fi sample in this window"}
+                  </p>
+                </button>
+              );
+            })}
           </div>
         )}
       </section>

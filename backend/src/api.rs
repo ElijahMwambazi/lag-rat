@@ -7,14 +7,15 @@ use axum::{
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::json;
+use sqlx::SqlitePool;
 
 use crate::{
-    db,
+    db::{self, list_wifi_locations, wifi_summary},
     models::{
         AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
         IncidentTargetSummaryItem, KnownDeviceView, MetricsSummaryResponse, OutageReportItem,
         RecentAlertEventItem, RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse,
-        ReportTrendPoint, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
+        ReportTrendPoint, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint, WifiSample,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -57,11 +58,6 @@ pub struct ReportsSummaryQuery {
 }
 
 #[derive(Deserialize)]
-pub struct WifiSamplesQuery {
-    pub limit: Option<u32>,
-}
-
-#[derive(Deserialize)]
 pub struct WifiQuery {
     pub minutes: Option<u32>,
     pub location_label: Option<String>,
@@ -82,6 +78,22 @@ pub struct WifiSummaryResponse {
 #[derive(serde::Serialize)]
 pub struct WifiLocationsResponse {
     pub items: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+pub struct WifiLocationSummaryItem {
+    pub location_label: String,
+    pub sample_count: u32,
+    pub avg_rssi_dbm: Option<f64>,
+    pub min_rssi_dbm: Option<i64>,
+    pub max_rssi_dbm: Option<i64>,
+    pub latest_sample: Option<crate::models::WifiSample>,
+}
+
+#[derive(serde::Serialize)]
+pub struct WifiLocationSummariesResponse {
+    pub window_minutes: u32,
+    pub items: Vec<WifiLocationSummaryItem>,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -119,6 +131,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/wifi/latest", get(get_latest_wifi_sample))
         .route("/api/wifi/summary", get(get_wifi_summary))
         .route("/api/wifi/locations", get(get_wifi_locations))
+        .route(
+            "/api/wifi/locations/summary",
+            get(get_wifi_location_summaries),
+        )
         .with_state(state)
 }
 
@@ -685,6 +701,74 @@ async fn get_wifi_locations(
             .await
             .map_err(internal_error)?,
     }))
+}
+
+async fn get_wifi_location_summaries(
+    State(state): State<AppState>,
+    Query(query): Query<WifiQuery>,
+) -> Result<Json<WifiLocationSummariesResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let minutes = query.minutes.unwrap_or(60).min(60 * 24 * 7) as i64;
+
+    let items = db::wifi_location_summaries(&state.db, minutes)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(
+            |(
+                location_label,
+                latest_sample,
+                sample_count,
+                avg_rssi_dbm,
+                min_rssi_dbm,
+                max_rssi_dbm,
+            )| WifiLocationSummaryItem {
+                location_label,
+                sample_count,
+                avg_rssi_dbm,
+                min_rssi_dbm,
+                max_rssi_dbm,
+                latest_sample,
+            },
+        )
+        .collect();
+
+    Ok(Json(WifiLocationSummariesResponse {
+        window_minutes: minutes as u32,
+        items,
+    }))
+}
+
+pub async fn wifi_location_summaries(
+    pool: &SqlitePool,
+    minutes: i64,
+) -> anyhow::Result<
+    Vec<(
+        String,
+        Option<WifiSample>,
+        u32,
+        Option<f64>,
+        Option<i64>,
+        Option<i64>,
+    )>,
+> {
+    let locations = list_wifi_locations(pool).await?;
+    let mut items = Vec::with_capacity(locations.len());
+
+    for location in locations {
+        let (latest_sample, sample_count, avg_rssi_dbm, min_rssi_dbm, max_rssi_dbm) =
+            wifi_summary(pool, minutes, Some(location.as_str())).await?;
+
+        items.push((
+            location,
+            latest_sample,
+            sample_count,
+            avg_rssi_dbm,
+            min_rssi_dbm,
+            max_rssi_dbm,
+        ));
+    }
+
+    Ok(items)
 }
 
 fn format_duration_compact(seconds: i64) -> String {

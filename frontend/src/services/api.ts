@@ -233,6 +233,20 @@ export type WifiLocationsResponse = {
   items: string[];
 };
 
+export type WifiLocationSummaryItem = {
+  location_label: string;
+  sample_count: number;
+  avg_rssi_dbm?: number | null;
+  min_rssi_dbm?: number | null;
+  max_rssi_dbm?: number | null;
+  latest_sample?: WifiSample | null;
+};
+
+export type WifiLocationSummariesResponse = {
+  window_minutes: number;
+  items: WifiLocationSummaryItem[];
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -469,4 +483,21 @@ export const api = {
     getJson<WifiLocationsResponse>(
       "/api/wifi/locations",
     ),
+  getWifiLocationSummaries: (params?: {
+    minutes?: number;
+  }) => {
+    const query = new URLSearchParams();
+
+    if (params?.minutes) {
+      query.set(
+        "minutes",
+        String(params.minutes),
+      );
+    }
+
+    const suffix = query.toString();
+    return getJson<WifiLocationSummariesResponse>(
+      `/api/wifi/locations/summary${suffix ? `?${suffix}` : ""}`,
+    );
+  },
 };
