@@ -1875,3 +1875,55 @@ pub async fn wifi_location_summaries(
 
     Ok(items)
 }
+
+pub async fn latest_wifi_sample_for_location(
+    pool: &SqlitePool,
+    location_label: &str,
+) -> anyhow::Result<Option<WifiSample>> {
+    Ok(sqlx::query_as::<_, WifiSample>(
+        r#"
+        SELECT
+            id,
+            location_label,
+            interface_name,
+            ssid,
+            bssid,
+            rssi_dbm,
+            frequency_mhz,
+            band,
+            sampled_at
+        FROM wifi_samples
+        WHERE location_label = ?1
+        ORDER BY sampled_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(location_label)
+    .fetch_optional(pool)
+    .await?)
+}
+
+pub async fn wifi_minutes_since_last_sample(
+    pool: &SqlitePool,
+    location_label: &str,
+) -> anyhow::Result<Option<i64>> {
+    let row = sqlx::query(
+        r#"
+        SELECT sampled_at
+        FROM wifi_samples
+        WHERE location_label = ?1
+        ORDER BY sampled_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(location_label)
+    .fetch_optional(pool)
+    .await?;
+
+    let Some(row) = row else {
+        return Ok(None);
+    };
+
+    let sampled_at: chrono::DateTime<chrono::Utc> = row.get("sampled_at");
+    Ok(Some((Utc::now() - sampled_at).num_minutes()))
+}

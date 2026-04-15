@@ -7,10 +7,9 @@ use axum::{
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::json;
-use sqlx::SqlitePool;
 
 use crate::{
-    db::{self, list_wifi_locations, wifi_summary},
+    db,
     models::{
         AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
         IncidentTargetSummaryItem, KnownDeviceView, MetricsSummaryResponse, OutageReportItem,
@@ -72,7 +71,7 @@ pub struct WifiSummaryResponse {
     pub avg_rssi_dbm: Option<f64>,
     pub min_rssi_dbm: Option<i64>,
     pub max_rssi_dbm: Option<i64>,
-    pub latest_sample: Option<crate::models::WifiSample>,
+    pub latest_sample: Option<WifiSample>,
 }
 
 #[derive(serde::Serialize)]
@@ -87,7 +86,7 @@ pub struct WifiLocationSummaryItem {
     pub avg_rssi_dbm: Option<f64>,
     pub min_rssi_dbm: Option<i64>,
     pub max_rssi_dbm: Option<i64>,
-    pub latest_sample: Option<crate::models::WifiSample>,
+    pub latest_sample: Option<WifiSample>,
 }
 
 #[derive(serde::Serialize)]
@@ -644,7 +643,7 @@ async fn get_device_history(
 async fn get_wifi_samples(
     State(state): State<AppState>,
     Query(query): Query<WifiQuery>,
-) -> Result<Json<Vec<crate::models::WifiSample>>, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<Json<Vec<WifiSample>>, (StatusCode, Json<serde_json::Value>)> {
     let minutes = query.minutes.unwrap_or(60).min(60 * 24 * 7) as i64;
     let limit = query.limit.unwrap_or(100).min(500) as i64;
 
@@ -657,7 +656,7 @@ async fn get_wifi_samples(
 
 async fn get_latest_wifi_sample(
     State(state): State<AppState>,
-) -> Result<Json<crate::models::WifiSample>, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<Json<WifiSample>, (StatusCode, Json<serde_json::Value>)> {
     let sample = db::latest_wifi_sample(&state.db)
         .await
         .map_err(internal_error)?;
@@ -736,39 +735,6 @@ async fn get_wifi_location_summaries(
         window_minutes: minutes as u32,
         items,
     }))
-}
-
-pub async fn wifi_location_summaries(
-    pool: &SqlitePool,
-    minutes: i64,
-) -> anyhow::Result<
-    Vec<(
-        String,
-        Option<WifiSample>,
-        u32,
-        Option<f64>,
-        Option<i64>,
-        Option<i64>,
-    )>,
-> {
-    let locations = list_wifi_locations(pool).await?;
-    let mut items = Vec::with_capacity(locations.len());
-
-    for location in locations {
-        let (latest_sample, sample_count, avg_rssi_dbm, min_rssi_dbm, max_rssi_dbm) =
-            wifi_summary(pool, minutes, Some(location.as_str())).await?;
-
-        items.push((
-            location,
-            latest_sample,
-            sample_count,
-            avg_rssi_dbm,
-            min_rssi_dbm,
-            max_rssi_dbm,
-        ));
-    }
-
-    Ok(items)
 }
 
 fn format_duration_compact(seconds: i64) -> String {

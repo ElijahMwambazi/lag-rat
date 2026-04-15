@@ -2,13 +2,14 @@ mod common;
 
 use chrono::{Duration, Utc};
 use common::TestHarness;
+use lag_rat_backend::{db, services};
 
 #[tokio::test]
 async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(3),
         "192.168.1.1:80",
@@ -20,7 +21,7 @@ async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Resu
     )
     .await?;
 
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(2),
         "1.1.1.1:443",
@@ -32,7 +33,7 @@ async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Resu
     )
     .await?;
 
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(1),
         "https://www.google.com/generate_204",
@@ -44,7 +45,7 @@ async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Resu
     )
     .await?;
 
-    lag_rat_backend::db::insert_dns_check(
+    db::insert_dns_check(
         &harness.state.db,
         now,
         "google.com",
@@ -55,7 +56,7 @@ async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Resu
     )
     .await?;
 
-    lag_rat_backend::db::upsert_device(
+    db::upsert_device(
         &harness.state.db,
         "192.168.1.10",
         Some("aa:bb:cc:dd:ee:ff"),
@@ -64,7 +65,7 @@ async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Resu
     )
     .await?;
 
-    let overview = lag_rat_backend::services::status_overview::build(&harness.state).await?;
+    let overview = services::status_overview::build(&harness.state).await?;
 
     assert!(overview.router.is_healthy);
 
@@ -87,7 +88,7 @@ async fn overview_includes_alert_summary_counts() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -99,23 +100,21 @@ async fn overview_includes_alert_summary_counts() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     let critical_alert_id = alerts
         .iter()
         .find(|alert| alert.entity_type == "internet")
         .map(|alert| alert.id)
         .expect("critical alert should exist");
 
-    lag_rat_backend::db::acknowledge_alert(
+    db::acknowledge_alert(
         &harness.state.db,
         critical_alert_id,
         now - Duration::minutes(2),
     )
     .await?;
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "dns_health",
         "critical",
@@ -127,7 +126,7 @@ async fn overview_includes_alert_summary_counts() -> anyhow::Result<()> {
     )
     .await?;
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "router_health",
         "warning",
@@ -139,7 +138,7 @@ async fn overview_includes_alert_summary_counts() -> anyhow::Result<()> {
     )
     .await?;
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "router_health",
         "info",
@@ -151,7 +150,7 @@ async fn overview_includes_alert_summary_counts() -> anyhow::Result<()> {
     )
     .await?;
 
-    let overview = lag_rat_backend::services::status_overview::build(&harness.state).await?;
+    let overview = services::status_overview::build(&harness.state).await?;
 
     assert_eq!(overview.alerts.active_count, 2);
     assert_eq!(overview.alerts.active_critical_count, 2);

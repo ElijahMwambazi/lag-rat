@@ -6,6 +6,7 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use common::TestHarness;
+use lag_rat_backend::{api, db};
 use serde_json::Value;
 use tower::ServiceExt;
 
@@ -14,7 +15,7 @@ async fn wifi_samples_can_be_inserted_and_listed_newest_first() -> anyhow::Resul
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::insert_wifi_sample(
+    db::insert_wifi_sample(
         &harness.state.db,
         "office",
         "wlan0",
@@ -27,7 +28,7 @@ async fn wifi_samples_can_be_inserted_and_listed_newest_first() -> anyhow::Resul
     )
     .await?;
 
-    lag_rat_backend::db::insert_wifi_sample(
+    db::insert_wifi_sample(
         &harness.state.db,
         "office",
         "wlan0",
@@ -40,7 +41,8 @@ async fn wifi_samples_can_be_inserted_and_listed_newest_first() -> anyhow::Resul
     )
     .await?;
 
-    let samples = lag_rat_backend::db::list_wifi_samples(&harness.state.db, 10).await?;
+    let samples =
+        lag_rat_backend::db::list_wifi_samples_filtered(&harness.state.db, 60, None, 10).await?;
     assert_eq!(samples.len(), 2);
     assert_eq!(samples[0].rssi_dbm, Some(-44));
     assert_eq!(samples[1].rssi_dbm, Some(-48));
@@ -53,7 +55,7 @@ async fn latest_wifi_sample_returns_newest_sample() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::insert_wifi_sample(
+    db::insert_wifi_sample(
         &harness.state.db,
         "bedroom",
         "wlan0",
@@ -66,7 +68,7 @@ async fn latest_wifi_sample_returns_newest_sample() -> anyhow::Result<()> {
     )
     .await?;
 
-    lag_rat_backend::db::insert_wifi_sample(
+    db::insert_wifi_sample(
         &harness.state.db,
         "office",
         "wlan0",
@@ -79,7 +81,7 @@ async fn latest_wifi_sample_returns_newest_sample() -> anyhow::Result<()> {
     )
     .await?;
 
-    let latest = lag_rat_backend::db::latest_wifi_sample(&harness.state.db).await?;
+    let latest = db::latest_wifi_sample(&harness.state.db).await?;
     let latest = latest.expect("latest wifi sample should exist");
 
     assert_eq!(latest.location_label, "office");
@@ -93,7 +95,7 @@ async fn wifi_samples_api_returns_samples_in_descending_time_order() -> anyhow::
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::insert_wifi_sample(
+    db::insert_wifi_sample(
         &harness.state.db,
         "office",
         "wlan0",
@@ -106,7 +108,7 @@ async fn wifi_samples_api_returns_samples_in_descending_time_order() -> anyhow::
     )
     .await?;
 
-    lag_rat_backend::db::insert_wifi_sample(
+    db::insert_wifi_sample(
         &harness.state.db,
         "office",
         "wlan0",
@@ -119,7 +121,7 @@ async fn wifi_samples_api_returns_samples_in_descending_time_order() -> anyhow::
     )
     .await?;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = api::router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -150,7 +152,7 @@ async fn wifi_latest_api_returns_latest_sample() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::insert_wifi_sample(
+    db::insert_wifi_sample(
         &harness.state.db,
         "bedroom",
         "wlan0",
@@ -163,7 +165,7 @@ async fn wifi_latest_api_returns_latest_sample() -> anyhow::Result<()> {
     )
     .await?;
 
-    lag_rat_backend::db::insert_wifi_sample(
+    db::insert_wifi_sample(
         &harness.state.db,
         "office",
         "wlan0",
@@ -176,7 +178,7 @@ async fn wifi_latest_api_returns_latest_sample() -> anyhow::Result<()> {
     )
     .await?;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = api::router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -202,7 +204,7 @@ async fn wifi_latest_api_returns_latest_sample() -> anyhow::Result<()> {
 #[tokio::test]
 async fn wifi_latest_api_returns_404_when_empty() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = api::router(harness.state.clone());
 
     let response = app
         .oneshot(

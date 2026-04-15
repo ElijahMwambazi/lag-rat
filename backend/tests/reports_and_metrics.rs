@@ -8,6 +8,13 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use common::TestHarness;
+use lag_rat_backend::{
+    api::router,
+    db::{
+        acknowledge_alert, insert_connectivity_check, insert_device_history_event,
+        insert_dns_check, list_alerts_filtered, upsert_alert_state,
+    },
+};
 use serde_json::Value;
 use tower::ServiceExt;
 
@@ -17,7 +24,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
     let now = Utc::now();
 
     // internet_http checks: 3 successes, 1 failure => 75% uptime
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(110),
         "https://www.google.com/generate_204",
@@ -28,7 +35,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
         None,
     )
     .await?;
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(100),
         "https://www.google.com/generate_204",
@@ -39,7 +46,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
         None,
     )
     .await?;
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(90),
         "https://www.google.com/generate_204",
@@ -50,7 +57,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(80),
         "https://www.google.com/generate_204",
@@ -63,7 +70,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
     .await?;
 
     // Close the internet_http outage after 10 minutes.
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(79),
         "https://www.google.com/generate_204",
@@ -76,7 +83,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
     .await?;
 
     // One DNS failure opens an active DNS outage.
-    lag_rat_backend::db::insert_dns_check(
+    insert_dns_check(
         &harness.state.db,
         now - Duration::minutes(30),
         "google.com",
@@ -88,7 +95,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
     .await?;
 
     // Device history inside the window.
-    lag_rat_backend::db::insert_device_history_event(
+    insert_device_history_event(
         &harness.state.db,
         "192.168.1.20",
         "first_seen",
@@ -97,7 +104,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
         now - Duration::minutes(40),
     )
     .await?;
-    lag_rat_backend::db::insert_device_history_event(
+    insert_device_history_event(
         &harness.state.db,
         "192.168.1.21",
         "seen_again",
@@ -108,7 +115,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
     .await?;
 
     // Two active alerts: one acknowledged critical, one unacknowledged warning.
-    lag_rat_backend::db::upsert_alert_state(
+    upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -120,23 +127,21 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 20)
-            .await?;
+    let alerts = list_alerts_filtered(&harness.state.db, None, None, None, None, 20).await?;
     let internet_alert_id = alerts
         .iter()
         .find(|a| a.entity_type == "internet_http")
         .map(|a| a.id)
         .expect("internet_http alert should exist");
 
-    lag_rat_backend::db::acknowledge_alert(
+    acknowledge_alert(
         &harness.state.db,
         internet_alert_id,
         now - Duration::minutes(45),
     )
     .await?;
 
-    lag_rat_backend::db::upsert_alert_state(
+    upsert_alert_state(
         &harness.state.db,
         "dns_health",
         "warning",
@@ -148,7 +153,7 @@ async fn reports_summary_api_aggregates_window_counts() -> anyhow::Result<()> {
     )
     .await?;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -196,7 +201,7 @@ async fn metrics_summary_api_returns_expected_probe_items() -> anyhow::Result<()
     let now = Utc::now();
 
     // HTTP: 2 successes, 1 failure
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(50),
         "https://www.google.com/generate_204",
@@ -207,7 +212,7 @@ async fn metrics_summary_api_returns_expected_probe_items() -> anyhow::Result<()
         None,
     )
     .await?;
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(40),
         "https://www.google.com/generate_204",
@@ -218,7 +223,7 @@ async fn metrics_summary_api_returns_expected_probe_items() -> anyhow::Result<()
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(30),
         "https://www.google.com/generate_204",
@@ -231,7 +236,7 @@ async fn metrics_summary_api_returns_expected_probe_items() -> anyhow::Result<()
     .await?;
 
     // TCP: 1 success
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(25),
         "1.1.1.1:443",
@@ -244,7 +249,7 @@ async fn metrics_summary_api_returns_expected_probe_items() -> anyhow::Result<()
     .await?;
 
     // DNS: 1 success, 1 failure
-    lag_rat_backend::db::insert_dns_check(
+    insert_dns_check(
         &harness.state.db,
         now - Duration::minutes(20),
         "google.com",
@@ -254,7 +259,7 @@ async fn metrics_summary_api_returns_expected_probe_items() -> anyhow::Result<()
         None,
     )
     .await?;
-    lag_rat_backend::db::insert_dns_check(
+    insert_dns_check(
         &harness.state.db,
         now - Duration::minutes(10),
         "google.com",
@@ -265,7 +270,7 @@ async fn metrics_summary_api_returns_expected_probe_items() -> anyhow::Result<()
     )
     .await?;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -328,7 +333,7 @@ async fn reports_trends_api_buckets_failures_and_outages() -> anyhow::Result<()>
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(20),
         "https://www.google.com/generate_204",
@@ -340,7 +345,7 @@ async fn reports_trends_api_buckets_failures_and_outages() -> anyhow::Result<()>
     )
     .await?;
 
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(18),
         "1.1.1.1:443",
@@ -352,7 +357,7 @@ async fn reports_trends_api_buckets_failures_and_outages() -> anyhow::Result<()>
     )
     .await?;
 
-    lag_rat_backend::db::insert_dns_check(
+    insert_dns_check(
         &harness.state.db,
         now - Duration::minutes(15),
         "google.com",
@@ -363,7 +368,7 @@ async fn reports_trends_api_buckets_failures_and_outages() -> anyhow::Result<()>
     )
     .await?;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -412,7 +417,7 @@ async fn reports_snapshot_api_returns_composed_sections() -> anyhow::Result<()> 
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(70),
         "https://www.google.com/generate_204",
@@ -423,7 +428,7 @@ async fn reports_snapshot_api_returns_composed_sections() -> anyhow::Result<()> 
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(60),
         "https://www.google.com/generate_204",
@@ -435,7 +440,7 @@ async fn reports_snapshot_api_returns_composed_sections() -> anyhow::Result<()> 
     )
     .await?;
 
-    lag_rat_backend::db::insert_dns_check(
+    insert_dns_check(
         &harness.state.db,
         now - Duration::minutes(30),
         "google.com",
@@ -446,7 +451,7 @@ async fn reports_snapshot_api_returns_composed_sections() -> anyhow::Result<()> 
     )
     .await?;
 
-    lag_rat_backend::db::insert_device_history_event(
+    insert_device_history_event(
         &harness.state.db,
         "192.168.1.30",
         "first_seen",
@@ -456,7 +461,7 @@ async fn reports_snapshot_api_returns_composed_sections() -> anyhow::Result<()> 
     )
     .await?;
 
-    lag_rat_backend::db::upsert_alert_state(
+    upsert_alert_state(
         &harness.state.db,
         "dns_health",
         "critical",
@@ -468,19 +473,12 @@ async fn reports_snapshot_api_returns_composed_sections() -> anyhow::Result<()> 
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 20)
-            .await?;
+    let alerts = list_alerts_filtered(&harness.state.db, None, None, None, None, 20).await?;
     let alert_id = alerts[0].id;
 
-    lag_rat_backend::db::acknowledge_alert(
-        &harness.state.db,
-        alert_id,
-        now - Duration::minutes(10),
-    )
-    .await?;
+    acknowledge_alert(&harness.state.db, alert_id, now - Duration::minutes(10)).await?;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -535,7 +533,7 @@ async fn recent_reports_endpoints_and_top_incidents_return_windowed_items() -> a
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(40),
         "https://www.google.com/generate_204",
@@ -547,7 +545,7 @@ async fn recent_reports_endpoints_and_top_incidents_return_windowed_items() -> a
     )
     .await?;
 
-    lag_rat_backend::db::insert_connectivity_check(
+    insert_connectivity_check(
         &harness.state.db,
         now - Duration::minutes(20),
         "https://www.google.com/generate_204",
@@ -559,7 +557,7 @@ async fn recent_reports_endpoints_and_top_incidents_return_windowed_items() -> a
     )
     .await?;
 
-    lag_rat_backend::db::insert_device_history_event(
+    insert_device_history_event(
         &harness.state.db,
         "192.168.1.40",
         "label_added",
@@ -569,7 +567,7 @@ async fn recent_reports_endpoints_and_top_incidents_return_windowed_items() -> a
     )
     .await?;
 
-    lag_rat_backend::db::upsert_alert_state(
+    upsert_alert_state(
         &harness.state.db,
         "service_health",
         "warning",
@@ -581,19 +579,12 @@ async fn recent_reports_endpoints_and_top_incidents_return_windowed_items() -> a
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 20)
-            .await?;
+    let alerts = list_alerts_filtered(&harness.state.db, None, None, None, None, 20).await?;
     let alert_id = alerts[0].id;
 
-    lag_rat_backend::db::acknowledge_alert(
-        &harness.state.db,
-        alert_id,
-        now - Duration::minutes(30),
-    )
-    .await?;
+    acknowledge_alert(&harness.state.db, alert_id, now - Duration::minutes(30)).await?;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = router(harness.state.clone());
 
     let recent_alerts_response = app
         .clone()

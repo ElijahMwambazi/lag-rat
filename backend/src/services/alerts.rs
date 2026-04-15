@@ -10,6 +10,10 @@ const FAILURES_TO_OPEN: i64 = 2;
 const SUCCESSES_TO_RESOLVE: i64 = 2;
 const LOOKBACK_LIMIT: i64 = 10;
 const CRITICAL_AFTER_MINUTES: i64 = 5;
+const WIFI_WARNING_RSSI_DBM: i64 = -70;
+const WIFI_CRITICAL_RSSI_DBM: i64 = -80;
+const WIFI_STALE_WARNING_MINUTES: i64 = 5;
+const WIFI_STALE_CRITICAL_MINUTES: i64 = 15;
 
 pub async fn evaluate_service_observation(
     state: &AppState,
@@ -166,6 +170,7 @@ pub async fn evaluate_dns_observation(
 }
 
 #[allow(dead_code)]
+
 pub async fn evaluate_connectivity(
     state: &AppState,
     service: &str,
@@ -213,4 +218,117 @@ pub async fn evaluate_dns(
     };
 
     evaluate_dns_observation(state, &observation).await
+}
+
+pub async fn evaluate_wifi_observation(
+    state: &AppState,
+    observation: &crate::models::WifiObservation,
+) -> anyhow::Result<()> {
+    let Some(rssi_dbm) = observation.rssi_dbm else {
+        return Ok(());
+    };
+
+    let (is_active, severity, message) = if rssi_dbm <= WIFI_CRITICAL_RSSI_DBM {
+        (
+            true,
+            "critical",
+            format!(
+                "wifi signal is very weak in {}: {} dBm",
+                observation.location_label, rssi_dbm
+            ),
+        )
+    } else if rssi_dbm <= WIFI_WARNING_RSSI_DBM {
+        (
+            true,
+            "warning",
+            format!(
+                "wifi signal is weak in {}: {} dBm",
+                observation.location_label, rssi_dbm
+            ),
+        )
+    } else {
+        (
+            false,
+            "info",
+            format!(
+                "wifi signal recovered in {}: {} dBm",
+                observation.location_label, rssi_dbm
+            ),
+        )
+    };
+
+    db::upsert_alert_state(
+        &state.db,
+        "wifi_signal_weak",
+        severity,
+        "wifi",
+        &observation.location_label,
+        &message,
+        is_active,
+        Utc::now(),
+    )
+    .await?;
+
+    Ok(())
+}
+
+pub async fn evaluate_wifi_sample_freshness(
+    state: &AppState,
+    location_label: &str,
+) -> anyhow::Result<()> {
+    let minutes_since = db::wifi_minutes_since_last_sample(&state.db, location_label).await?;
+
+    let Some(age_minutes) = minutes_since else {
+        return Ok(());
+    };
+
+    let (is_active, severity, message) = if age_minutes >= WIFI_STALE_CRITICAL_MINUTES {
+        (
+            true,
+            "critical",
+            format!(
+                "wifi samples are stale in {}: last sample {}m ago",
+                location_label, age_minutes
+            ),
+        )
+    } else if age_minutes >= WIFI_STALE_WARNING_MINUTES {
+        (
+            true,
+            "warning",
+            format!(
+                "wifi samples are getting stale in {}: last sample {}m ago",
+                location_label, age_minutes
+            ),
+        )
+    } else {
+        (
+            false,
+            "info",
+            format!("wifi sampling recovered in {}", location_label),
+        )
+    };
+
+    db::upsert_alert_state(
+        &state.db,
+        "wifi_samples_stale",
+        severity,
+        "wifi",
+        location_label,
+        &message,
+        is_active,
+        Utc::now(),
+    )
+    .await?;
+
+    Ok(())
+}
+
+pub async fn evaluate_all_wifi_sample_freshness(state: &AppState) -> anyhow::Result<()> {
+    let locations = db::list_wifi_locations(&state.db).await?;
+
+    for location in locations {
+        evaluate_wifi_sample_freshness(state, &location).await?;
+    }
+
+    Ok(())
 }

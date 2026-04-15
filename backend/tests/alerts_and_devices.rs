@@ -1,12 +1,16 @@
 mod common;
 
-use chrono::{Duration, Utc};
-use common::TestHarness;
-use lag_rat_backend::monitors::connectivity::ProbeResult;
-
 use axum::{
     body::{to_bytes, Body},
     http::{Request, StatusCode},
+};
+use chrono::{Duration, Utc};
+use common::TestHarness;
+use lag_rat_backend::{
+    api, db,
+    models::WifiObservation,
+    monitors::connectivity::ProbeResult,
+    services::{self, alerts::evaluate_dns},
 };
 use serde_json::Value;
 use tower::ServiceExt;
@@ -16,7 +20,7 @@ use tower::ServiceExt;
 async fn alert_opens_and_resolves() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -28,13 +32,11 @@ async fn alert_opens_and_resolves() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 1);
     assert!(alerts[0].is_active);
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "info",
@@ -46,9 +48,7 @@ async fn alert_opens_and_resolves() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert!(!alerts[0].is_active);
     assert!(alerts[0].resolved_at.is_some());
     assert!(alerts[0].acknowledged_at.is_none());
@@ -69,7 +69,7 @@ async fn connectivity_alert_opens_as_warning_after_two_failures() -> anyhow::Res
         error_message: Some("timeout".to_string()),
     };
 
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         t1,
         target,
@@ -80,20 +80,13 @@ async fn connectivity_alert_opens_as_warning_after_two_failures() -> anyhow::Res
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::services::alerts::evaluate_connectivity(
-        &harness.state,
-        "internet_http",
-        target,
-        &failed_probe,
-    )
-    .await?;
+    services::alerts::evaluate_connectivity(&harness.state, "internet_http", target, &failed_probe)
+        .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 0);
 
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         t2,
         target,
@@ -104,17 +97,10 @@ async fn connectivity_alert_opens_as_warning_after_two_failures() -> anyhow::Res
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::services::alerts::evaluate_connectivity(
-        &harness.state,
-        "internet_http",
-        target,
-        &failed_probe,
-    )
-    .await?;
+    services::alerts::evaluate_connectivity(&harness.state, "internet_http", target, &failed_probe)
+        .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 1);
     assert!(alerts[0].is_active);
     assert_eq!(alerts[0].severity, "warning");
@@ -136,7 +122,7 @@ async fn connectivity_alert_escalates_to_critical_after_outage_age_threshold() -
         error_message: Some("timeout".to_string()),
     };
 
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         started_at,
         target,
@@ -147,7 +133,7 @@ async fn connectivity_alert_escalates_to_critical_after_outage_age_threshold() -
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         started_at + Duration::seconds(30),
         target,
@@ -159,17 +145,10 @@ async fn connectivity_alert_escalates_to_critical_after_outage_age_threshold() -
     )
     .await?;
 
-    lag_rat_backend::services::alerts::evaluate_connectivity(
-        &harness.state,
-        "internet_http",
-        target,
-        &failed_probe,
-    )
-    .await?;
+    services::alerts::evaluate_connectivity(&harness.state, "internet_http", target, &failed_probe)
+        .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 1);
     assert_eq!(alerts[0].severity, "critical");
     assert!(alerts[0].message.contains("still failing"));
@@ -195,7 +174,7 @@ async fn connectivity_alert_resolves_only_after_two_successes() -> anyhow::Resul
         error_message: None,
     };
 
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         now,
         target,
@@ -206,7 +185,7 @@ async fn connectivity_alert_resolves_only_after_two_successes() -> anyhow::Resul
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         now + Duration::seconds(30),
         target,
@@ -217,21 +196,14 @@ async fn connectivity_alert_resolves_only_after_two_successes() -> anyhow::Resul
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::services::alerts::evaluate_connectivity(
-        &harness.state,
-        "internet_http",
-        target,
-        &failed_probe,
-    )
-    .await?;
+    services::alerts::evaluate_connectivity(&harness.state, "internet_http", target, &failed_probe)
+        .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 1);
     assert!(alerts[0].is_active);
 
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         now + Duration::minutes(1),
         target,
@@ -242,7 +214,7 @@ async fn connectivity_alert_resolves_only_after_two_successes() -> anyhow::Resul
         None,
     )
     .await?;
-    lag_rat_backend::services::alerts::evaluate_connectivity(
+    services::alerts::evaluate_connectivity(
         &harness.state,
         "internet_http",
         target,
@@ -250,12 +222,10 @@ async fn connectivity_alert_resolves_only_after_two_successes() -> anyhow::Resul
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert!(alerts[0].is_active);
 
-    lag_rat_backend::db::insert_connectivity_check(
+    db::insert_connectivity_check(
         &harness.state.db,
         now + Duration::minutes(1) + Duration::seconds(30),
         target,
@@ -266,7 +236,7 @@ async fn connectivity_alert_resolves_only_after_two_successes() -> anyhow::Resul
         None,
     )
     .await?;
-    lag_rat_backend::services::alerts::evaluate_connectivity(
+    services::alerts::evaluate_connectivity(
         &harness.state,
         "internet_http",
         target,
@@ -274,9 +244,7 @@ async fn connectivity_alert_resolves_only_after_two_successes() -> anyhow::Resul
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert!(!alerts[0].is_active);
     assert!(alerts[0].resolved_at.is_some());
 
@@ -290,7 +258,7 @@ async fn dns_alert_opens_as_warning_after_two_failures() -> anyhow::Result<()> {
     let t1 = Utc::now();
     let t2 = t1 + Duration::seconds(30);
 
-    lag_rat_backend::db::insert_dns_check(
+    db::insert_dns_check(
         &harness.state.db,
         t1,
         domain,
@@ -300,15 +268,12 @@ async fn dns_alert_opens_as_warning_after_two_failures() -> anyhow::Result<()> {
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::services::alerts::evaluate_dns(&harness.state, domain, false, Some("timeout"))
-        .await?;
+    evaluate_dns(&harness.state, domain, false, Some("timeout")).await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 0);
 
-    lag_rat_backend::db::insert_dns_check(
+    db::insert_dns_check(
         &harness.state.db,
         t2,
         domain,
@@ -318,12 +283,9 @@ async fn dns_alert_opens_as_warning_after_two_failures() -> anyhow::Result<()> {
         Some("timeout"),
     )
     .await?;
-    lag_rat_backend::services::alerts::evaluate_dns(&harness.state, domain, false, Some("timeout"))
-        .await?;
+    evaluate_dns(&harness.state, domain, false, Some("timeout")).await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 1);
     assert!(alerts[0].is_active);
     assert_eq!(alerts[0].severity, "warning");
@@ -335,7 +297,7 @@ async fn dns_alert_opens_as_warning_after_two_failures() -> anyhow::Result<()> {
 async fn enriched_devices_include_labels_and_gateway_flag() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
 
-    lag_rat_backend::db::upsert_device(
+    db::upsert_device(
         &harness.state.db,
         "192.168.1.1",
         Some("aa:bb:cc:dd:ee:ff"),
@@ -344,7 +306,7 @@ async fn enriched_devices_include_labels_and_gateway_flag() -> anyhow::Result<()
     )
     .await?;
 
-    let enriched = lag_rat_backend::services::devices::list_enriched(&harness.state).await?;
+    let enriched = services::devices::list_enriched(&harness.state).await?;
     let router = enriched
         .iter()
         .find(|d| d.ip_address == "192.168.1.1")
@@ -363,7 +325,7 @@ async fn acknowledge_active_alert_sets_acknowledged_at() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -375,25 +337,17 @@ async fn acknowledge_active_alert_sets_acknowledged_at() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 1);
     assert!(alerts[0].acknowledged_at.is_none());
 
-    let acknowledged = lag_rat_backend::db::acknowledge_alert(
-        &harness.state.db,
-        alerts[0].id,
-        now + Duration::seconds(10),
-    )
-    .await?;
+    let acknowledged =
+        db::acknowledge_alert(&harness.state.db, alerts[0].id, now + Duration::seconds(10)).await?;
 
     assert!(acknowledged.is_some());
     assert!(acknowledged.unwrap().acknowledged_at.is_some());
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert!(alerts[0].acknowledged_at.is_some());
     assert!(alerts[0].is_active);
 
@@ -404,8 +358,7 @@ async fn acknowledge_active_alert_sets_acknowledged_at() -> anyhow::Result<()> {
 async fn acknowledging_unknown_alert_returns_none() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
 
-    let acknowledged =
-        lag_rat_backend::db::acknowledge_alert(&harness.state.db, 999_999, Utc::now()).await?;
+    let acknowledged = db::acknowledge_alert(&harness.state.db, 999_999, Utc::now()).await?;
 
     assert!(acknowledged.is_none());
 
@@ -417,7 +370,7 @@ async fn alert_update_clears_acknowledged_at() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "warning",
@@ -429,20 +382,14 @@ async fn alert_update_clears_acknowledged_at() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     let alert_id = alerts[0].id;
 
-    let acknowledged = lag_rat_backend::db::acknowledge_alert(
-        &harness.state.db,
-        alert_id,
-        now + Duration::seconds(5),
-    )
-    .await?;
+    let acknowledged =
+        db::acknowledge_alert(&harness.state.db, alert_id, now + Duration::seconds(5)).await?;
     assert!(acknowledged.unwrap().acknowledged_at.is_some());
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -454,9 +401,7 @@ async fn alert_update_clears_acknowledged_at() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 1);
     assert_eq!(alerts[0].severity, "critical");
     assert!(alerts[0].acknowledged_at.is_none());
@@ -469,7 +414,7 @@ async fn alert_history_records_opened_and_resolved() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "warning",
@@ -481,19 +426,16 @@ async fn alert_history_records_opened_and_resolved() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     assert_eq!(alerts.len(), 1);
 
-    let history =
-        lag_rat_backend::db::list_alert_history(&harness.state.db, alerts[0].id, 20).await?;
+    let history = db::list_alert_history(&harness.state.db, alerts[0].id, 20).await?;
     assert_eq!(history.len(), 1);
     assert_eq!(history[0].event_type, "opened");
     assert_eq!(history[0].previous_value, None);
     assert_eq!(history[0].new_value.as_deref(), Some("warning"));
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "info",
@@ -505,8 +447,7 @@ async fn alert_history_records_opened_and_resolved() -> anyhow::Result<()> {
     )
     .await?;
 
-    let history =
-        lag_rat_backend::db::list_alert_history(&harness.state.db, alerts[0].id, 20).await?;
+    let history = db::list_alert_history(&harness.state.db, alerts[0].id, 20).await?;
     assert_eq!(history.len(), 2);
     assert_eq!(history[0].event_type, "resolved");
     assert_eq!(history[0].previous_value.as_deref(), Some("active"));
@@ -520,7 +461,7 @@ async fn alert_history_records_acknowledged_event() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -532,19 +473,12 @@ async fn alert_history_records_acknowledged_event() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     let alert_id = alerts[0].id;
 
-    lag_rat_backend::db::acknowledge_alert(
-        &harness.state.db,
-        alert_id,
-        now + Duration::seconds(10),
-    )
-    .await?;
+    db::acknowledge_alert(&harness.state.db, alert_id, now + Duration::seconds(10)).await?;
 
-    let history = lag_rat_backend::db::list_alert_history(&harness.state.db, alert_id, 20).await?;
+    let history = db::list_alert_history(&harness.state.db, alert_id, 20).await?;
     assert_eq!(history.len(), 2);
     assert_eq!(history[0].event_type, "acknowledged");
     assert_eq!(history[0].new_value.as_deref(), Some("acknowledged"));
@@ -557,7 +491,7 @@ async fn alert_history_records_severity_and_message_changes() -> anyhow::Result<
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "warning",
@@ -569,12 +503,10 @@ async fn alert_history_records_severity_and_message_changes() -> anyhow::Result<
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     let alert_id = alerts[0].id;
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -586,7 +518,7 @@ async fn alert_history_records_severity_and_message_changes() -> anyhow::Result<
     )
     .await?;
 
-    let history = lag_rat_backend::db::list_alert_history(&harness.state.db, alert_id, 20).await?;
+    let history = db::list_alert_history(&harness.state.db, alert_id, 20).await?;
     assert_eq!(history.len(), 3);
 
     assert_eq!(history[0].event_type, "message_changed");
@@ -613,7 +545,7 @@ async fn acknowledge_alert_api_returns_200_and_sets_acknowledged_at() -> anyhow:
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -625,12 +557,10 @@ async fn acknowledge_alert_api_returns_200_and_sets_acknowledged_at() -> anyhow:
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     let alert_id = alerts[0].id;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = api::router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -656,7 +586,7 @@ async fn acknowledge_alert_api_returns_200_and_sets_acknowledged_at() -> anyhow:
 #[tokio::test]
 async fn acknowledge_alert_api_returns_404_for_unknown_alert() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = api::router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -681,7 +611,7 @@ async fn alert_history_api_returns_lifecycle_events() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "warning",
@@ -693,19 +623,12 @@ async fn alert_history_api_returns_lifecycle_events() -> anyhow::Result<()> {
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     let alert_id = alerts[0].id;
 
-    lag_rat_backend::db::acknowledge_alert(
-        &harness.state.db,
-        alert_id,
-        now + Duration::seconds(10),
-    )
-    .await?;
+    db::acknowledge_alert(&harness.state.db, alert_id, now + Duration::seconds(10)).await?;
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -717,7 +640,7 @@ async fn alert_history_api_returns_lifecycle_events() -> anyhow::Result<()> {
     )
     .await?;
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "info",
@@ -729,7 +652,7 @@ async fn alert_history_api_returns_lifecycle_events() -> anyhow::Result<()> {
     )
     .await?;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = api::router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -768,7 +691,7 @@ async fn alert_history_api_returns_opened_for_new_alert() -> anyhow::Result<()> 
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "warning",
@@ -780,12 +703,10 @@ async fn alert_history_api_returns_opened_for_new_alert() -> anyhow::Result<()> 
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     let alert_id = alerts[0].id;
 
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = api::router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -816,7 +737,7 @@ async fn acknowledging_alert_twice_does_not_duplicate_history() -> anyhow::Resul
     let harness = TestHarness::new().await?;
     let now = Utc::now();
 
-    lag_rat_backend::db::upsert_alert_state(
+    db::upsert_alert_state(
         &harness.state.db,
         "service_health",
         "critical",
@@ -828,28 +749,18 @@ async fn acknowledging_alert_twice_does_not_duplicate_history() -> anyhow::Resul
     )
     .await?;
 
-    let alerts =
-        lag_rat_backend::db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10)
-            .await?;
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
     let alert_id = alerts[0].id;
 
-    let first = lag_rat_backend::db::acknowledge_alert(
-        &harness.state.db,
-        alert_id,
-        now + Duration::seconds(10),
-    )
-    .await?;
+    let first =
+        db::acknowledge_alert(&harness.state.db, alert_id, now + Duration::seconds(10)).await?;
     let first_ack_at = first
         .as_ref()
         .and_then(|alert| alert.acknowledged_at)
         .expect("first acknowledge should set acknowledged_at");
 
-    let second = lag_rat_backend::db::acknowledge_alert(
-        &harness.state.db,
-        alert_id,
-        now + Duration::seconds(20),
-    )
-    .await?;
+    let second =
+        db::acknowledge_alert(&harness.state.db, alert_id, now + Duration::seconds(20)).await?;
     let second_ack_at = second
         .as_ref()
         .and_then(|alert| alert.acknowledged_at)
@@ -857,7 +768,7 @@ async fn acknowledging_alert_twice_does_not_duplicate_history() -> anyhow::Resul
 
     assert_eq!(first_ack_at, second_ack_at);
 
-    let history = lag_rat_backend::db::list_alert_history(&harness.state.db, alert_id, 20).await?;
+    let history = db::list_alert_history(&harness.state.db, alert_id, 20).await?;
     let acknowledged_events = history
         .iter()
         .filter(|item| item.event_type == "acknowledged")
@@ -871,7 +782,7 @@ async fn acknowledging_alert_twice_does_not_duplicate_history() -> anyhow::Resul
 #[tokio::test]
 async fn alert_history_api_returns_404_for_unknown_alert() -> anyhow::Result<()> {
     let harness = TestHarness::new().await?;
-    let app = lag_rat_backend::api::router(harness.state.clone());
+    let app = api::router(harness.state.clone());
 
     let response = app
         .oneshot(
@@ -887,6 +798,38 @@ async fn alert_history_api_returns_404_for_unknown_alert() -> anyhow::Result<()>
     let body = to_bytes(response.into_body(), usize::MAX).await?;
     let json: Value = serde_json::from_slice(&body)?;
     assert_eq!(json["error"].as_str(), Some("alert not found"));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn wifi_signal_alert_opens_as_warning() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+
+    let observation = WifiObservation {
+        module: "home_network".to_string(),
+        collector_type: "wifi_sampling".to_string(),
+        entity_type: "wifi".to_string(),
+        entity_key: "office".to_string(),
+        location_label: "office".to_string(),
+        interface_name: "wlo1".to_string(),
+        ssid: Some("TestWifi".to_string()),
+        bssid: None,
+        rssi_dbm: Some(-72),
+        frequency_mhz: Some(5180),
+        band: Some("5ghz".to_string()),
+        observed_at: Utc::now(),
+    };
+
+    services::alerts::evaluate_wifi_observation(&harness.state, &observation).await?;
+
+    let alerts = db::list_alerts_filtered(&harness.state.db, None, None, None, None, 10).await?;
+
+    assert_eq!(alerts.len(), 1);
+    assert_eq!(alerts[0].alert_type, "wifi_signal_weak");
+    assert_eq!(alerts[0].severity, "warning");
+    assert_eq!(alerts[0].entity_type, "wifi");
+    assert_eq!(alerts[0].entity_key, "office");
 
     Ok(())
 }
