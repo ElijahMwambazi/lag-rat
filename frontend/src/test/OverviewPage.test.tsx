@@ -32,7 +32,7 @@ vi.mock("../services/api", () => ({
     getStatusOverview: vi.fn(),
     getSummary: vi.fn(),
     getAlerts: vi.fn(),
-    getLatestWifiSample: vi.fn(),
+    getWifiLocationSummaries: vi.fn(),
   },
 }));
 
@@ -41,9 +41,9 @@ describe("OverviewPage", () => {
     vi.clearAllMocks();
 
     vi.mocked(
-      api.getLatestWifiSample,
+      api.getWifiLocationSummaries,
     ).mockRejectedValue(
-      new Error("Wi-Fi sample unavailable"),
+      new Error("Wi-Fi summaries unavailable"),
     );
   });
 
@@ -183,7 +183,7 @@ describe("OverviewPage", () => {
   });
 });
 
-it("renders latest wifi sample card", async () => {
+it("renders wifi health summary card", async () => {
   vi.mocked(
     api.getStatusOverview,
   ).mockResolvedValue({
@@ -254,38 +254,126 @@ it("renders latest wifi sample card", async () => {
   vi.mocked(api.getAlerts).mockResolvedValue([]);
 
   vi.mocked(
-    api.getLatestWifiSample,
+    api.getWifiLocationSummaries,
   ).mockResolvedValue({
-    id: 1,
-    location_label: "office",
-    interface_name: "wlan0",
-    ssid: "LagRatNet",
-    bssid: "aa:bb:cc:dd:ee:ff",
-    rssi_dbm: -42,
-    frequency_mhz: 5180,
-    band: "5ghz",
-    sampled_at: "2026-04-11T11:59:30Z",
+    window_minutes: 60,
+    items: [
+      {
+        location_label: "office",
+        sample_count: 3,
+        avg_rssi_dbm: -45,
+        min_rssi_dbm: -48,
+        max_rssi_dbm: -42,
+        latest_sample: {
+          id: 1,
+          location_label: "office",
+          interface_name: "wlan0",
+          ssid: "LagRatNet",
+          bssid: "aa:bb:cc:dd:ee:ff",
+          rssi_dbm: -42,
+          frequency_mhz: 5180,
+          band: "5ghz",
+          sampled_at: "2026-04-11T11:59:30Z",
+        },
+      },
+      {
+        location_label: "bedroom",
+        sample_count: 2,
+        avg_rssi_dbm: -71,
+        min_rssi_dbm: -74,
+        max_rssi_dbm: -68,
+        latest_sample: {
+          id: 2,
+          location_label: "bedroom",
+          interface_name: "wlan0",
+          ssid: "LagRatNet",
+          bssid: "aa:bb:cc:dd:ee:ff",
+          rssi_dbm: -74,
+          frequency_mhz: 2412,
+          band: "2.4ghz",
+          sampled_at: "2026-04-11T11:58:30Z",
+        },
+      },
+      {
+        location_label: "garage",
+        sample_count: 0,
+        avg_rssi_dbm: null,
+        min_rssi_dbm: null,
+        max_rssi_dbm: null,
+        latest_sample: null,
+      },
+    ],
+  });
+
+  vi.mocked(
+    api.getWifiLocationSummaries,
+  ).mockResolvedValue({
+    window_minutes: 60,
+    items: [
+      {
+        location_label: "office",
+        sample_count: 3,
+        avg_rssi_dbm: -45,
+        min_rssi_dbm: -48,
+        max_rssi_dbm: -42,
+        latest_sample: {
+          id: 1,
+          location_label: "office",
+          interface_name: "wlan0",
+          ssid: "LagRatNet",
+          bssid: "aa:bb:cc:dd:ee:ff",
+          rssi_dbm: -42,
+          frequency_mhz: 5180,
+          band: "5ghz",
+          sampled_at: "2026-04-11T11:59:30Z",
+        },
+      },
+      {
+        location_label: "bedroom",
+        sample_count: 2,
+        avg_rssi_dbm: -71,
+        min_rssi_dbm: -74,
+        max_rssi_dbm: -68,
+        latest_sample: {
+          id: 2,
+          location_label: "bedroom",
+          interface_name: "wlan0",
+          ssid: "LagRatNet",
+          bssid: "aa:bb:cc:dd:ee:ff",
+          rssi_dbm: -74,
+          frequency_mhz: 2412,
+          band: "2.4ghz",
+          sampled_at: "2026-04-11T11:58:30Z",
+        },
+      },
+      {
+        location_label: "garage",
+        sample_count: 0,
+        avg_rssi_dbm: null,
+        min_rssi_dbm: null,
+        max_rssi_dbm: null,
+        latest_sample: null,
+      },
+    ],
   });
 
   renderWithQueryClient(<OverviewPage />);
 
   expect(
-    await screen.findByText("Wi-Fi sample"),
+    await screen.findByText(
+      "Weakest room: bedroom",
+    ),
   ).toBeInTheDocument();
 
   expect(
-    await screen.findByText("office"),
+    await screen.findByText("-74 dBm"),
   ).toBeInTheDocument();
 
   expect(
-    await screen.findByText("LagRatNet"),
+    await screen.findByText("Rooms reporting"),
   ).toBeInTheDocument();
 
   expect(
-    await screen.findByText("-42 dBm"),
-  ).toBeInTheDocument();
-
-  expect(
-    await screen.findByText("5180 MHz"),
+    await screen.findByText("Stale rooms"),
   ).toBeInTheDocument();
 });

@@ -33,6 +33,48 @@ function formatRssi(value?: number | null) {
   return `${value} dBm`;
 }
 
+function formatMinutesAgo(value?: string | null) {
+  if (!value) return "—";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  const diffMs = Date.now() - parsed.getTime();
+  const diffMinutes = Math.max(
+    0,
+    Math.floor(diffMs / 60000),
+  );
+
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes === 1) return "1 minute ago";
+  return `${diffMinutes} minutes ago`;
+}
+
+function getWeakestWifiRoom(
+  items: Array<{
+    location_label: string;
+    latest_sample?: {
+      rssi_dbm?: number | null;
+      sampled_at: string;
+      ssid?: string | null;
+      band?: string | null;
+    } | null;
+  }>,
+) {
+  return [...items]
+    .filter(
+      (item) =>
+        item.latest_sample?.rssi_dbm !== null &&
+        item.latest_sample?.rssi_dbm !==
+          undefined,
+    )
+    .sort(
+      (a, b) =>
+        (a.latest_sample?.rssi_dbm ?? 0) -
+        (b.latest_sample?.rssi_dbm ?? 0),
+    )[0];
+}
+
 function getQueryStatus(
   isLoading: boolean,
   isError: boolean,
@@ -69,15 +111,33 @@ export default function OverviewPage() {
     refetchInterval: 30000,
   });
 
-  const wifiLatestQuery = useQuery({
-    queryKey: ["wifi-latest"],
-    queryFn: api.getLatestWifiSample,
+  const wifiSummaryQuery = useQuery({
+    queryKey: ["wifi-location-summaries", 60],
+    queryFn: () =>
+      api.getWifiLocationSummaries({
+        minutes: 60,
+      }),
     refetchInterval: 30000,
     retry: false,
   });
 
   const overview = overviewQuery.data;
   const summary = summaryQuery.data;
+
+  const wifiSummaryItems =
+    wifiSummaryQuery.data?.items ?? [];
+
+  const weakestWifiRoom = getWeakestWifiRoom(
+    wifiSummaryItems,
+  );
+
+  const wifiFreshRooms = wifiSummaryItems.filter(
+    (item) => item.latest_sample,
+  ).length;
+
+  const wifiStaleRooms = wifiSummaryItems.filter(
+    (item) => !item.latest_sample,
+  ).length;
 
   const alertsSectionRef =
     useRef<HTMLDivElement | null>(null);
@@ -194,26 +254,28 @@ export default function OverviewPage() {
       ),
     },
     {
-      name: "/api/wifi/latest",
-      ...(wifiLatestQuery.isLoading
+      name: "/api/wifi/locations/summary",
+      ...(wifiSummaryQuery.isLoading
         ? {
             status: "loading" as const,
-            detail: "Waiting for Wi-Fi sample",
+            detail:
+              "Waiting for Wi-Fi room summaries",
           }
-        : wifiLatestQuery.isError
+        : wifiSummaryQuery.isError
           ? {
               status: "error" as const,
-              detail: "Wi-Fi request failed",
+              detail:
+                "Wi-Fi summary request failed",
             }
-          : wifiLatestQuery.data
+          : wifiSummaryItems.length > 0
             ? {
                 status: "ok" as const,
-                detail: `Latest Wi-Fi sample for ${wifiLatestQuery.data.location_label}`,
+                detail: `${wifiSummaryItems.length} Wi-Fi rooms summarized`,
               }
             : {
                 status: "ok" as const,
                 detail:
-                  "No Wi-Fi sample recorded yet",
+                  "No Wi-Fi room summaries yet",
               }),
     },
   ];
@@ -696,104 +758,107 @@ export default function OverviewPage() {
       <section className="space-y-4">
         <div>
           <h3 className="text-lg font-medium">
-            Wi-Fi sample
+            Wi-Fi health
           </h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Latest room-tagged Wi-Fi reading from
-            the local collector.
+            Fast read on room-level Wi-Fi signal
+            quality and sample freshness from the
+            last hour.
           </p>
         </div>
 
-        {wifiLatestQuery.isLoading ? (
+        {wifiSummaryQuery.isLoading ? (
           <QueryState
-            title="Wi-Fi sample loading"
-            message="Waiting for the latest Wi-Fi sample."
+            title="Wi-Fi health loading"
+            message="Waiting for Wi-Fi room summaries."
           />
-        ) : wifiLatestQuery.isError ? (
+        ) : wifiSummaryQuery.isError ? (
           <QueryState
             title="Wi-Fi request failed"
             tone="error"
-            message="The latest Wi-Fi sample could not be loaded."
+            message="Wi-Fi room summaries could not be loaded."
           />
-        ) : !wifiLatestQuery.data ? (
+        ) : wifiSummaryItems.length === 0 ? (
           <QueryState
-            title="No Wi-Fi sample yet"
+            title="No Wi-Fi summaries yet"
             tone="warning"
-            message="Wi-Fi sampling has not produced a sample yet."
+            message="Wi-Fi sampling has not produced room summaries yet."
           />
-        ) : wifiLatestQuery.data ? (
+        ) : (
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h4 className="text-base font-medium text-zinc-100">
-                  {
-                    wifiLatestQuery.data
-                      .location_label
-                  }
+                  {weakestWifiRoom
+                    ? `Weakest room: ${weakestWifiRoom.location_label}`
+                    : "Wi-Fi room summary"}
                 </h4>
                 <p className="mt-1 text-sm text-zinc-400">
-                  Interface{" "}
-                  {
-                    wifiLatestQuery.data
-                      .interface_name
-                  }
+                  {weakestWifiRoom?.latest_sample
+                    ?.ssid
+                    ? `${weakestWifiRoom.latest_sample.ssid} · sampled ${formatMinutesAgo(
+                        weakestWifiRoom
+                          .latest_sample
+                          .sampled_at,
+                      )}`
+                    : "Room summaries available"}
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {wifiLatestQuery.data.band ? (
-                  <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
-                    {wifiLatestQuery.data.band}
-                  </span>
-                ) : null}
-
-                {wifiLatestQuery.data.ssid ? (
-                  <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
-                    {wifiLatestQuery.data.ssid}
-                  </span>
-                ) : null}
-              </div>
+              {weakestWifiRoom?.latest_sample
+                ?.band ? (
+                <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
+                  {
+                    weakestWifiRoom.latest_sample
+                      .band
+                  }
+                </span>
+              ) : null}
             </div>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
-                label="Signal"
+                label="Weakest signal"
                 value={formatRssi(
-                  wifiLatestQuery.data.rssi_dbm,
+                  weakestWifiRoom?.latest_sample
+                    ?.rssi_dbm,
                 )}
-                hint="Latest RSSI"
+                hint={
+                  weakestWifiRoom
+                    ? weakestWifiRoom.location_label
+                    : "No RSSI available"
+                }
               />
 
               <StatCard
-                label="Frequency"
+                label="Rooms reporting"
+                value={String(wifiFreshRooms)}
+                hint={`${wifiSummaryItems.length} total rooms`}
+              />
+
+              <StatCard
+                label="Stale rooms"
+                value={String(wifiStaleRooms)}
+                hint="No sample in current window"
+              />
+
+              <StatCard
+                label="Latest Wi-Fi refresh"
                 value={
-                  wifiLatestQuery.data
-                    .frequency_mhz != null
-                    ? `${wifiLatestQuery.data.frequency_mhz} MHz`
+                  weakestWifiRoom?.latest_sample
+                    ?.sampled_at
+                    ? formatMinutesAgo(
+                        weakestWifiRoom
+                          .latest_sample
+                          .sampled_at,
+                      )
                     : "—"
                 }
-                hint="Latest channel frequency"
-              />
-
-              <StatCard
-                label="BSSID"
-                value={
-                  wifiLatestQuery.data.bssid ??
-                  "—"
-                }
-                hint="Connected access point"
-              />
-
-              <StatCard
-                label="Sampled"
-                value={formatDate(
-                  wifiLatestQuery.data.sampled_at,
-                )}
-                hint="Latest Wi-Fi reading"
+                hint="Latest weakest-room sample"
               />
             </div>
           </div>
-        ) : null}
+        )}
       </section>
 
       <section className="space-y-4">
