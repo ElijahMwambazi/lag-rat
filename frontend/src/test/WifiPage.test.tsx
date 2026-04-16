@@ -967,42 +967,42 @@ describe("WifiPage", () => {
       await screen.findByText("Acknowledged"),
     ).toBeInTheDocument();
   });
-});
 
-it("opens alert detail drawer from selected room panel", async () => {
-  mockWifiLocationSummaries();
+  it("opens alert detail drawer from selected room panel", async () => {
+    mockWifiLocationSummaries();
 
-  vi.mocked(api.getAlerts).mockResolvedValue([
-    {
-      id: 11,
-      alert_type: "wifi_signal_weak",
-      severity: "warning",
-      entity_type: "wifi",
-      entity_key: "bedroom",
-      message:
-        "wifi signal is weak in bedroom: -58 dBm",
-      is_active: true,
-      created_at: new Date().toISOString(),
-      resolved_at: null,
-      acknowledged_at: null,
-    },
-  ]);
+    vi.mocked(api.getAlerts).mockResolvedValue([
+      {
+        id: 11,
+        alert_type: "wifi_signal_weak",
+        severity: "warning",
+        entity_type: "wifi",
+        entity_key: "bedroom",
+        message:
+          "wifi signal is weak in bedroom: -58 dBm",
+        is_active: true,
+        created_at: new Date().toISOString(),
+        resolved_at: null,
+        acknowledged_at: null,
+      },
+    ]);
 
-  vi.mocked(
-    api.getAlertHistory,
-  ).mockResolvedValue([
-    {
-      id: 1,
-      alert_id: 11,
-      event_type: "opened",
-      previous_value: null,
-      new_value: "warning",
-      created_at: new Date().toISOString(),
-    },
-  ]);
+    vi.mocked(
+      api.getAlertHistory,
+    ).mockResolvedValue([
+      {
+        id: 1,
+        alert_id: 11,
+        event_type: "opened",
+        previous_value: null,
+        new_value: "warning",
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
-  vi.mocked(api.getWifiSummary).mockResolvedValue(
-    {
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockResolvedValue({
       window_minutes: 60,
       location_label: "bedroom",
       sample_count: 1,
@@ -1020,11 +1020,11 @@ it("opens alert detail drawer from selected room panel", async () => {
         band: "5ghz",
         sampled_at: new Date().toISOString(),
       },
-    },
-  );
+    });
 
-  vi.mocked(api.getWifiSamples).mockResolvedValue(
-    [
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
       {
         id: 3,
         location_label: "bedroom",
@@ -1036,84 +1036,83 @@ it("opens alert detail drawer from selected room panel", async () => {
         band: "5ghz",
         sampled_at: new Date().toISOString(),
       },
-    ],
-  );
+    ]);
 
-  const user = userEvent.setup();
+    const user = userEvent.setup();
 
-  renderWithQueryClient(
-    <MemoryRouter
-      initialEntries={[
-        "/wifi?location=bedroom&minutes=60",
-      ]}
-    >
-      <WifiPage />
-    </MemoryRouter>,
-  );
+    renderWithQueryClient(
+      <MemoryRouter
+        initialEntries={[
+          "/wifi?location=bedroom&minutes=60",
+        ]}
+      >
+        <WifiPage />
+      </MemoryRouter>,
+    );
 
-  await user.click(
-    (
-      await screen.findAllByRole("button", {
-        name: /view alert details/i,
-      })
-    )[0],
-  );
+    await user.click(
+      (
+        await screen.findAllByRole("button", {
+          name: /view alert details/i,
+        })
+      )[0],
+    );
 
-  expect(
-    await screen.findByRole("button", {
-      name: /acknowledge/i,
-    }),
-  ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", {
+        name: /^acknowledge$/i,
+      }),
+    ).toBeInTheDocument();
 
-  expect(
-    (
-      await screen.findAllByText(
-        /wifi signal is weak in bedroom: -58 dBm/i,
-      )
-    ).length,
-  ).toBeGreaterThan(0);
+    expect(
+      (
+        await screen.findAllByText(
+          /wifi signal is weak in bedroom: -58 dBm/i,
+        )
+      ).length,
+    ).toBeGreaterThan(0);
 
-  expect(
-    await screen.findByText(
-      "Room incident timeline",
-    ),
-  ).toBeInTheDocument();
-});
+    expect(
+      (await screen.findAllByText(/timeline/i))
+        .length,
+    ).toBeGreaterThan(0);
+  });
 
-it("acknowledges selected room alert from the drawer", async () => {
-  mockWifiLocationSummaries();
+  it("acknowledges selected room alert from the drawer", async () => {
+    mockWifiLocationSummaries();
 
-  vi.mocked(api.getAlerts).mockResolvedValue([
-    {
-      id: 11,
-      alert_type: "wifi_signal_weak",
-      severity: "warning",
-      entity_type: "wifi",
-      entity_key: "bedroom",
-      message:
-        "wifi signal is weak in bedroom: -58 dBm",
-      is_active: true,
-      created_at: new Date().toISOString(),
-      resolved_at: null,
-      acknowledged_at: null,
-    },
-  ]);
+    vi.mocked(api.getAlerts).mockResolvedValue([
+      {
+        id: 11,
+        alert_type: "wifi_signal_weak",
+        severity: "warning",
+        entity_type: "wifi",
+        entity_key: "bedroom",
+        message:
+          "wifi signal is weak in bedroom: -58 dBm",
+        is_active: true,
+        created_at: new Date().toISOString(),
+        resolved_at: null,
+        acknowledged_at: null,
+      },
+    ]);
 
-  vi.mocked(
-    api.getAlertHistory,
-  ).mockResolvedValue([
-    {
-      id: 1,
-      alert_id: 11,
-      event_type: "opened",
-      previous_value: null,
-      new_value: "warning",
-      created_at: new Date().toISOString(),
-    },
-  ]);
+    vi.mocked(
+      api.getAlertHistory,
+    ).mockResolvedValue([
+      {
+        id: 1,
+        alert_id: 11,
+        event_type: "opened",
+        previous_value: null,
+        new_value: "warning",
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
-  vi.mocked(api.getWifiSummary).mockResolvedValue(
-    {
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockResolvedValue({
       window_minutes: 60,
       location_label: "bedroom",
       sample_count: 1,
@@ -1131,11 +1130,11 @@ it("acknowledges selected room alert from the drawer", async () => {
         band: "5ghz",
         sampled_at: new Date().toISOString(),
       },
-    },
-  );
+    });
 
-  vi.mocked(api.getWifiSamples).mockResolvedValue(
-    [
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
       {
         id: 3,
         location_label: "bedroom",
@@ -1147,36 +1146,237 @@ it("acknowledges selected room alert from the drawer", async () => {
         band: "5ghz",
         sampled_at: new Date().toISOString(),
       },
-    ],
-  );
+    ]);
 
-  const user = userEvent.setup();
+    const user = userEvent.setup();
 
-  renderWithQueryClient(
-    <MemoryRouter
-      initialEntries={[
-        "/wifi?location=bedroom&minutes=60",
-      ]}
-    >
-      <WifiPage />
-    </MemoryRouter>,
-  );
+    renderWithQueryClient(
+      <MemoryRouter
+        initialEntries={[
+          "/wifi?location=bedroom&minutes=60",
+        ]}
+      >
+        <WifiPage />
+      </MemoryRouter>,
+    );
 
-  await user.click(
-    (
-      await screen.findAllByRole("button", {
-        name: /view alert details/i,
-      })
-    )[0],
-  );
+    await user.click(
+      (
+        await screen.findAllByRole("button", {
+          name: /view alert details/i,
+        })
+      )[0],
+    );
 
-  await user.click(
-    await screen.findByRole("button", {
-      name: /acknowledge/i,
-    }),
-  );
+    await user.click(
+      await screen.findByRole("button", {
+        name: /^acknowledge$/i,
+      }),
+    );
 
-  expect(
-    api.acknowledgeAlert,
-  ).toHaveBeenCalledWith(11);
+    expect(
+      api.acknowledgeAlert,
+    ).toHaveBeenCalledWith(11);
+  });
+
+  it("opens alert detail drawer from selected room panel", async () => {
+    mockWifiLocationSummaries();
+
+    vi.mocked(api.getAlerts).mockResolvedValue([
+      {
+        id: 11,
+        alert_type: "wifi_signal_weak",
+        severity: "warning",
+        entity_type: "wifi",
+        entity_key: "bedroom",
+        message:
+          "wifi signal is weak in bedroom: -58 dBm",
+        is_active: true,
+        created_at: new Date().toISOString(),
+        resolved_at: null,
+        acknowledged_at: null,
+      },
+    ]);
+
+    vi.mocked(
+      api.getAlertHistory,
+    ).mockResolvedValue([
+      {
+        id: 1,
+        alert_id: 11,
+        event_type: "opened",
+        previous_value: null,
+        new_value: "warning",
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockResolvedValue({
+      window_minutes: 60,
+      location_label: "bedroom",
+      sample_count: 1,
+      avg_rssi_dbm: -58,
+      min_rssi_dbm: -58,
+      max_rssi_dbm: -58,
+      latest_sample: {
+        id: 3,
+        location_label: "bedroom",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -58,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
+      {
+        id: 3,
+        location_label: "bedroom",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -58,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter
+        initialEntries={[
+          "/wifi?location=bedroom&minutes=60",
+        ]}
+      >
+        <WifiPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      (
+        await screen.findAllByRole("button", {
+          name: /view alert details/i,
+        })
+      )[0],
+    );
+
+    expect(
+      await screen.findByRole("button", {
+        name: /^acknowledge$/i,
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      (
+        await screen.findAllByText(
+          /wifi signal is weak in bedroom: -58 dBm/i,
+        )
+      ).length,
+    ).toBeGreaterThan(0);
+
+    expect(
+      (await screen.findAllByText(/timeline/i))
+        .length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("shows acknowledged state instead of inline acknowledge buttons", async () => {
+    mockWifiLocationSummaries();
+
+    vi.mocked(api.getAlerts).mockResolvedValue([
+      {
+        id: 11,
+        alert_type: "wifi_signal_weak",
+        severity: "warning",
+        entity_type: "wifi",
+        entity_key: "bedroom",
+        message:
+          "wifi signal is weak in bedroom: -58 dBm",
+        is_active: true,
+        created_at: new Date().toISOString(),
+        resolved_at: null,
+        acknowledged_at: new Date().toISOString(),
+      },
+    ]);
+
+    vi.mocked(
+      api.getAlertHistory,
+    ).mockResolvedValue([
+      {
+        id: 1,
+        alert_id: 11,
+        event_type: "opened",
+        previous_value: null,
+        new_value: "warning",
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockResolvedValue({
+      window_minutes: 60,
+      location_label: "bedroom",
+      sample_count: 1,
+      avg_rssi_dbm: -58,
+      min_rssi_dbm: -58,
+      max_rssi_dbm: -58,
+      latest_sample: {
+        id: 3,
+        location_label: "bedroom",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -58,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
+      {
+        id: 3,
+        location_label: "bedroom",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -58,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        initialEntries={[
+          "/wifi?location=bedroom&minutes=60",
+        ]}
+      >
+        <WifiPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findAllByText("Acknowledged"),
+    ).toHaveLength(2);
+
+    expect(
+      screen.queryByRole("button", {
+        name: /acknowledge alert/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
 });

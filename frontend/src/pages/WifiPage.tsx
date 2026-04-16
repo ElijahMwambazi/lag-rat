@@ -447,6 +447,14 @@ export default function WifiPage() {
       },
     });
 
+  const canAcknowledgeSelectedRoomAlert =
+    !!selectedRoomPrimaryAlert &&
+    selectedRoomPrimaryAlert.is_active &&
+    !selectedRoomPrimaryAlert.acknowledged_at;
+
+  const selectedRoomAlertAcknowledged =
+    !!selectedRoomPrimaryAlert?.acknowledged_at;
+
   const wifiChartData = useMemo(
     () =>
       wifiSamples
@@ -792,17 +800,44 @@ export default function WifiPage() {
                 </span>
               ) : null}
 
-              {selectedRoomPrimaryAlert ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setAlertDrawerOpen(true)
-                  }
-                  className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
-                >
-                  View alert details
-                </button>
+              {selectedRoomAlertAcknowledged ? (
+                <span className="rounded-full border border-amber-800 bg-amber-950 px-3 py-1 text-xs text-amber-300">
+                  Acknowledged
+                </span>
               ) : null}
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {canAcknowledgeSelectedRoomAlert ? (
+                  <button
+                    type="button"
+                    disabled={
+                      acknowledgeWifiAlertMutation.isPending
+                    }
+                    onClick={() =>
+                      acknowledgeWifiAlertMutation.mutate(
+                        selectedRoomPrimaryAlert.id,
+                      )
+                    }
+                    className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {acknowledgeWifiAlertMutation.isPending
+                      ? "Acknowledging..."
+                      : "Acknowledge alert"}
+                  </button>
+                ) : null}
+
+                {selectedRoomPrimaryAlert ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAlertDrawerOpen(true)
+                    }
+                    className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                  >
+                    View alert details
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -817,13 +852,15 @@ export default function WifiPage() {
                   "No active Wi-Fi alerts for this room."}
               </div>
 
-              <p className="mt-3 text-sm text-zinc-400">
-                {selectedRoomStatus
-                  ? getRoomStatusDescription(
-                      selectedRoomStatus.tone,
-                    )
-                  : "No current room status available."}
-              </p>
+              {acknowledgeWifiAlertMutation.isError ? (
+                <div className="mt-3 rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+                  {acknowledgeWifiAlertMutation.error instanceof
+                  Error
+                    ? acknowledgeWifiAlertMutation
+                        .error.message
+                    : "Could not acknowledge alert."}
+                </div>
+              ) : null}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
@@ -884,6 +921,31 @@ export default function WifiPage() {
                   Alert #
                   {selectedRoomPrimaryAlert.id}
                 </span>
+
+                {selectedRoomAlertAcknowledged ? (
+                  <span className="rounded-full border border-amber-800 bg-amber-950 px-3 py-1 text-xs text-amber-300">
+                    Acknowledged
+                  </span>
+                ) : null}
+
+                {canAcknowledgeSelectedRoomAlert ? (
+                  <button
+                    type="button"
+                    disabled={
+                      acknowledgeWifiAlertMutation.isPending
+                    }
+                    onClick={() =>
+                      acknowledgeWifiAlertMutation.mutate(
+                        selectedRoomPrimaryAlert.id,
+                      )
+                    }
+                    className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {acknowledgeWifiAlertMutation.isPending
+                      ? "Acknowledging..."
+                      : "Acknowledge alert"}
+                  </button>
+                ) : null}
 
                 <button
                   type="button"
