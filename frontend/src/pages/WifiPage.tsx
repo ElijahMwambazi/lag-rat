@@ -186,6 +186,26 @@ export default function WifiPage() {
     setSearchParams(params, { replace: true });
   }
 
+  function SelectionBadge({
+    active,
+  }: {
+    active: boolean;
+  }) {
+    return (
+      <span
+        className={[
+          "rounded-full border px-2 py-0.5 text-[11px]",
+          active
+            ? "border-zinc-600 bg-zinc-800 text-zinc-100"
+            : "border-transparent bg-transparent text-transparent",
+        ].join(" ")}
+        aria-hidden={!active}
+      >
+        Selected
+      </span>
+    );
+  }
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -425,10 +445,16 @@ export default function WifiPage() {
                       ) : null}
 
                       {isActive ? (
-                        <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-100">
-                          Selected
-                        </span>
-                      ) : null}
+                        <SelectionBadge
+                          active={isActive}
+                        />
+                      ) : (
+                        <SelectionBadge
+                          active={
+                            locationLabel === ""
+                          }
+                        />
+                      )}
                     </div>
                   </div>
 
