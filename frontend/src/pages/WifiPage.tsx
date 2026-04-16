@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import ChartCard from "../components/ChartCard";
 import QueryState from "../components/QueryState";
@@ -67,10 +68,27 @@ function getRecentSamplesTitle(
 }
 
 export default function WifiPage() {
+  const [searchParams, setSearchParams] =
+    useSearchParams();
+
+  const initialMinutesParam = Number(
+    searchParams.get("minutes") ?? "60",
+  );
+
+  const initialWindowMinutes = WINDOWS.some(
+    (option) =>
+      option.minutes === initialMinutesParam,
+  )
+    ? initialMinutesParam
+    : 60;
+
+  const initialLocationLabel =
+    searchParams.get("location") ?? "";
+
   const [windowMinutes, setWindowMinutes] =
-    useState(60);
+    useState(initialWindowMinutes);
   const [locationLabel, setLocationLabel] =
-    useState("");
+    useState(initialLocationLabel);
 
   const locationsQuery =
     useQuery<WifiLocationsResponse>({
@@ -151,6 +169,23 @@ export default function WifiPage() {
     [wifiSamples],
   );
 
+  function updateSearchParams(next: {
+    minutes: number;
+    location: string;
+  }) {
+    const params = new URLSearchParams();
+
+    if (next.location) {
+      params.set("location", next.location);
+    }
+
+    if (next.minutes !== 60) {
+      params.set("minutes", String(next.minutes));
+    }
+
+    setSearchParams(params, { replace: true });
+  }
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -168,11 +203,16 @@ export default function WifiPage() {
           <div className="flex flex-col gap-2 sm:flex-row">
             <select
               value={windowMinutes}
-              onChange={(e) =>
-                setWindowMinutes(
-                  Number(e.target.value),
-                )
-              }
+              onChange={(e) => {
+                const nextMinutes = Number(
+                  e.target.value,
+                );
+                setWindowMinutes(nextMinutes);
+                updateSearchParams({
+                  minutes: nextMinutes,
+                  location: locationLabel,
+                });
+              }}
               className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
             >
               {WINDOWS.map((option) => (
@@ -187,9 +227,15 @@ export default function WifiPage() {
 
             <select
               value={locationLabel}
-              onChange={(e) =>
-                setLocationLabel(e.target.value)
-              }
+              onChange={(e) => {
+                const nextLocation =
+                  e.target.value;
+                setLocationLabel(nextLocation);
+                updateSearchParams({
+                  minutes: windowMinutes,
+                  location: nextLocation,
+                });
+              }}
               className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
             >
               <option value="">
@@ -259,9 +305,13 @@ export default function WifiPage() {
             {locationLabel ? (
               <button
                 type="button"
-                onClick={() =>
-                  setLocationLabel("")
-                }
+                onClick={() => {
+                  setLocationLabel("");
+                  updateSearchParams({
+                    minutes: windowMinutes,
+                    location: "",
+                  });
+                }}
                 className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1 text-xs text-zinc-300 transition hover:bg-zinc-900"
               >
                 Clear room filter
@@ -299,7 +349,13 @@ export default function WifiPage() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <button
               type="button"
-              onClick={() => setLocationLabel("")}
+              onClick={() => {
+                setLocationLabel("");
+                updateSearchParams({
+                  minutes: windowMinutes,
+                  location: "",
+                });
+              }}
               className={getRoomCardClasses(
                 locationLabel === "",
               )}
@@ -339,9 +395,13 @@ export default function WifiPage() {
                 <button
                   key={location}
                   type="button"
-                  onClick={() =>
-                    setLocationLabel(location)
-                  }
+                  onClick={() => {
+                    setLocationLabel(location);
+                    updateSearchParams({
+                      minutes: windowMinutes,
+                      location,
+                    });
+                  }}
                   className={getRoomCardClasses(
                     isActive,
                   )}

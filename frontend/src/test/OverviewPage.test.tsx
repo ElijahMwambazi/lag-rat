@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import {
   beforeEach,
   describe,
@@ -62,7 +63,11 @@ describe("OverviewPage", () => {
       [],
     );
 
-    renderWithQueryClient(<OverviewPage />);
+    renderWithQueryClient(
+      <MemoryRouter>
+        <OverviewPage />
+      </MemoryRouter>,
+    );
 
     expect(
       await screen.findByText(
@@ -161,7 +166,11 @@ describe("OverviewPage", () => {
       },
     ]);
 
-    renderWithQueryClient(<OverviewPage />);
+    renderWithQueryClient(
+      <MemoryRouter>
+        <OverviewPage />
+      </MemoryRouter>,
+    );
 
     expect(
       await screen.findByText(
@@ -357,7 +366,11 @@ it("renders wifi health summary card", async () => {
     ],
   });
 
-  renderWithQueryClient(<OverviewPage />);
+  renderWithQueryClient(
+    <MemoryRouter>
+      <OverviewPage />
+    </MemoryRouter>,
+  );
 
   expect(
     await screen.findByText(
@@ -375,5 +388,17 @@ it("renders wifi health summary card", async () => {
 
   expect(
     await screen.findByText("Stale rooms"),
+  ).toBeInTheDocument();
+
+  expect(
+    await screen.findByRole("button", {
+      name: "Open weakest room",
+    }),
+  ).toBeInTheDocument();
+
+  expect(
+    await screen.findByRole("button", {
+      name: "Open Wi-Fi page",
+    }),
   ).toBeInTheDocument();
 });

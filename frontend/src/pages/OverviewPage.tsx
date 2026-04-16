@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import AlertsPanel from "../components/AlertsPanel";
 import DebugPanel from "../components/DebugPanel";
@@ -99,6 +100,8 @@ function getQueryStatus(
 }
 
 export default function OverviewPage() {
+  const navigate = useNavigate();
+
   const overviewQuery = useQuery({
     queryKey: ["status-overview"],
     queryFn: api.getStatusOverview,
@@ -805,15 +808,43 @@ export default function OverviewPage() {
                 </p>
               </div>
 
-              {weakestWifiRoom?.latest_sample
-                ?.band ? (
-                <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
-                  {
-                    weakestWifiRoom.latest_sample
-                      .band
+              <div className="flex flex-wrap gap-2">
+                {weakestWifiRoom?.latest_sample
+                  ?.band ? (
+                  <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
+                    {
+                      weakestWifiRoom
+                        .latest_sample.band
+                    }
+                  </span>
+                ) : null}
+
+                {weakestWifiRoom ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        `/wifi?location=${encodeURIComponent(
+                          weakestWifiRoom.location_label,
+                        )}&minutes=60`,
+                      )
+                    }
+                    className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                  >
+                    Open weakest room
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/wifi")
                   }
-                </span>
-              ) : null}
+                  className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                >
+                  Open Wi-Fi page
+                </button>
+              </div>
             </div>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

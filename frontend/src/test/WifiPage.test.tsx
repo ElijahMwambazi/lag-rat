@@ -1,5 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import {
   beforeEach,
   describe,
@@ -170,7 +171,11 @@ describe("WifiPage", () => {
       },
     ]);
 
-    renderWithQueryClient(<WifiPage />);
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/wifi"]}>
+        <WifiPage />
+      </MemoryRouter>,
+    );
 
     expect(
       await screen.findByText("Wi-Fi"),
@@ -302,7 +307,11 @@ describe("WifiPage", () => {
 
     const user = userEvent.setup();
 
-    renderWithQueryClient(<WifiPage />);
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/wifi"]}>
+        <WifiPage />
+      </MemoryRouter>,
+    );
 
     await user.click(
       await screen.findByRole("button", {
@@ -355,7 +364,11 @@ describe("WifiPage", () => {
       api.getWifiSamples,
     ).mockResolvedValue([]);
 
-    renderWithQueryClient(<WifiPage />);
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/wifi"]}>
+        <WifiPage />
+      </MemoryRouter>,
+    );
 
     expect(
       await screen.findByText(
@@ -445,7 +458,15 @@ describe("WifiPage", () => {
 
     const user = userEvent.setup();
 
-    renderWithQueryClient(<WifiPage />);
+    renderWithQueryClient(
+      <MemoryRouter
+        initialEntries={[
+          "/wifi?location=bedroom&minutes=60",
+        ]}
+      >
+        <WifiPage />
+      </MemoryRouter>,
+    );
 
     await user.click(
       await screen.findByRole("button", {
@@ -460,9 +481,85 @@ describe("WifiPage", () => {
     );
 
     expect(
-      await screen.findByText(
-        "Viewing: All locations",
-      ),
-    ).toBeInTheDocument();
+      (
+        await screen.findAllByText(
+          "Viewing: All locations",
+        )
+      ).length,
+    ).toBeGreaterThan(0);
   });
+});
+
+it("initializes room filter from query params", async () => {
+  mockWifiLocationSummaries();
+
+  vi.mocked(api.getWifiSummary).mockResolvedValue(
+    {
+      window_minutes: 60,
+      location_label: "bedroom",
+      sample_count: 1,
+      avg_rssi_dbm: -58,
+      min_rssi_dbm: -58,
+      max_rssi_dbm: -58,
+      latest_sample: {
+        id: 3,
+        location_label: "bedroom",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -58,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    },
+  );
+
+  vi.mocked(api.getWifiSamples).mockResolvedValue(
+    [
+      {
+        id: 3,
+        location_label: "bedroom",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -58,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ],
+  );
+
+  renderWithQueryClient(
+    <MemoryRouter
+      initialEntries={[
+        "/wifi?location=bedroom&minutes=60",
+      ]}
+    >
+      <WifiPage />
+    </MemoryRouter>,
+  );
+
+  expect(
+    (
+      await screen.findAllByText(
+        "Viewing: bedroom",
+      )
+    ).length,
+  ).toBeGreaterThan(0);
+
+  expect(
+    (
+      await screen.findAllByText(
+        "Last 1h · bedroom",
+      )
+    ).length,
+  ).toBeGreaterThan(0);
+
+  expect(
+    await screen.findByText(
+      "Recent samples · bedroom",
+    ),
+  ).toBeInTheDocument();
 });
