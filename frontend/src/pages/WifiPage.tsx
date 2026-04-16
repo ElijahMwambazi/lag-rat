@@ -53,6 +53,43 @@ function formatRssi(value?: number | null) {
   return `${value} dBm`;
 }
 
+function formatSampleAge(value?: string | null) {
+  if (!value) return "—";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  const diffMs = Date.now() - parsed.getTime();
+  const diffMinutes = Math.max(
+    0,
+    Math.floor(diffMs / 60000),
+  );
+
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes === 1) return "1 minute ago";
+  if (diffMinutes < 60)
+    return `${diffMinutes} minutes ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours === 1) return "1 hour ago";
+  return `${diffHours} hours ago`;
+}
+
+function getRoomStatusDescription(
+  tone: RoomHealthTone,
+) {
+  switch (tone) {
+    case "healthy":
+      return "No active Wi-Fi alerts for this room.";
+    case "warning":
+      return "Signal is weak for this room. Check placement, interference, or distance from the router.";
+    case "critical":
+      return "Wi-Fi health is critical for this room. Investigate signal quality and recent environmental changes.";
+    case "stale":
+      return "Wi-Fi sampling is stale for this room. Collector data may no longer be arriving.";
+  }
+}
+
 function getRoomStatusBadgeClasses(
   tone: RoomHealthTone,
 ) {
@@ -269,6 +306,25 @@ export default function WifiPage() {
 
   const activeWifiAlerts =
     wifiAlertsQuery.data ?? [];
+
+  const selectedRoomAlerts = locationLabel
+    ? activeWifiAlerts.filter(
+        (alert) =>
+          alert.is_active &&
+          alert.entity_type === "wifi" &&
+          alert.entity_key === locationLabel,
+      )
+    : [];
+
+  const selectedRoomStatus = locationLabel
+    ? getRoomHealthStatus(
+        activeWifiAlerts,
+        locationLabel,
+      )
+    : null;
+
+  const selectedRoomPrimaryAlert =
+    selectedRoomAlerts[0] ?? null;
 
   const wifiChartData = useMemo(
     () =>
@@ -587,6 +643,92 @@ export default function WifiPage() {
           </div>
         )}
       </section>
+
+      {locationLabel ? (
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-lg font-medium">
+                Selected room status
+              </h3>
+              <p className="mt-1 text-sm text-zinc-400">
+                Current health interpretation for{" "}
+                {locationLabel}.
+              </p>
+            </div>
+
+            {selectedRoomStatus ? (
+              <span
+                className={[
+                  "rounded-full border px-3 py-1 text-xs",
+                  getRoomStatusBadgeClasses(
+                    selectedRoomStatus.tone,
+                  ),
+                ].join(" ")}
+              >
+                {selectedRoomStatus.label}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr,1fr]">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">
+                Current assessment
+              </div>
+
+              <div className="mt-3 text-base font-medium text-zinc-100">
+                {selectedRoomPrimaryAlert?.message ??
+                  "No active Wi-Fi alerts for this room."}
+              </div>
+
+              <p className="mt-3 text-sm text-zinc-400">
+                {selectedRoomStatus
+                  ? getRoomStatusDescription(
+                      selectedRoomStatus.tone,
+                    )
+                  : "No current room status available."}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Sample age
+                </div>
+                <div className="mt-2 text-sm font-medium text-zinc-100">
+                  {formatSampleAge(
+                    latestSample?.sampled_at,
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Link details
+                </div>
+                <div className="mt-2 text-sm font-medium text-zinc-100">
+                  {latestSample?.band ?? "—"}
+                  {latestSample?.frequency_mhz !=
+                  null
+                    ? ` · ${latestSample.frequency_mhz} MHz`
+                    : ""}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Samples in window
+                </div>
+                <div className="mt-2 text-sm font-medium text-zinc-100">
+                  {summaryQuery.data
+                    ?.sample_count ?? 0}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryQuery.isLoading &&
