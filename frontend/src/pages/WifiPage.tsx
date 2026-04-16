@@ -1,12 +1,18 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import ChartCard from "../components/ChartCard";
 import QueryState from "../components/QueryState";
 import StateCard from "../components/StateCard";
+import AlertDetailDrawer from "../components/AlertDetailDrawer";
 import {
   api,
   type Alert,
+  type AlertHistoryItem,
   type WifiLocationSummariesResponse,
   type WifiLocationsResponse,
   type WifiSample,
@@ -277,6 +283,10 @@ export default function WifiPage() {
     useState(initialWindowMinutes);
   const [locationLabel, setLocationLabel] =
     useState(initialLocationLabel);
+  const [alertDrawerOpen, setAlertDrawerOpen] =
+    useState(false);
+
+  const queryClient = useQueryClient();
 
   const locationsQuery =
     useQuery<WifiLocationsResponse>({
@@ -401,7 +411,9 @@ export default function WifiPage() {
       )
     : null;
 
-  const selectedRoomHistoryQuery = useQuery({
+  const selectedRoomHistoryQuery = useQuery<
+    AlertHistoryItem[]
+  >({
     queryKey: [
       "alert-history",
       selectedRoomPrimaryAlert?.id,
@@ -414,6 +426,26 @@ export default function WifiPage() {
     refetchInterval: 30000,
     retry: false,
   });
+
+  const acknowledgeWifiAlertMutation =
+    useMutation({
+      mutationFn: (id: number) =>
+        api.acknowledgeAlert(id),
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: ["alerts"],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["alerts", "active", "wifi"],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [
+            "alert-history",
+            selectedRoomPrimaryAlert?.id,
+          ],
+        });
+      },
+    });
 
   const wifiChartData = useMemo(
     () =>
@@ -746,18 +778,32 @@ export default function WifiPage() {
               </p>
             </div>
 
-            {selectedRoomStatus ? (
-              <span
-                className={[
-                  "rounded-full border px-3 py-1 text-xs",
-                  getRoomStatusBadgeClasses(
-                    selectedRoomStatus.tone,
-                  ),
-                ].join(" ")}
-              >
-                {selectedRoomStatus.label}
-              </span>
-            ) : null}
+            <div className="flex flex-col gap-2 sm:items-end">
+              {selectedRoomStatus ? (
+                <span
+                  className={[
+                    "rounded-full border px-3 py-1 text-xs",
+                    getRoomStatusBadgeClasses(
+                      selectedRoomStatus.tone,
+                    ),
+                  ].join(" ")}
+                >
+                  {selectedRoomStatus.label}
+                </span>
+              ) : null}
+
+              {selectedRoomPrimaryAlert ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAlertDrawerOpen(true)
+                  }
+                  className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                >
+                  View alert details
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr,1fr]">
@@ -833,10 +879,22 @@ export default function WifiPage() {
             </div>
 
             {selectedRoomPrimaryAlert ? (
-              <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                Alert #
-                {selectedRoomPrimaryAlert.id}
-              </span>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  Alert #
+                  {selectedRoomPrimaryAlert.id}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAlertDrawerOpen(true)
+                  }
+                  className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                >
+                  View alert details
+                </button>
+              </div>
             ) : null}
           </div>
 
@@ -1149,6 +1207,36 @@ export default function WifiPage() {
           </div>
         )}
       </section>
+
+      <AlertDetailDrawer
+        open={alertDrawerOpen}
+        alert={selectedRoomPrimaryAlert}
+        onClose={() => setAlertDrawerOpen(false)}
+        history={
+          selectedRoomHistoryQuery.data ?? []
+        }
+        historyLoading={
+          selectedRoomHistoryQuery.isLoading
+        }
+        historyError={
+          selectedRoomHistoryQuery.isError
+        }
+        acknowledgePending={
+          acknowledgeWifiAlertMutation.isPending
+        }
+        acknowledgeErrorMessage={
+          acknowledgeWifiAlertMutation.isError
+            ? acknowledgeWifiAlertMutation.error instanceof
+              Error
+              ? acknowledgeWifiAlertMutation.error
+                  .message
+              : "Could not acknowledge alert."
+            : null
+        }
+        onAcknowledge={(id) =>
+          acknowledgeWifiAlertMutation.mutate(id)
+        }
+      />
     </div>
   );
 }
