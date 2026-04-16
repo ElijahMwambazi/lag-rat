@@ -130,9 +130,33 @@ export default function OverviewPage() {
   const wifiSummaryItems =
     wifiSummaryQuery.data?.items ?? [];
 
+  const wifiAlertsQuery = useQuery({
+    queryKey: ["alerts", "active", "wifi"],
+    queryFn: () =>
+      api.getAlerts({
+        status: "active",
+        entity_type: "wifi",
+        limit: 200,
+      }),
+    refetchInterval: 30000,
+    retry: false,
+  });
+
+  const activeWifiAlerts =
+    wifiAlertsQuery.data ?? [];
+
   const weakestWifiRoom = getWeakestWifiRoom(
     wifiSummaryItems,
   );
+
+  const weakestWifiRoomActiveAlert =
+    weakestWifiRoom
+      ? (activeWifiAlerts.find(
+          (alert) =>
+            alert.entity_key ===
+            weakestWifiRoom.location_label,
+        ) ?? null)
+      : null;
 
   const wifiFreshRooms = wifiSummaryItems.filter(
     (item) => item.latest_sample,
@@ -822,13 +846,29 @@ export default function OverviewPage() {
                 {weakestWifiRoom ? (
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      const params =
+                        new URLSearchParams({
+                          location:
+                            weakestWifiRoom.location_label,
+                          minutes: "60",
+                        });
+
+                      if (
+                        weakestWifiRoomActiveAlert?.id
+                      ) {
+                        params.set(
+                          "alert",
+                          String(
+                            weakestWifiRoomActiveAlert.id,
+                          ),
+                        );
+                      }
+
                       navigate(
-                        `/wifi?location=${encodeURIComponent(
-                          weakestWifiRoom.location_label,
-                        )}&minutes=60`,
-                      )
-                    }
+                        `/wifi?${params.toString()}`,
+                      );
+                    }}
                     className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
                   >
                     Open weakest room

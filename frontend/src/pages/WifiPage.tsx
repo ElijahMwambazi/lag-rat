@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   useMutation,
@@ -282,6 +286,14 @@ export default function WifiPage() {
 
   const initialLocationLabel =
     searchParams.get("location") ?? "";
+  const initialAlertIdParam = Number(
+    searchParams.get("alert") ?? "",
+  );
+  const initialAlertId = Number.isFinite(
+    initialAlertIdParam,
+  )
+    ? initialAlertIdParam
+    : null;
 
   const [windowMinutes, setWindowMinutes] =
     useState(initialWindowMinutes);
@@ -289,6 +301,9 @@ export default function WifiPage() {
     useState(initialLocationLabel);
   const [alertDrawerOpen, setAlertDrawerOpen] =
     useState(false);
+
+  const [drawerAlertId, setDrawerAlertId] =
+    useState<number | null>(initialAlertId);
 
   const queryClient = useQueryClient();
 
@@ -478,7 +493,7 @@ export default function WifiPage() {
       retry: false,
     });
 
-  const selectedRoomResolvedAlerts = (
+  const selectedRoomResolvedAlertsAll = (
     selectedRoomResolvedAlertsQuery.data ?? []
   )
     .filter(
@@ -493,8 +508,10 @@ export default function WifiPage() {
         new Date(
           a.resolved_at ?? a.created_at,
         ).getTime(),
-    )
-    .slice(0, 3);
+    );
+
+  const selectedRoomResolvedAlerts =
+    selectedRoomResolvedAlertsAll.slice(0, 3);
 
   const [
     recoveryDrawerAlert,
@@ -517,6 +534,13 @@ export default function WifiPage() {
     retry: false,
   });
 
+  const drawerAlert =
+    selectedRoomPrimaryAlert?.id === drawerAlertId
+      ? selectedRoomPrimaryAlert
+      : (selectedRoomResolvedAlertsAll.find(
+          (alert) => alert.id === drawerAlertId,
+        ) ?? null);
+
   const wifiChartData = useMemo(
     () =>
       wifiSamples
@@ -535,6 +559,7 @@ export default function WifiPage() {
   function updateSearchParams(next: {
     minutes: number;
     location: string;
+    alertId?: number | null;
   }) {
     const params = new URLSearchParams();
 
@@ -546,8 +571,43 @@ export default function WifiPage() {
       params.set("minutes", String(next.minutes));
     }
 
+    if (next.alertId) {
+      params.set("alert", String(next.alertId));
+    }
+
     setSearchParams(params, { replace: true });
   }
+
+  useEffect(() => {
+    if (!drawerAlertId) return;
+
+    if (
+      selectedRoomPrimaryAlert?.id ===
+      drawerAlertId
+    ) {
+      setRecoveryDrawerAlert(null);
+      setAlertDrawerOpen(true);
+      return;
+    }
+
+    const resolvedMatch =
+      selectedRoomResolvedAlertsAll.find(
+        (alert) => alert.id === drawerAlertId,
+      ) ?? null;
+
+    if (resolvedMatch) {
+      setRecoveryDrawerAlert(resolvedMatch);
+      setAlertDrawerOpen(false);
+      return;
+    }
+
+    setAlertDrawerOpen(false);
+    setRecoveryDrawerAlert(null);
+  }, [
+    drawerAlertId,
+    selectedRoomPrimaryAlert,
+    selectedRoomResolvedAlertsAll,
+  ]);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -574,6 +634,7 @@ export default function WifiPage() {
                 updateSearchParams({
                   minutes: nextMinutes,
                   location: locationLabel,
+                  alertId: drawerAlertId,
                 });
               }}
               className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
@@ -594,9 +655,14 @@ export default function WifiPage() {
                 const nextLocation =
                   e.target.value;
                 setLocationLabel(nextLocation);
+                setDrawerAlertId(null);
+                setAlertDrawerOpen(false);
+                setRecoveryDrawerAlert(null);
+
                 updateSearchParams({
                   minutes: windowMinutes,
                   location: nextLocation,
+                  alertId: null,
                 });
               }}
               className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
@@ -670,9 +736,14 @@ export default function WifiPage() {
                 type="button"
                 onClick={() => {
                   setLocationLabel("");
+                  setDrawerAlertId(null);
+                  setAlertDrawerOpen(false);
+                  setRecoveryDrawerAlert(null);
+
                   updateSearchParams({
                     minutes: windowMinutes,
                     location: "",
+                    alertId: null,
                   });
                 }}
                 className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1 text-xs text-zinc-300 transition hover:bg-zinc-900"
@@ -764,9 +835,14 @@ export default function WifiPage() {
                   type="button"
                   onClick={() => {
                     setLocationLabel(location);
+                    setDrawerAlertId(null);
+                    setAlertDrawerOpen(false);
+                    setRecoveryDrawerAlert(null);
+
                     updateSearchParams({
                       minutes: windowMinutes,
                       location,
+                      alertId: null,
                     });
                   }}
                   className={getRoomCardClasses(
@@ -891,9 +967,21 @@ export default function WifiPage() {
                 {selectedRoomPrimaryAlert ? (
                   <button
                     type="button"
-                    onClick={() =>
-                      setAlertDrawerOpen(true)
-                    }
+                    onClick={() => {
+                      setRecoveryDrawerAlert(
+                        null,
+                      );
+                      setDrawerAlertId(
+                        selectedRoomPrimaryAlert.id,
+                      );
+                      setAlertDrawerOpen(true);
+                      updateSearchParams({
+                        minutes: windowMinutes,
+                        location: locationLabel,
+                        alertId:
+                          selectedRoomPrimaryAlert.id,
+                      });
+                    }}
                     className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
                   >
                     View alert details
@@ -1011,9 +1099,19 @@ export default function WifiPage() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setAlertDrawerOpen(true)
-                  }
+                  onClick={() => {
+                    setRecoveryDrawerAlert(null);
+                    setDrawerAlertId(
+                      selectedRoomPrimaryAlert.id,
+                    );
+                    setAlertDrawerOpen(true);
+                    updateSearchParams({
+                      minutes: windowMinutes,
+                      location: locationLabel,
+                      alertId:
+                        selectedRoomPrimaryAlert.id,
+                    });
+                  }}
                   className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
                 >
                   View alert details
@@ -1173,9 +1271,19 @@ export default function WifiPage() {
                           setRecoveryDrawerAlert(
                             alert,
                           );
+                          setDrawerAlertId(
+                            alert.id,
+                          );
                           setAlertDrawerOpen(
                             false,
                           );
+                          updateSearchParams({
+                            minutes:
+                              windowMinutes,
+                            location:
+                              locationLabel,
+                            alertId: alert.id,
+                          });
                         }}
                         className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
                       >
@@ -1425,7 +1533,15 @@ export default function WifiPage() {
       <AlertDetailDrawer
         open={alertDrawerOpen}
         alert={selectedRoomPrimaryAlert}
-        onClose={() => setAlertDrawerOpen(false)}
+        onClose={() => {
+          setAlertDrawerOpen(false);
+          setDrawerAlertId(null);
+          updateSearchParams({
+            minutes: windowMinutes,
+            location: locationLabel,
+            alertId: null,
+          });
+        }}
         history={
           selectedRoomHistoryQuery.data ?? []
         }
@@ -1455,9 +1571,15 @@ export default function WifiPage() {
       <AlertDetailDrawer
         open={!!recoveryDrawerAlert}
         alert={recoveryDrawerAlert}
-        onClose={() =>
-          setRecoveryDrawerAlert(null)
-        }
+        onClose={() => {
+          setRecoveryDrawerAlert(null);
+          setDrawerAlertId(null);
+          updateSearchParams({
+            minutes: windowMinutes,
+            location: locationLabel,
+            alertId: null,
+          });
+        }}
         history={
           recoveryAlertHistoryQuery.data ?? []
         }
