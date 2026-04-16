@@ -261,6 +261,10 @@ function formatTimelineEventDetail(event: {
   return null;
 }
 
+function getRecoverySeverityLabel(alert: Alert) {
+  return alert.severity || "unknown";
+}
+
 export default function WifiPage() {
   const [searchParams, setSearchParams] =
     useSearchParams();
@@ -454,6 +458,64 @@ export default function WifiPage() {
 
   const selectedRoomAlertAcknowledged =
     !!selectedRoomPrimaryAlert?.acknowledged_at;
+
+  const selectedRoomResolvedAlertsQuery =
+    useQuery<Alert[]>({
+      queryKey: [
+        "alerts",
+        "resolved",
+        "wifi",
+        locationLabel,
+      ],
+      queryFn: () =>
+        api.getAlerts({
+          status: "resolved",
+          entity_type: "wifi",
+          limit: 50,
+        }),
+      enabled: !!locationLabel,
+      refetchInterval: 30000,
+      retry: false,
+    });
+
+  const selectedRoomResolvedAlerts = (
+    selectedRoomResolvedAlertsQuery.data ?? []
+  )
+    .filter(
+      (alert) =>
+        alert.entity_key === locationLabel,
+    )
+    .sort(
+      (a, b) =>
+        new Date(
+          b.resolved_at ?? b.created_at,
+        ).getTime() -
+        new Date(
+          a.resolved_at ?? a.created_at,
+        ).getTime(),
+    )
+    .slice(0, 3);
+
+  const [
+    recoveryDrawerAlert,
+    setRecoveryDrawerAlert,
+  ] = useState<Alert | null>(null);
+
+  const recoveryAlertHistoryQuery = useQuery<
+    AlertHistoryItem[]
+  >({
+    queryKey: [
+      "alert-history",
+      recoveryDrawerAlert?.id,
+    ],
+    queryFn: () =>
+      api.getAlertHistory(
+        recoveryDrawerAlert!.id,
+      ),
+    enabled: !!recoveryDrawerAlert,
+    refetchInterval: 30000,
+    retry: false,
+  });
 
   const wifiChartData = useMemo(
     () =>
@@ -1038,6 +1100,96 @@ export default function WifiPage() {
         </section>
       ) : null}
 
+      {locationLabel ? (
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-medium">
+                Recent recoveries
+              </h3>
+              <p className="mt-1 text-sm text-zinc-400">
+                Recently resolved Wi-Fi incidents
+                for {locationLabel}.
+              </p>
+            </div>
+          </div>
+
+          {selectedRoomResolvedAlertsQuery.isLoading ? (
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+              <div className="text-sm text-zinc-400">
+                Loading recent recoveries...
+              </div>
+            </div>
+          ) : selectedRoomResolvedAlertsQuery.isError ? (
+            <div className="mt-4 rounded-2xl border border-red-900 bg-red-950/40 p-4 text-red-200">
+              <div className="text-sm">
+                Could not load recent recoveries.
+              </div>
+            </div>
+          ) : selectedRoomResolvedAlerts.length ===
+            0 ? (
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+              <div className="text-sm text-zinc-400">
+                No recent recoveries for this
+                room.
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {selectedRoomResolvedAlerts.map(
+                (alert) => (
+                  <div
+                    key={alert.id}
+                    className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                            Resolved
+                          </span>
+                          <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                            {getRecoverySeverityLabel(
+                              alert,
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 text-sm font-medium text-zinc-100">
+                          {alert.message}
+                        </div>
+
+                        <p className="mt-2 text-xs text-zinc-500">
+                          Resolved{" "}
+                          {formatDate(
+                            alert.resolved_at,
+                          )}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecoveryDrawerAlert(
+                            alert,
+                          );
+                          setAlertDrawerOpen(
+                            false,
+                          );
+                        }}
+                        className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                      >
+                        View alert details
+                      </button>
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+        </section>
+      ) : null}
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryQuery.isLoading &&
         !summaryQuery.data ? (
@@ -1298,6 +1450,26 @@ export default function WifiPage() {
         onAcknowledge={(id) =>
           acknowledgeWifiAlertMutation.mutate(id)
         }
+      />
+
+      <AlertDetailDrawer
+        open={!!recoveryDrawerAlert}
+        alert={recoveryDrawerAlert}
+        onClose={() =>
+          setRecoveryDrawerAlert(null)
+        }
+        history={
+          recoveryAlertHistoryQuery.data ?? []
+        }
+        historyLoading={
+          recoveryAlertHistoryQuery.isLoading
+        }
+        historyError={
+          recoveryAlertHistoryQuery.isError
+        }
+        acknowledgePending={false}
+        acknowledgeErrorMessage={null}
+        onAcknowledge={() => {}}
       />
     </div>
   );
