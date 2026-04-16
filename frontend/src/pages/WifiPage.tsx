@@ -205,6 +205,56 @@ function getRecentSamplesTitle(
     : "Recent samples";
 }
 
+function formatTimelineEventTitle(
+  eventType: string,
+) {
+  switch (eventType) {
+    case "opened":
+      return "Opened";
+    case "severity_changed":
+      return "Severity changed";
+    case "message_changed":
+      return "Message updated";
+    case "acknowledged":
+      return "Acknowledged";
+    case "resolved":
+      return "Resolved";
+    default:
+      return eventType.replace(/_/g, " ");
+  }
+}
+
+function formatTimelineEventDetail(event: {
+  event_type: string;
+  previous_value?: string | null;
+  new_value?: string | null;
+}) {
+  if (
+    event.event_type === "severity_changed" &&
+    event.previous_value &&
+    event.new_value
+  ) {
+    return `${event.previous_value} → ${event.new_value}`;
+  }
+
+  if (
+    event.event_type === "opened" &&
+    event.new_value
+  ) {
+    return `Severity set to ${event.new_value}`;
+  }
+
+  if (event.previous_value && event.new_value) {
+    return `${event.previous_value} → ${event.new_value}`;
+  }
+
+  if (event.new_value) return event.new_value;
+  if (event.previous_value)
+    return event.previous_value;
+
+  return null;
+}
+
 export default function WifiPage() {
   const [searchParams, setSearchParams] =
     useSearchParams();
@@ -308,13 +358,41 @@ export default function WifiPage() {
     wifiAlertsQuery.data ?? [];
 
   const selectedRoomAlerts = locationLabel
-    ? activeWifiAlerts.filter(
-        (alert) =>
-          alert.is_active &&
-          alert.entity_type === "wifi" &&
-          alert.entity_key === locationLabel,
-      )
+    ? activeWifiAlerts
+        .filter(
+          (alert) =>
+            alert.is_active &&
+            alert.entity_type === "wifi" &&
+            alert.entity_key === locationLabel,
+        )
+        .sort((a, b) => {
+          const severityRank = {
+            critical: 2,
+            warning: 1,
+            info: 0,
+          } as const;
+
+          const severityDiff =
+            (severityRank[
+              b.severity as keyof typeof severityRank
+            ] ?? 0) -
+            (severityRank[
+              a.severity as keyof typeof severityRank
+            ] ?? 0);
+
+          if (severityDiff !== 0) {
+            return severityDiff;
+          }
+
+          return (
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime()
+          );
+        })
     : [];
+
+  const selectedRoomPrimaryAlert =
+    selectedRoomAlerts[0] ?? null;
 
   const selectedRoomStatus = locationLabel
     ? getRoomHealthStatus(
@@ -323,8 +401,19 @@ export default function WifiPage() {
       )
     : null;
 
-  const selectedRoomPrimaryAlert =
-    selectedRoomAlerts[0] ?? null;
+  const selectedRoomHistoryQuery = useQuery({
+    queryKey: [
+      "alert-history",
+      selectedRoomPrimaryAlert?.id,
+    ],
+    queryFn: () =>
+      api.getAlertHistory(
+        selectedRoomPrimaryAlert!.id,
+      ),
+    enabled: !!selectedRoomPrimaryAlert,
+    refetchInterval: 30000,
+    retry: false,
+  });
 
   const wifiChartData = useMemo(
     () =>
@@ -727,6 +816,105 @@ export default function WifiPage() {
               </div>
             </div>
           </div>
+        </section>
+      ) : null}
+
+      {locationLabel ? (
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-medium">
+                Room incident timeline
+              </h3>
+              <p className="mt-1 text-sm text-zinc-400">
+                Recent Wi-Fi incident events for{" "}
+                {locationLabel}.
+              </p>
+            </div>
+
+            {selectedRoomPrimaryAlert ? (
+              <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                Alert #
+                {selectedRoomPrimaryAlert.id}
+              </span>
+            ) : null}
+          </div>
+
+          {!selectedRoomPrimaryAlert ? (
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+              <div className="text-sm text-zinc-400">
+                No active Wi-Fi incident timeline
+                for this room.
+              </div>
+            </div>
+          ) : selectedRoomHistoryQuery.isLoading ? (
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+              <div className="text-sm text-zinc-400">
+                Loading room incident history...
+              </div>
+            </div>
+          ) : selectedRoomHistoryQuery.isError ? (
+            <div className="mt-4 rounded-2xl border border-red-900 bg-red-950/40 p-4 text-red-200">
+              <div className="text-sm">
+                Could not load room incident
+                history.
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {selectedRoomHistoryQuery.data
+                ?.slice()
+                .sort(
+                  (a, b) =>
+                    new Date(
+                      b.created_at,
+                    ).getTime() -
+                    new Date(
+                      a.created_at,
+                    ).getTime(),
+                )
+                .slice(0, 6)
+                .map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-sm font-medium text-zinc-100">
+                        {formatTimelineEventTitle(
+                          event.event_type,
+                        )}
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        {formatDate(
+                          event.created_at,
+                        )}
+                      </div>
+                    </div>
+
+                    {formatTimelineEventDetail(
+                      event,
+                    ) ? (
+                      <div className="mt-2 text-sm text-zinc-300">
+                        {formatTimelineEventDetail(
+                          event,
+                        )}
+                      </div>
+                    ) : null}
+
+                    {event.event_type ===
+                      "message_changed" &&
+                    selectedRoomPrimaryAlert?.message ? (
+                      <div className="mt-2 text-sm text-zinc-400">
+                        {
+                          selectedRoomPrimaryAlert.message
+                        }
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+            </div>
+          )}
         </section>
       ) : null}
 

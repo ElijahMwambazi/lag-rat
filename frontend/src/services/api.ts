@@ -247,6 +247,15 @@ export type WifiLocationSummariesResponse = {
   items: WifiLocationSummaryItem[];
 };
 
+export type AlertHistoryEvent = {
+  id: number;
+  alert_id: number;
+  event_type: string;
+  previous_value: string | null;
+  new_value: string | null;
+  created_at: string;
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -325,10 +334,19 @@ export const api = {
       `/api/alerts/${id}/acknowledge`,
       {},
     ),
-  getAlertHistory: (id: number) =>
-    getJson<AlertHistoryItem[]>(
-      `/api/alerts/${id}/history`,
-    ),
+  getAlertHistory: async (alertId: number) => {
+    const response = await fetch(
+      `${API_BASE}/alerts/${alertId}/history`,
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to load alert history for alert ${alertId}`,
+      );
+    }
+
+    return (await response.json()) as AlertHistoryEvent[];
+  },
   getHealthHistory: (minutes = 60) =>
     getJson<TimeseriesPoint[]>(
       `/api/health/history?minutes=${minutes}`,

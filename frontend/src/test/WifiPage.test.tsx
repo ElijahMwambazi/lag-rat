@@ -66,6 +66,7 @@ vi.mock("recharts", async () => {
 
 vi.mock("../services/api", () => ({
   api: {
+    getAlertHistory: vi.fn(),
     getAlerts: vi.fn(),
     getWifiLocations: vi.fn(),
     getWifiSummary: vi.fn(),
@@ -85,6 +86,9 @@ describe("WifiPage", () => {
     vi.mocked(api.getAlerts).mockResolvedValue(
       [],
     );
+    vi.mocked(
+      api.getAlertHistory,
+    ).mockResolvedValue([]);
   });
 
   it("renders room comparison, wifi summary, and recent samples", async () => {
@@ -866,4 +870,81 @@ it("shows healthy selected room status when no wifi alerts are active", async ()
       )
     ).length,
   ).toBeGreaterThan(0);
+});
+
+it("renders selected room incident timeline", async () => {
+  mockWifiLocationSummaries();
+
+  vi.mocked(api.getAlerts).mockResolvedValue([
+    {
+      id: 11,
+      alert_type: "wifi_signal_weak",
+      severity: "warning",
+      entity_type: "wifi",
+      entity_key: "bedroom",
+      message:
+        "wifi signal is weak in bedroom: -58 dBm",
+      is_active: true,
+      created_at: new Date().toISOString(),
+      resolved_at: null,
+      acknowledged_at: null,
+    },
+  ]);
+
+  vi.mocked(
+    api.getAlertHistory,
+  ).mockResolvedValue([
+    {
+      id: 1,
+      alert_id: 11,
+      event_type: "opened",
+      previous_value: null,
+      new_value: "warning",
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      alert_id: 11,
+      event_type: "severity_changed",
+      previous_value: "warning",
+      new_value: "critical",
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 3,
+      alert_id: 11,
+      event_type: "acknowledged",
+      previous_value: null,
+      new_value: null,
+      created_at: new Date().toISOString(),
+    },
+  ]);
+
+  renderWithQueryClient(
+    <MemoryRouter
+      initialEntries={[
+        "/wifi?location=bedroom&minutes=60",
+      ]}
+    >
+      <WifiPage />
+    </MemoryRouter>,
+  );
+
+  expect(
+    await screen.findByText(
+      "Room incident timeline",
+    ),
+  ).toBeInTheDocument();
+
+  expect(
+    await screen.findByText("Opened"),
+  ).toBeInTheDocument();
+
+  expect(
+    await screen.findByText("Severity changed"),
+  ).toBeInTheDocument();
+
+  expect(
+    await screen.findByText("Acknowledged"),
+  ).toBeInTheDocument();
 });
