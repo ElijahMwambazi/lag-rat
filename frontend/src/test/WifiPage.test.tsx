@@ -66,6 +66,7 @@ vi.mock("recharts", async () => {
 
 vi.mock("../services/api", () => ({
   api: {
+    getAlerts: vi.fn(),
     getWifiLocations: vi.fn(),
     getWifiSummary: vi.fn(),
     getWifiLocationSummaries: vi.fn(),
@@ -81,6 +82,9 @@ describe("WifiPage", () => {
     ).mockResolvedValue({
       items: ["office", "bedroom"],
     });
+    vi.mocked(api.getAlerts).mockResolvedValue(
+      [],
+    );
   });
 
   it("renders room comparison, wifi summary, and recent samples", async () => {
@@ -487,6 +491,146 @@ describe("WifiPage", () => {
         )
       ).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("shows room health badges from active wifi alerts", async () => {
+    mockWifiLocationSummaries();
+
+    vi.mocked(api.getAlerts).mockResolvedValue([
+      {
+        id: 11,
+        alert_type: "wifi_signal_weak",
+        severity: "warning",
+        entity_type: "wifi",
+        entity_key: "bedroom",
+        message:
+          "wifi signal is weak in bedroom: -58 dBm",
+        is_active: true,
+        created_at: new Date().toISOString(),
+        resolved_at: null,
+        acknowledged_at: null,
+      },
+    ]);
+
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockResolvedValue({
+      window_minutes: 60,
+      location_label: null,
+      sample_count: 2,
+      avg_rssi_dbm: -45,
+      min_rssi_dbm: -58,
+      max_rssi_dbm: -42,
+      latest_sample: {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
+      {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/wifi"]}>
+        <WifiPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Weak"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText("Healthy"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows stale badge when a room has an active stale alert", async () => {
+    mockWifiLocationSummaries();
+
+    vi.mocked(api.getAlerts).mockResolvedValue([
+      {
+        id: 21,
+        alert_type: "wifi_samples_stale",
+        severity: "warning",
+        entity_type: "wifi",
+        entity_key: "office",
+        message:
+          "wifi samples are getting stale in office: last sample 8m ago",
+        is_active: true,
+        created_at: new Date().toISOString(),
+        resolved_at: null,
+        acknowledged_at: null,
+      },
+    ]);
+
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockResolvedValue({
+      window_minutes: 60,
+      location_label: null,
+      sample_count: 2,
+      avg_rssi_dbm: -45,
+      min_rssi_dbm: -58,
+      max_rssi_dbm: -42,
+      latest_sample: {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
+      {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/wifi"]}>
+        <WifiPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Stale"),
+    ).toBeInTheDocument();
   });
 });
 

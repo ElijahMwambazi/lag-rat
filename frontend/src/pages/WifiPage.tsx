@@ -6,6 +6,7 @@ import QueryState from "../components/QueryState";
 import StateCard from "../components/StateCard";
 import {
   api,
+  type Alert,
   type WifiLocationSummariesResponse,
   type WifiLocationsResponse,
   type WifiSample,
@@ -16,6 +17,12 @@ type WindowOption = {
   label: string;
   minutes: number;
 };
+
+type RoomHealthTone =
+  | "healthy"
+  | "warning"
+  | "critical"
+  | "stale";
 
 const WINDOWS: WindowOption[] = [
   { label: "15m", minutes: 15 },
@@ -44,6 +51,100 @@ function formatRssi(value?: number | null) {
   if (value === null || value === undefined)
     return "—";
   return `${value} dBm`;
+}
+
+function getRoomStatusBadgeClasses(
+  tone: RoomHealthTone,
+) {
+  switch (tone) {
+    case "healthy":
+      return "border-emerald-900 bg-emerald-950/40 text-emerald-300";
+    case "warning":
+      return "border-amber-900 bg-amber-950/40 text-amber-300";
+    case "critical":
+      return "border-red-900 bg-red-950/40 text-red-300";
+    case "stale":
+      return "border-orange-900 bg-orange-950/40 text-orange-300";
+  }
+}
+
+function SelectionBadge({
+  active,
+}: {
+  active: boolean;
+}) {
+  return (
+    <span
+      className={[
+        "rounded-full border px-2 py-0.5 text-[11px]",
+        active
+          ? "border-zinc-600 bg-zinc-800 text-zinc-100"
+          : "border-transparent bg-transparent text-transparent",
+      ].join(" ")}
+      aria-hidden={!active}
+    >
+      {active ? "Selected" : "\u00A0"}
+    </span>
+  );
+}
+
+function getRoomHealthStatus(
+  alerts: Alert[],
+  location: string,
+): {
+  label: string;
+  tone: RoomHealthTone;
+} {
+  const roomAlerts = alerts.filter(
+    (alert) =>
+      alert.is_active &&
+      alert.entity_type === "wifi" &&
+      alert.entity_key === location,
+  );
+
+  if (
+    roomAlerts.some(
+      (alert) =>
+        alert.alert_type ===
+          "wifi_samples_stale" &&
+        alert.severity === "critical",
+    )
+  ) {
+    return { label: "Stale", tone: "critical" };
+  }
+
+  if (
+    roomAlerts.some(
+      (alert) =>
+        alert.alert_type === "wifi_samples_stale",
+    )
+  ) {
+    return { label: "Stale", tone: "stale" };
+  }
+
+  if (
+    roomAlerts.some(
+      (alert) =>
+        alert.alert_type === "wifi_signal_weak" &&
+        alert.severity === "critical",
+    )
+  ) {
+    return {
+      label: "Critical",
+      tone: "critical",
+    };
+  }
+
+  if (
+    roomAlerts.some(
+      (alert) =>
+        alert.alert_type === "wifi_signal_weak",
+    )
+  ) {
+    return { label: "Weak", tone: "warning" };
+  }
+
+  return { label: "Healthy", tone: "healthy" };
 }
 
 function getRoomCardClasses(active: boolean) {
@@ -154,6 +255,21 @@ export default function WifiPage() {
   const wifiSamples: WifiSample[] =
     samplesQuery.data ?? [];
 
+  const wifiAlertsQuery = useQuery<Alert[]>({
+    queryKey: ["alerts", "active", "wifi"],
+    queryFn: () =>
+      api.getAlerts({
+        status: "active",
+        entity_type: "wifi",
+        limit: 200,
+      }),
+    refetchInterval: 30000,
+    retry: false,
+  });
+
+  const activeWifiAlerts =
+    wifiAlertsQuery.data ?? [];
+
   const wifiChartData = useMemo(
     () =>
       wifiSamples
@@ -184,26 +300,6 @@ export default function WifiPage() {
     }
 
     setSearchParams(params, { replace: true });
-  }
-
-  function SelectionBadge({
-    active,
-  }: {
-    active: boolean;
-  }) {
-    return (
-      <span
-        className={[
-          "rounded-full border px-2 py-0.5 text-[11px]",
-          active
-            ? "border-zinc-600 bg-zinc-800 text-zinc-100"
-            : "border-transparent bg-transparent text-transparent",
-        ].join(" ")}
-        aria-hidden={!active}
-      >
-        Selected
-      </span>
-    );
   }
 
   return (
@@ -390,15 +486,13 @@ export default function WifiPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex min-h-[44px] flex-col items-end gap-2">
                   <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
                     {locationOptions.length} rooms
                   </span>
-                  {locationLabel === "" ? (
-                    <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-100">
-                      Selected
-                    </span>
-                  ) : null}
+                  <SelectionBadge
+                    active={locationLabel === ""}
+                  />
                 </div>
               </div>
             </button>
@@ -410,6 +504,12 @@ export default function WifiPage() {
                 item.latest_sample ?? null;
               const isActive =
                 locationLabel === location;
+
+              const roomHealth =
+                getRoomHealthStatus(
+                  activeWifiAlerts,
+                  location,
+                );
 
               return (
                 <button
@@ -437,24 +537,34 @@ export default function WifiPage() {
                       </p>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2">
+                    <div className="flex min-h-[68px] flex-col items-end gap-2">
                       {latest?.band ? (
                         <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
                           {latest.band}
                         </span>
-                      ) : null}
-
-                      {isActive ? (
-                        <SelectionBadge
-                          active={isActive}
-                        />
                       ) : (
-                        <SelectionBadge
-                          active={
-                            locationLabel === ""
-                          }
-                        />
+                        <span
+                          className="rounded-full border border-transparent bg-transparent px-2 py-0.5 text-[11px] text-transparent"
+                          aria-hidden="true"
+                        >
+                          —
+                        </span>
                       )}
+
+                      <span
+                        className={[
+                          "rounded-full border px-2 py-0.5 text-[11px]",
+                          getRoomStatusBadgeClasses(
+                            roomHealth.tone,
+                          ),
+                        ].join(" ")}
+                      >
+                        {roomHealth.label}
+                      </span>
+
+                      <SelectionBadge
+                        active={isActive}
+                      />
                     </div>
                   </div>
 
