@@ -1,5 +1,8 @@
 import userEvent from "@testing-library/user-event";
-import { screen } from "@testing-library/react";
+import {
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import {
   beforeEach,
@@ -278,12 +281,24 @@ describe("WifiPage", () => {
     ).toHaveLength(1);
 
     expect(
-      await screen.findAllByText("All locations"),
+      screen.getByRole("option", {
+        name: "All locations",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Viewing: All locations"),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getAllByText("All locations", {
+        selector: "span",
+      }),
     ).toHaveLength(2);
 
     expect(
       await screen.findAllByText("office"),
-    ).toHaveLength(4);
+    ).toHaveLength(2);
 
     expect(
       await screen.findAllByText("bedroom"),
@@ -291,7 +306,7 @@ describe("WifiPage", () => {
 
     expect(
       await screen.findAllByText("-42 dBm"),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
 
     expect(
       await screen.findByText("-58 dBm"),
@@ -302,12 +317,90 @@ describe("WifiPage", () => {
     ).toBeInTheDocument();
 
     expect(
+      await screen.findByRole("button", {
+        name: "Expand table",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        "Recent Wi-Fi samples are collapsed by default. Expand the table to inspect rows and open the sample detail drawer.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
       await screen.findByText("5180 MHz"),
     ).toBeInTheDocument();
 
     expect(
       await screen.findAllByText("5ghz"),
-    ).toHaveLength(5);
+    ).toHaveLength(3);
+  });
+
+  it("keeps recent samples collapsed by default", async () => {
+    mockWifiLocationSummaries();
+
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockResolvedValue({
+      window_minutes: 60,
+      location_label: null,
+      sample_count: 2,
+      avg_rssi_dbm: -45,
+      min_rssi_dbm: -48,
+      max_rssi_dbm: -42,
+      latest_sample: {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
+      {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/wifi"]}>
+        <WifiPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Expand table",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        "Recent Wi-Fi samples are collapsed by default. Expand the table to inspect rows and open the sample detail drawer.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("row", {
+        name: /office/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("updates room filter UX when a comparison card is clicked", async () => {
@@ -420,14 +513,145 @@ describe("WifiPage", () => {
     ).toBeInTheDocument();
 
     expect(
-      await screen.findByText(
+      await screen.findAllByText(
         "Filtered to bedroom",
       ),
-    ).toBeInTheDocument();
+    ).toHaveLength(2);
 
     expect(
       await screen.findAllByText("Selected"),
     ).toHaveLength(1);
+  });
+
+  it("opens a recent sample drawer from the samples table", async () => {
+    mockWifiLocationSummaries();
+
+    vi.mocked(
+      api.getWifiSummary,
+    ).mockResolvedValue({
+      window_minutes: 60,
+      location_label: null,
+      sample_count: 2,
+      avg_rssi_dbm: -45,
+      min_rssi_dbm: -48,
+      max_rssi_dbm: -42,
+      latest_sample: {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(
+      api.getWifiSamples,
+    ).mockResolvedValue([
+      {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+      {
+        id: 1,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -48,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date(
+          Date.now() - 5 * 60 * 1000,
+        ).toISOString(),
+      },
+    ]);
+
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/wifi"]}>
+        <WifiPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(
+        api.getWifiSamples,
+      ).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(
+        api.getWifiSamples,
+      ).toHaveBeenCalled();
+    });
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Expand table",
+      }),
+    );
+
+    await user.click(
+      (await screen.findAllByRole("row"))[1],
+    );
+
+    expect(
+      await screen.findByText(
+        "Wi-Fi sample · office",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findAllByText("office"),
+    ).not.toHaveLength(0);
+
+    expect(
+      await screen.findByText("Status"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText("Sample"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText("Identifiers"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText("Captured at"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText("Interface"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText("wlo1"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Copy BSSID",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText(
+        "d5:8a:f7:59:88:f1",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("renders empty state when no wifi samples exist", async () => {

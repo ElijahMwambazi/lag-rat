@@ -17,6 +17,7 @@ import StatCard from "../components/StatCard";
 import StateCard from "../components/StateCard";
 import OutageDetailDrawer from "../components/OutageDetailDrawer";
 import DataTableCard from "../components/DataTableCard";
+import CollapsibleInspectionSection from "../components/CollapsibleInspectionSection";
 import {
   buildAlertHeadline,
   buildAlertSubtext,
@@ -271,6 +272,8 @@ function outageStartsWithinWindow(
 export default function ReportsPage() {
   const [selectedOutage, setSelectedOutage] =
     useState<Outage | null>(null);
+  const [outageDrawerOpen, setOutageDrawerOpen] =
+    useState(false);
   const [windowHours, setWindowHours] = useState<
     24 | 168
   >(24);
@@ -1271,253 +1274,234 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="text-lg font-medium">
-              Outage explorer
-            </h3>
-            <p className="mt-1 text-xs text-zinc-500">
-              Search, filter, and inspect outage
-              records within the selected
-              reporting window.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              setShowOutageExplorer(
-                (current) => !current,
-              )
-            }
-            className="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
-          >
-            {showOutageExplorer
-              ? "Collapse"
-              : "Expand"}
-          </button>
-        </div>
-
-        {showOutageExplorer ? (
+      <CollapsibleInspectionSection
+        title="Outage explorer"
+        description="Search, filter, and inspect outage records within the selected reporting window."
+        badges={
           <>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-              <div className="space-y-1">
-                <h4 className="text-sm font-medium text-zinc-100">
-                  Explorer controls
-                </h4>
-                <p className="text-sm leading-6 text-zinc-400">
-                  Filter outage records by target,
-                  incident type, state, and sort
-                  order.
-                </p>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,180px))]">
-                <input
-                  value={search}
-                  onChange={(e) =>
-                    setSearch(e.target.value)
-                  }
-                  placeholder="Search target, type, status, error..."
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 xl:col-span-1"
-                />
-
-                <select
-                  value={typeFilter}
-                  onChange={(e) =>
-                    setTypeFilter(
-                      e.target
-                        .value as TypeFilter,
-                    )
-                  }
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
-                >
-                  <option value="all">
-                    All types
-                  </option>
-                  <option value="internet_http">
-                    internet_http
-                  </option>
-                  <option value="internet_tcp">
-                    internet_tcp
-                  </option>
-                  <option value="dns">dns</option>
-                  <option value="router">
-                    router
-                  </option>
-                </select>
-
-                <select
-                  value={statusFilter}
-                  onChange={(e) =>
-                    setStatusFilter(
-                      e.target
-                        .value as StatusFilter,
-                    )
-                  }
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
-                >
-                  <option value="all">
-                    All statuses
-                  </option>
-                  <option value="active">
-                    Active
-                  </option>
-                  <option value="resolved">
-                    Resolved
-                  </option>
-                </select>
-
-                <select
-                  value={sortBy}
-                  onChange={(e) =>
-                    setSortBy(
-                      e.target.value as SortKey,
-                    )
-                  }
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
-                >
-                  <option value="started_desc">
-                    Newest first
-                  </option>
-                  <option value="started_asc">
-                    Oldest first
-                  </option>
-                  <option value="duration_desc">
-                    Longest duration
-                  </option>
-                  <option value="duration_asc">
-                    Shortest duration
-                  </option>
-                </select>
-              </div>
+            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+              {visibleOutages.length} record
+              {visibleOutages.length === 1
+                ? ""
+                : "s"}
+            </span>
+            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+              {formatReportsWindowLabel(
+                windowHours,
+              )}
+            </span>
+          </>
+        }
+        collapsedSummary="Outage explorer is collapsed by default. Expand the table to search, filter, and inspect outage records."
+        collapsedDetail="Expand outage explorer to search, filter, and inspect outage records for the selected reporting window."
+        collapsedActionLabel="Show explorer"
+        expandedActionLabel="Hide explorer"
+        isExpanded={showOutageExplorer}
+        onToggle={() =>
+          setShowOutageExplorer(
+            (current) => !current,
+          )
+        }
+      >
+        <>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="space-y-1">
+              <h4 className="text-sm font-medium text-zinc-100">
+                Explorer controls
+              </h4>
+              <p className="text-sm leading-6 text-zinc-400">
+                Filter outage records by target,
+                incident type, state, and sort
+                order.
+              </p>
             </div>
 
-            <DataTableCard
-              title="Outage records"
-              description="Filtered outage records for the selected reporting window."
-              helperText="Swipe horizontally to view all outage columns. Tap a row to inspect full incident details."
-              isLoading={
-                outagesQuery.isLoading &&
-                outages.length === 0
-              }
-              isError={false}
-              hasData={visibleOutages.length > 0}
-              emptyTitle="Outage records"
-              emptyMessage="No outage records match the current search or filters."
-              tableMinWidthClassName="min-w-[980px]"
-              variant="flush"
-            >
-              <table className="w-full text-sm">
-                <thead className="bg-zinc-800/50 text-zinc-300">
-                  <tr>
-                    <th className="px-4 py-3 text-left">
-                      Incident
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Affected target
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Started
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Recovered
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Downtime
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      State
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      Cause
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleOutages.map(
-                    (outage) => (
-                      <tr
-                        key={`${outage.id}-${outage.started_at}-${outage.target}`}
-                        className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
-                        onClick={() =>
-                          setSelectedOutage(
-                            outage,
-                          )
-                        }
-                      >
-                        <td className="px-4 py-3">
-                          {formatIncidentType(
-                            outage.outage_type,
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {outage.target}
-                        </td>
-                        <td className="px-4 py-3">
-                          {formatDate(
-                            outage.started_at,
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {formatDate(
-                            outage.ended_at,
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {formatDuration(
-                            outage.duration_seconds,
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={
-                              outage.status ===
-                              "active"
-                                ? "rounded-full border border-red-800 bg-red-950 px-2 py-0.5 text-xs text-red-300"
-                                : "rounded-full border border-emerald-800 bg-emerald-950 px-2 py-0.5 text-xs text-emerald-300"
-                            }
-                          >
-                            {formatIncidentState(
-                              outage.status,
-                            )}
-                          </span>
-                        </td>
-                        <td className="max-w-[420px] px-4 py-3 text-zinc-300">
-                          <div
-                            className="truncate"
-                            title={
-                              outage.start_error ??
-                              "—"
-                            }
-                          >
-                            {summarizeOutageCause(
-                              outage.start_error,
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-              </table>
-            </DataTableCard>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,180px))]">
+              <input
+                value={search}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
+                placeholder="Search target, type, status, error..."
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 xl:col-span-1"
+              />
 
-            <OutageDetailDrawer
-              outage={selectedOutage}
-              open={!!selectedOutage}
-              onClose={() =>
-                setSelectedOutage(null)
-              }
-            />
-          </>
-        ) : (
-          <p className="text-sm text-zinc-400">
-            Outage explorer is collapsed.
-          </p>
-        )}
-      </section>
+              <select
+                value={typeFilter}
+                onChange={(e) =>
+                  setTypeFilter(
+                    e.target.value as TypeFilter,
+                  )
+                }
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
+              >
+                <option value="all">
+                  All types
+                </option>
+                <option value="internet_http">
+                  internet_http
+                </option>
+                <option value="internet_tcp">
+                  internet_tcp
+                </option>
+                <option value="dns">dns</option>
+                <option value="router">
+                  router
+                </option>
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(
+                    e.target
+                      .value as StatusFilter,
+                  )
+                }
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
+              >
+                <option value="all">
+                  All statuses
+                </option>
+                <option value="active">
+                  Active
+                </option>
+                <option value="resolved">
+                  Resolved
+                </option>
+              </select>
+
+              <select
+                value={sortBy}
+                onChange={(e) =>
+                  setSortBy(
+                    e.target.value as SortKey,
+                  )
+                }
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
+              >
+                <option value="started_desc">
+                  Newest first
+                </option>
+                <option value="started_asc">
+                  Oldest first
+                </option>
+                <option value="duration_desc">
+                  Longest duration
+                </option>
+                <option value="duration_asc">
+                  Shortest duration
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <DataTableCard
+            title="Outage records"
+            description="Filtered outage records for the selected reporting window."
+            rightSlot={
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  {visibleOutages.length} record
+                  {visibleOutages.length === 1
+                    ? ""
+                    : "s"}
+                </span>
+                <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  {formatReportsWindowLabel(
+                    windowHours,
+                  )}
+                </span>
+              </div>
+            }
+            helperText="Swipe horizontally to view all outage columns. Tap a row to inspect full incident details."
+            isLoading={outagesQuery.isLoading}
+            isError={outagesQuery.isError}
+            errorMessage={
+              outagesQuery.error instanceof Error
+                ? outagesQuery.error.message
+                : "Outage records could not be loaded."
+            }
+            emptyTitle="Outage records"
+            emptyMessage="No outage records matched the selected filters."
+            hasData={visibleOutages.length > 0}
+            tableMinWidthClassName="min-w-[1040px]"
+            variant="flush"
+          >
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-800/50 text-zinc-300">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">
+                    Started
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium">
+                    Target
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium">
+                    Duration
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium">
+                    Cause
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleOutages.map((outage) => (
+                  <tr
+                    key={outage.id}
+                    onClick={() => {
+                      setSelectedOutage(outage);
+                      setOutageDrawerOpen(true);
+                    }}
+                    className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
+                  >
+                    <td className="px-4 py-3 text-zinc-300">
+                      {formatDate(
+                        outage.started_at,
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-100">
+                      {formatIncidentType(
+                        outage.outage_type,
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-300">
+                      {outage.target}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-300">
+                      {outage.status}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-300">
+                      {formatDuration(
+                        outage.duration_seconds,
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-300">
+                      {outage.start_error ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </DataTableCard>
+        </>
+        <OutageDetailDrawer
+          outage={selectedOutage}
+          open={
+            outageDrawerOpen && !!selectedOutage
+          }
+          onClose={() => {
+            setOutageDrawerOpen(false);
+            setSelectedOutage(null);
+          }}
+        />
+      </CollapsibleInspectionSection>
     </div>
   );
 }

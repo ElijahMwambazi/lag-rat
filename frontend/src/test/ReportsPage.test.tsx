@@ -388,9 +388,11 @@ it("opens outage detail drawer when an outage row is clicked", async () => {
   renderWithQueryClient(<ReportsPage />);
 
   await user.click(
-    screen.getByRole("button", {
-      name: "Expand",
-    }),
+    (
+      await screen.findAllByRole("button", {
+        name: "Show explorer",
+      })
+    )[0],
   );
 
   const cells = await screen.findAllByText(
@@ -447,9 +449,11 @@ it("passes search and filter params to outages query", async () => {
   renderWithQueryClient(<ReportsPage />);
 
   await user.click(
-    screen.getByRole("button", {
-      name: "Expand",
-    }),
+    (
+      await screen.findAllByRole("button", {
+        name: "Show explorer",
+      })
+    )[0],
   );
 
   await screen.findByPlaceholderText(
