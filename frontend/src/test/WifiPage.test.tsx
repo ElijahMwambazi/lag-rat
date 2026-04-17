@@ -64,6 +64,60 @@ vi.mock("recharts", async () => {
   return await import("./mocks/recharts");
 });
 
+vi.mock("../components/DataTableCard", () => ({
+  default: ({
+    title,
+    description,
+    rightSlot,
+    children,
+    isLoading = false,
+    isError = false,
+    errorMessage,
+    emptyTitle,
+    emptyMessage = "No records available yet.",
+    hasData,
+  }: {
+    title: string;
+    description?: string;
+    rightSlot?: React.ReactNode;
+    children: React.ReactNode;
+    isLoading?: boolean;
+    isError?: boolean;
+    errorMessage?: string;
+    emptyTitle?: string;
+    emptyMessage?: string;
+    hasData: boolean;
+  }) => (
+    <section>
+      <h3>{title}</h3>
+      {description ? <p>{description}</p> : null}
+      {rightSlot}
+
+      {isLoading && !hasData ? (
+        <div>
+          <h4>{emptyTitle ?? title}</h4>
+          <p>Loading data...</p>
+        </div>
+      ) : isError ? (
+        <div>
+          <h4>{emptyTitle ?? title}</h4>
+          <p>
+            {errorMessage ??
+              "This table could not be loaded."}
+          </p>
+        </div>
+      ) : !hasData ? (
+        <div>
+          <h4>{emptyTitle ?? title}</h4>
+          <p>{emptyMessage}</p>
+        </div>
+      ) : (
+        children
+      )}
+    </section>
+  ),
+}));
+
 vi.mock("../services/api", () => ({
   api: {
     acknowledgeAlert: vi.fn(),

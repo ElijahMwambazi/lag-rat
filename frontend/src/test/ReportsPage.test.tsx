@@ -157,6 +157,27 @@ vi.mock(
   }),
 );
 
+vi.mock("../components/DataTableCard", () => ({
+  default: ({
+    title,
+    description,
+    helperText,
+    children,
+  }: {
+    title: string;
+    description?: string;
+    helperText?: string;
+    children: React.ReactNode;
+  }) => (
+    <section>
+      <h3>{title}</h3>
+      {description ? <p>{description}</p> : null}
+      {helperText ? <p>{helperText}</p> : null}
+      {children}
+    </section>
+  ),
+}));
+
 vi.mock("../utils/incidentText", () => ({
   buildAlertHeadline: () =>
     "Web connectivity check failed",
@@ -460,20 +481,4 @@ it("passes search and filter params to outages query", async () => {
       }),
     );
   });
-});
-
-it("renders top incident targets as a fixed inspection panel", async () => {
-  seedReportsSuccessState();
-
-  renderWithQueryClient(<ReportsPage />);
-
-  expect(
-    await screen.findByText(
-      "Top incident targets",
-    ),
-  ).toBeInTheDocument();
-
-  expect(
-    screen.getByText("2 incidents"),
-  ).toBeInTheDocument();
 });

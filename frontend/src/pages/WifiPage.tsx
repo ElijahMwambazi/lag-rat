@@ -13,6 +13,7 @@ import ChartCard from "../components/ChartCard";
 import QueryState from "../components/QueryState";
 import StateCard from "../components/StateCard";
 import AlertDetailDrawer from "../components/AlertDetailDrawer";
+import DataTableCard from "../components/DataTableCard";
 import {
   api,
   type Alert,
@@ -267,6 +268,30 @@ function formatTimelineEventDetail(event: {
 
 function getRecoverySeverityLabel(alert: Alert) {
   return alert.severity || "unknown";
+}
+
+function WifiMetricCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+      <div className="text-xs uppercase tracking-wide text-zinc-500">
+        {label}
+      </div>
+      <div className="mt-3 text-2xl font-semibold">
+        {value}
+      </div>
+      <p className="mt-3 text-sm text-zinc-400">
+        {hint}
+      </p>
+    </div>
+  );
 }
 
 export default function WifiPage() {
@@ -785,9 +810,14 @@ export default function WifiPage() {
               type="button"
               onClick={() => {
                 setLocationLabel("");
+                setDrawerAlertId(null);
+                setAlertDrawerOpen(false);
+                setRecoveryDrawerAlert(null);
+
                 updateSearchParams({
                   minutes: windowMinutes,
                   location: "",
+                  alertId: null,
                 });
               }}
               className={getRoomCardClasses(
@@ -912,508 +942,514 @@ export default function WifiPage() {
       </section>
 
       {locationLabel ? (
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h3 className="text-lg font-medium">
-                Selected room status
-              </h3>
-              <p className="mt-1 text-sm text-zinc-400">
-                Current health interpretation for{" "}
-                {locationLabel}.
-              </p>
+        <section className="space-y-4">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-medium">
+                    Selected room status
+                  </h3>
+
+                  {selectedRoomStatus ? (
+                    <span
+                      className={[
+                        "rounded-full border px-3 py-1 text-xs",
+                        getRoomStatusBadgeClasses(
+                          selectedRoomStatus.tone,
+                        ),
+                      ].join(" ")}
+                    >
+                      {selectedRoomStatus.label}
+                    </span>
+                  ) : null}
+
+                  {selectedRoomAlertAcknowledged ? (
+                    <span className="rounded-full border border-amber-800 bg-amber-950 px-3 py-1 text-xs text-amber-300">
+                      Acknowledged
+                    </span>
+                  ) : null}
+                </div>
+
+                <p className="mt-1 text-sm text-zinc-400">
+                  Current health interpretation
+                  for {locationLabel}.
+                </p>
+
+                <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Current assessment
+                  </div>
+
+                  <div className="mt-3 text-base font-medium text-zinc-100">
+                    {selectedRoomPrimaryAlert?.message ??
+                      "No active Wi-Fi alerts for this room."}
+                  </div>
+
+                  <p className="mt-3 text-sm text-zinc-400">
+                    {selectedRoomStatus
+                      ? getRoomStatusDescription(
+                          selectedRoomStatus.tone,
+                        )
+                      : "No current room status available."}
+                  </p>
+
+                  {acknowledgeWifiAlertMutation.isError ? (
+                    <div className="mt-3 rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+                      {acknowledgeWifiAlertMutation.error instanceof
+                      Error
+                        ? acknowledgeWifiAlertMutation
+                            .error.message
+                        : "Could not acknowledge alert."}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 lg:items-end">
+                <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+                  {canAcknowledgeSelectedRoomAlert ? (
+                    <button
+                      type="button"
+                      disabled={
+                        acknowledgeWifiAlertMutation.isPending
+                      }
+                      onClick={() =>
+                        acknowledgeWifiAlertMutation.mutate(
+                          selectedRoomPrimaryAlert.id,
+                        )
+                      }
+                      className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {acknowledgeWifiAlertMutation.isPending
+                        ? "Acknowledging..."
+                        : "Acknowledge alert"}
+                    </button>
+                  ) : null}
+
+                  {selectedRoomPrimaryAlert ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecoveryDrawerAlert(
+                          null,
+                        );
+                        setDrawerAlertId(
+                          selectedRoomPrimaryAlert.id,
+                        );
+                        setAlertDrawerOpen(true);
+                        updateSearchParams({
+                          minutes: windowMinutes,
+                          location: locationLabel,
+                          alertId:
+                            selectedRoomPrimaryAlert.id,
+                        });
+                      }}
+                      className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                    >
+                      View alert details
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3 lg:w-[26rem]">
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">
+                      Sample age
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-zinc-100">
+                      {formatSampleAge(
+                        latestSample?.sampled_at,
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">
+                      Link details
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-zinc-100">
+                      {latestSample?.band ?? "—"}
+                      {latestSample?.frequency_mhz !=
+                      null
+                        ? ` · ${latestSample.frequency_mhz} MHz`
+                        : ""}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">
+                      Samples in window
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-zinc-100">
+                      {summaryQuery.data
+                        ?.sample_count ?? 0}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="flex flex-col gap-2 sm:items-end">
-              {selectedRoomStatus ? (
-                <span
-                  className={[
-                    "rounded-full border px-3 py-1 text-xs",
-                    getRoomStatusBadgeClasses(
-                      selectedRoomStatus.tone,
-                    ),
-                  ].join(" ")}
-                >
-                  {selectedRoomStatus.label}
-                </span>
-              ) : null}
-
-              {selectedRoomAlertAcknowledged ? (
-                <span className="rounded-full border border-amber-800 bg-amber-950 px-3 py-1 text-xs text-amber-300">
-                  Acknowledged
-                </span>
-              ) : null}
-
-              <div className="flex flex-col gap-2 sm:flex-row">
-                {canAcknowledgeSelectedRoomAlert ? (
-                  <button
-                    type="button"
-                    disabled={
-                      acknowledgeWifiAlertMutation.isPending
-                    }
-                    onClick={() =>
-                      acknowledgeWifiAlertMutation.mutate(
-                        selectedRoomPrimaryAlert.id,
-                      )
-                    }
-                    className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {acknowledgeWifiAlertMutation.isPending
-                      ? "Acknowledging..."
-                      : "Acknowledge alert"}
-                  </button>
-                ) : null}
+          <div className="grid gap-4 xl:grid-cols-2">
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-medium">
+                    Room incident timeline
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Recent Wi-Fi incident events
+                    for {locationLabel}.
+                  </p>
+                </div>
 
                 {selectedRoomPrimaryAlert ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRecoveryDrawerAlert(
-                        null,
-                      );
-                      setDrawerAlertId(
-                        selectedRoomPrimaryAlert.id,
-                      );
-                      setAlertDrawerOpen(true);
-                      updateSearchParams({
-                        minutes: windowMinutes,
-                        location: locationLabel,
-                        alertId:
-                          selectedRoomPrimaryAlert.id,
-                      });
-                    }}
-                    className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
-                  >
-                    View alert details
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                      Alert #
+                      {
+                        selectedRoomPrimaryAlert.id
+                      }
+                    </span>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr,1fr]">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Current assessment
-              </div>
-
-              <div className="mt-3 text-base font-medium text-zinc-100">
-                {selectedRoomPrimaryAlert?.message ??
-                  "No active Wi-Fi alerts for this room."}
-              </div>
-
-              {acknowledgeWifiAlertMutation.isError ? (
-                <div className="mt-3 rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">
-                  {acknowledgeWifiAlertMutation.error instanceof
-                  Error
-                    ? acknowledgeWifiAlertMutation
-                        .error.message
-                    : "Could not acknowledge alert."}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-                <div className="text-xs uppercase tracking-wide text-zinc-500">
-                  Sample age
-                </div>
-                <div className="mt-2 text-sm font-medium text-zinc-100">
-                  {formatSampleAge(
-                    latestSample?.sampled_at,
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-                <div className="text-xs uppercase tracking-wide text-zinc-500">
-                  Link details
-                </div>
-                <div className="mt-2 text-sm font-medium text-zinc-100">
-                  {latestSample?.band ?? "—"}
-                  {latestSample?.frequency_mhz !=
-                  null
-                    ? ` · ${latestSample.frequency_mhz} MHz`
-                    : ""}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-                <div className="text-xs uppercase tracking-wide text-zinc-500">
-                  Samples in window
-                </div>
-                <div className="mt-2 text-sm font-medium text-zinc-100">
-                  {summaryQuery.data
-                    ?.sample_count ?? 0}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {locationLabel ? (
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-lg font-medium">
-                Room incident timeline
-              </h3>
-              <p className="mt-1 text-sm text-zinc-400">
-                Recent Wi-Fi incident events for{" "}
-                {locationLabel}.
-              </p>
-            </div>
-
-            {selectedRoomPrimaryAlert ? (
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                  Alert #
-                  {selectedRoomPrimaryAlert.id}
-                </span>
-
-                {selectedRoomAlertAcknowledged ? (
-                  <span className="rounded-full border border-amber-800 bg-amber-950 px-3 py-1 text-xs text-amber-300">
-                    Acknowledged
-                  </span>
-                ) : null}
-
-                {canAcknowledgeSelectedRoomAlert ? (
-                  <button
-                    type="button"
-                    disabled={
-                      acknowledgeWifiAlertMutation.isPending
-                    }
-                    onClick={() =>
-                      acknowledgeWifiAlertMutation.mutate(
-                        selectedRoomPrimaryAlert.id,
-                      )
-                    }
-                    className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {acknowledgeWifiAlertMutation.isPending
-                      ? "Acknowledging..."
-                      : "Acknowledge alert"}
-                  </button>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRecoveryDrawerAlert(null);
-                    setDrawerAlertId(
-                      selectedRoomPrimaryAlert.id,
-                    );
-                    setAlertDrawerOpen(true);
-                    updateSearchParams({
-                      minutes: windowMinutes,
-                      location: locationLabel,
-                      alertId:
-                        selectedRoomPrimaryAlert.id,
-                    });
-                  }}
-                  className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
-                >
-                  View alert details
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          {!selectedRoomPrimaryAlert ? (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-              <div className="text-sm text-zinc-400">
-                No active Wi-Fi incident timeline
-                for this room.
-              </div>
-            </div>
-          ) : selectedRoomHistoryQuery.isLoading ? (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-              <div className="text-sm text-zinc-400">
-                Loading room incident history...
-              </div>
-            </div>
-          ) : selectedRoomHistoryQuery.isError ? (
-            <div className="mt-4 rounded-2xl border border-red-900 bg-red-950/40 p-4 text-red-200">
-              <div className="text-sm">
-                Could not load room incident
-                history.
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {selectedRoomHistoryQuery.data
-                ?.slice()
-                .sort(
-                  (a, b) =>
-                    new Date(
-                      b.created_at,
-                    ).getTime() -
-                    new Date(
-                      a.created_at,
-                    ).getTime(),
-                )
-                .slice(0, 6)
-                .map((event) => (
-                  <div
-                    key={event.id}
-                    className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4"
-                  >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="text-sm font-medium text-zinc-100">
-                        {formatTimelineEventTitle(
-                          event.event_type,
-                        )}
-                      </div>
-                      <div className="text-xs text-zinc-500">
-                        {formatDate(
-                          event.created_at,
-                        )}
-                      </div>
-                    </div>
-
-                    {formatTimelineEventDetail(
-                      event,
-                    ) ? (
-                      <div className="mt-2 text-sm text-zinc-300">
-                        {formatTimelineEventDetail(
-                          event,
-                        )}
-                      </div>
+                    {selectedRoomAlertAcknowledged ? (
+                      <span className="rounded-full border border-amber-800 bg-amber-950 px-3 py-1 text-xs text-amber-300">
+                        Acknowledged
+                      </span>
                     ) : null}
 
-                    {event.event_type ===
-                      "message_changed" &&
-                    selectedRoomPrimaryAlert?.message ? (
-                      <div className="mt-2 text-sm text-zinc-400">
-                        {
-                          selectedRoomPrimaryAlert.message
-                        }
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-            </div>
-          )}
-        </section>
-      ) : null}
-
-      {locationLabel ? (
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-lg font-medium">
-                Recent recoveries
-              </h3>
-              <p className="mt-1 text-sm text-zinc-400">
-                Recently resolved Wi-Fi incidents
-                for {locationLabel}.
-              </p>
-            </div>
-          </div>
-
-          {selectedRoomResolvedAlertsQuery.isLoading ? (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-              <div className="text-sm text-zinc-400">
-                Loading recent recoveries...
-              </div>
-            </div>
-          ) : selectedRoomResolvedAlertsQuery.isError ? (
-            <div className="mt-4 rounded-2xl border border-red-900 bg-red-950/40 p-4 text-red-200">
-              <div className="text-sm">
-                Could not load recent recoveries.
-              </div>
-            </div>
-          ) : selectedRoomResolvedAlerts.length ===
-            0 ? (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-              <div className="text-sm text-zinc-400">
-                No recent recoveries for this
-                room.
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {selectedRoomResolvedAlerts.map(
-                (alert) => (
-                  <div
-                    key={alert.id}
-                    className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                            Resolved
-                          </span>
-                          <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                            {getRecoverySeverityLabel(
-                              alert,
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 text-sm font-medium text-zinc-100">
-                          {alert.message}
-                        </div>
-
-                        <p className="mt-2 text-xs text-zinc-500">
-                          Resolved{" "}
-                          {formatDate(
-                            alert.resolved_at,
-                          )}
-                        </p>
-                      </div>
-
+                    {canAcknowledgeSelectedRoomAlert ? (
                       <button
                         type="button"
-                        onClick={() => {
-                          setRecoveryDrawerAlert(
-                            alert,
-                          );
-                          setDrawerAlertId(
-                            alert.id,
-                          );
-                          setAlertDrawerOpen(
-                            false,
-                          );
-                          updateSearchParams({
-                            minutes:
-                              windowMinutes,
-                            location:
-                              locationLabel,
-                            alertId: alert.id,
-                          });
-                        }}
-                        className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                        disabled={
+                          acknowledgeWifiAlertMutation.isPending
+                        }
+                        onClick={() =>
+                          acknowledgeWifiAlertMutation.mutate(
+                            selectedRoomPrimaryAlert.id,
+                          )
+                        }
+                        className="rounded-lg border border-amber-800 bg-amber-950 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        View alert details
+                        {acknowledgeWifiAlertMutation.isPending
+                          ? "Acknowledging..."
+                          : "Acknowledge alert"}
                       </button>
-                    </div>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecoveryDrawerAlert(
+                          null,
+                        );
+                        setDrawerAlertId(
+                          selectedRoomPrimaryAlert.id,
+                        );
+                        setAlertDrawerOpen(true);
+                        updateSearchParams({
+                          minutes: windowMinutes,
+                          location: locationLabel,
+                          alertId:
+                            selectedRoomPrimaryAlert.id,
+                        });
+                      }}
+                      className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                    >
+                      View alert details
+                    </button>
                   </div>
-                ),
+                ) : null}
+              </div>
+
+              {!selectedRoomPrimaryAlert ? (
+                <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                  <div className="text-sm text-zinc-400">
+                    No active Wi-Fi incident
+                    timeline for this room.
+                  </div>
+                </div>
+              ) : selectedRoomHistoryQuery.isLoading ? (
+                <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                  <div className="text-sm text-zinc-400">
+                    Loading room incident
+                    history...
+                  </div>
+                </div>
+              ) : selectedRoomHistoryQuery.isError ? (
+                <div className="mt-4 rounded-2xl border border-red-900 bg-red-950/40 p-4 text-red-200">
+                  <div className="text-sm">
+                    Could not load room incident
+                    history.
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {selectedRoomHistoryQuery.data
+                    ?.slice()
+                    .sort(
+                      (a, b) =>
+                        new Date(
+                          b.created_at,
+                        ).getTime() -
+                        new Date(
+                          a.created_at,
+                        ).getTime(),
+                    )
+                    .slice(0, 6)
+                    .map((event) => (
+                      <div
+                        key={event.id}
+                        className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-sm font-medium text-zinc-100">
+                            {formatTimelineEventTitle(
+                              event.event_type,
+                            )}
+                          </div>
+                          <div className="text-xs text-zinc-500">
+                            {formatDate(
+                              event.created_at,
+                            )}
+                          </div>
+                        </div>
+
+                        {formatTimelineEventDetail(
+                          event,
+                        ) ? (
+                          <div className="mt-2 text-sm text-zinc-300">
+                            {formatTimelineEventDetail(
+                              event,
+                            )}
+                          </div>
+                        ) : null}
+
+                        {event.event_type ===
+                          "message_changed" &&
+                        selectedRoomPrimaryAlert?.message ? (
+                          <div className="mt-2 text-sm text-zinc-400">
+                            {
+                              selectedRoomPrimaryAlert.message
+                            }
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                </div>
               )}
-            </div>
-          )}
+            </section>
+
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-medium">
+                    Recent recoveries
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Recently resolved Wi-Fi
+                    incidents for {locationLabel}.
+                  </p>
+                </div>
+              </div>
+
+              {selectedRoomResolvedAlertsQuery.isLoading ? (
+                <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                  <div className="text-sm text-zinc-400">
+                    Loading recent recoveries...
+                  </div>
+                </div>
+              ) : selectedRoomResolvedAlertsQuery.isError ? (
+                <div className="mt-4 rounded-2xl border border-red-900 bg-red-950/40 p-4 text-red-200">
+                  <div className="text-sm">
+                    Could not load recent
+                    recoveries.
+                  </div>
+                </div>
+              ) : selectedRoomResolvedAlerts.length ===
+                0 ? (
+                <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                  <div className="text-sm text-zinc-400">
+                    No recent recoveries for this
+                    room.
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {selectedRoomResolvedAlerts.map(
+                    (alert) => (
+                      <div
+                        key={alert.id}
+                        className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                                Resolved
+                              </span>
+                              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                                {getRecoverySeverityLabel(
+                                  alert,
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 text-sm font-medium text-zinc-100">
+                              {alert.message}
+                            </div>
+
+                            <p className="mt-2 text-xs text-zinc-500">
+                              Resolved{" "}
+                              {formatDate(
+                                alert.resolved_at,
+                              )}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRecoveryDrawerAlert(
+                                alert,
+                              );
+                              setDrawerAlertId(
+                                alert.id,
+                              );
+                              setAlertDrawerOpen(
+                                false,
+                              );
+                              updateSearchParams({
+                                minutes:
+                                  windowMinutes,
+                                location:
+                                  locationLabel,
+                                alertId: alert.id,
+                              });
+                            }}
+                            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+                          >
+                            View alert details
+                          </button>
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
         </section>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summaryQuery.isLoading &&
-        !summaryQuery.data ? (
-          <>
-            <StateCard
-              title="Latest signal"
-              message="Loading Wi-Fi summary..."
-            />
-            <StateCard
-              title="Average RSSI"
-              message="Loading Wi-Fi summary..."
-            />
-            <StateCard
-              title="Samples"
-              message="Loading Wi-Fi summary..."
-            />
-            <StateCard
-              title="Band"
-              message="Loading Wi-Fi summary..."
-            />
-          </>
-        ) : !summaryQuery.data ||
-          !latestSample ? (
-          <>
-            <StateCard
-              title="Latest signal"
-              tone="warning"
-              message="No Wi-Fi samples found in this window."
-            />
-            <StateCard
-              title="Average RSSI"
-              tone="warning"
-              message="No Wi-Fi samples found in this window."
-            />
-            <StateCard
-              title="Samples"
-              tone="warning"
-              message="No Wi-Fi samples found in this window."
-            />
-            <StateCard
-              title="Band"
-              tone="warning"
-              message="No Wi-Fi samples found in this window."
-            />
-          </>
-        ) : (
-          <>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Latest signal
-              </div>
-              <div className="mt-3 text-2xl font-semibold">
-                {formatRssi(
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium">
+            Performance snapshot
+          </h3>
+          <p className="mt-1 text-sm text-zinc-400">
+            Latest observed signal quality and
+            radio details for the selected window.
+          </p>
+        </div>
+
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {summaryQuery.isLoading &&
+          !summaryQuery.data ? (
+            <>
+              <StateCard
+                title="Latest signal"
+                message="Loading Wi-Fi summary..."
+              />
+              <StateCard
+                title="Average RSSI"
+                message="Loading Wi-Fi summary..."
+              />
+              <StateCard
+                title="Samples"
+                message="Loading Wi-Fi summary..."
+              />
+              <StateCard
+                title="Band"
+                message="Loading Wi-Fi summary..."
+              />
+            </>
+          ) : !summaryQuery.data ||
+            !latestSample ? (
+            <>
+              <StateCard
+                title="Latest signal"
+                tone="warning"
+                message="No Wi-Fi samples found in this window."
+              />
+              <StateCard
+                title="Average RSSI"
+                tone="warning"
+                message="No Wi-Fi samples found in this window."
+              />
+              <StateCard
+                title="Samples"
+                tone="warning"
+                message="No Wi-Fi samples found in this window."
+              />
+              <StateCard
+                title="Band"
+                tone="warning"
+                message="No Wi-Fi samples found in this window."
+              />
+            </>
+          ) : (
+            <>
+              <WifiMetricCard
+                label="Latest signal"
+                value={formatRssi(
                   latestSample.rssi_dbm,
                 )}
-              </div>
-              <p className="mt-3 text-sm text-zinc-400">
-                {latestSample.location_label} ·{" "}
-                {latestSample.ssid ??
-                  "Unknown SSID"}
-              </p>
-            </div>
+                hint={`${latestSample.location_label} · ${
+                  latestSample.ssid ??
+                  "Unknown SSID"
+                }`}
+              />
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Average RSSI
-              </div>
-              <div className="mt-3 text-2xl font-semibold">
-                {summaryQuery.data.avg_rssi_dbm !=
-                null
-                  ? `${summaryQuery.data.avg_rssi_dbm.toFixed(1)} dBm`
-                  : "—"}
-              </div>
-              <p className="mt-3 text-sm text-zinc-400">
-                Min{" "}
-                {formatRssi(
+              <WifiMetricCard
+                label="Average RSSI"
+                value={
+                  summaryQuery.data
+                    .avg_rssi_dbm != null
+                    ? `${summaryQuery.data.avg_rssi_dbm.toFixed(1)} dBm`
+                    : "—"
+                }
+                hint={`Min ${formatRssi(
                   summaryQuery.data.min_rssi_dbm,
-                )}{" "}
-                · Max{" "}
-                {formatRssi(
+                )} · Max ${formatRssi(
                   summaryQuery.data.max_rssi_dbm,
-                )}
-              </p>
-            </div>
+                )}`}
+              />
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Samples
-              </div>
-              <div className="mt-3 text-2xl font-semibold">
-                {summaryQuery.data.sample_count}
-              </div>
-              <p className="mt-3 text-sm text-zinc-400">
-                Sampled through{" "}
-                {formatDate(
+              <WifiMetricCard
+                label="Samples"
+                value={String(
+                  summaryQuery.data.sample_count,
+                )}
+                hint={`Sampled through ${formatDate(
                   latestSample.sampled_at,
-                )}
-              </p>
-            </div>
+                )}`}
+              />
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Band
-              </div>
-              <div className="mt-3 text-2xl font-semibold">
-                {latestSample.band ?? "—"}
-              </div>
-              <p className="mt-3 text-sm text-zinc-400">
-                {latestSample.frequency_mhz !=
-                null
-                  ? `${latestSample.frequency_mhz} MHz`
-                  : "Frequency unavailable"}
-              </p>
-            </div>
-          </>
-        )}
+              <WifiMetricCard
+                label="Band"
+                value={latestSample.band ?? "—"}
+                hint={
+                  latestSample.frequency_mhz !=
+                  null
+                    ? `${latestSample.frequency_mhz} MHz`
+                    : "Frequency unavailable"
+                }
+              />
+            </>
+          )}
+        </section>
       </section>
 
       <ChartCard
@@ -1432,103 +1468,77 @@ export default function WifiPage() {
         valueLabel="Signal"
       />
 
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="text-lg font-medium">
-              {getRecentSamplesTitle(
-                locationLabel,
-              )}
-            </h3>
-            <p className="mt-1 text-sm text-zinc-400">
-              Most recent Wi-Fi observations for
-              the selected window.
-            </p>
-          </div>
-
-          {locationLabel ? (
+      <DataTableCard
+        title={getRecentSamplesTitle(
+          locationLabel,
+        )}
+        description="Most recent Wi-Fi observations for the selected window."
+        rightSlot={
+          locationLabel ? (
             <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
               Filtered to {locationLabel}
             </span>
-          ) : null}
-        </div>
-
-        {samplesQuery.isLoading &&
-        wifiSamples.length === 0 ? (
-          <QueryState
-            title="Recent Wi-Fi samples"
-            message="Loading sample history..."
-          />
-        ) : samplesQuery.isError ? (
-          <QueryState
-            title="Recent Wi-Fi samples"
-            tone="error"
-            message={
-              samplesQuery.error instanceof Error
-                ? samplesQuery.error.message
-                : "Sample history could not be loaded."
-            }
-          />
-        ) : wifiSamples.length === 0 ? (
-          <QueryState
-            title="Recent Wi-Fi samples"
-            tone="warning"
-            message="No Wi-Fi samples were recorded in this window yet."
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-zinc-500">
-                <tr className="border-b border-zinc-800">
-                  <th className="px-3 py-2 font-medium">
-                    Time
-                  </th>
-                  <th className="px-3 py-2 font-medium">
-                    Location
-                  </th>
-                  <th className="px-3 py-2 font-medium">
-                    SSID
-                  </th>
-                  <th className="px-3 py-2 font-medium">
-                    Signal
-                  </th>
-                  <th className="px-3 py-2 font-medium">
-                    Band
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {wifiSamples.map((sample) => (
-                  <tr
-                    key={sample.id}
-                    className="border-b border-zinc-900"
-                  >
-                    <td className="px-3 py-2 text-zinc-300">
-                      {formatDate(
-                        sample.sampled_at,
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-zinc-100">
-                      {sample.location_label}
-                    </td>
-                    <td className="px-3 py-2 text-zinc-300">
-                      {sample.ssid ?? "—"}
-                    </td>
-                    <td className="px-3 py-2 text-zinc-300">
-                      {formatRssi(
-                        sample.rssi_dbm,
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-zinc-300">
-                      {sample.band ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+          ) : null
+        }
+        helperText="Swipe horizontally to inspect recent sample metadata across locations, SSIDs, signal levels, and radio bands."
+        isLoading={samplesQuery.isLoading}
+        isError={samplesQuery.isError}
+        errorMessage={
+          samplesQuery.error instanceof Error
+            ? samplesQuery.error.message
+            : "Sample history could not be loaded."
+        }
+        emptyTitle="Recent Wi-Fi samples"
+        emptyMessage="No Wi-Fi samples were recorded in this window yet."
+        hasData={wifiSamples.length > 0}
+        tableMinWidthClassName="min-w-[760px]"
+      >
+        <table className="w-full text-sm">
+          <thead className="bg-zinc-800/50 text-zinc-300">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">
+                Time
+              </th>
+              <th className="px-4 py-3 text-left font-medium">
+                Location
+              </th>
+              <th className="px-4 py-3 text-left font-medium">
+                SSID
+              </th>
+              <th className="px-4 py-3 text-left font-medium">
+                Signal
+              </th>
+              <th className="px-4 py-3 text-left font-medium">
+                Band
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {wifiSamples.map((sample) => (
+              <tr
+                key={sample.id}
+                className="border-t border-zinc-800"
+              >
+                <td className="px-4 py-3 text-zinc-300">
+                  {formatDate(sample.sampled_at)}
+                </td>
+                <td className="px-4 py-3 text-zinc-100">
+                  {sample.location_label}
+                </td>
+                <td className="px-4 py-3 text-zinc-300">
+                  {sample.ssid ?? "—"}
+                </td>
+                <td className="px-4 py-3 text-zinc-300">
+                  {formatRssi(sample.rssi_dbm)}
+                </td>
+                <td className="px-4 py-3 text-zinc-300">
+                  {sample.band ?? "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </DataTableCard>
 
       <AlertDetailDrawer
         open={alertDrawerOpen}
