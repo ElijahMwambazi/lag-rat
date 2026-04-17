@@ -1745,8 +1745,8 @@ pub async fn list_wifi_samples_filtered(
             band,
             sampled_at
         FROM wifi_samples
-        WHERE sampled_at >= datetime('now', '-' || ?1 || ' minutes')
-          AND (?2 IS NULL OR location_label = ?2)
+        WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+        AND (?2 IS NULL OR location_label = ?2)
         ORDER BY sampled_at DESC
         LIMIT ?3
         "#,
@@ -1788,46 +1788,89 @@ pub async fn wifi_summary(
     Option<i64>,
     Option<i64>,
 )> {
-    let latest = sqlx::query_as::<_, WifiSample>(
-        r#"
-        SELECT
-            id,
-            location_label,
-            interface_name,
-            ssid,
-            bssid,
-            rssi_dbm,
-            frequency_mhz,
-            band,
-            sampled_at
-        FROM wifi_samples
-        WHERE sampled_at >= datetime('now', '-' || ?1 || ' minutes')
-          AND (?2 IS NULL OR location_label = ?2)
-        ORDER BY sampled_at DESC
-        LIMIT 1
-        "#,
-    )
-    .bind(minutes)
-    .bind(location_label)
-    .fetch_optional(pool)
-    .await?;
+    let (latest, row) = if let Some(location_label) = location_label {
+        let latest = sqlx::query_as::<_, WifiSample>(
+            r#"
+            SELECT
+                id,
+                location_label,
+                interface_name,
+                ssid,
+                bssid,
+                rssi_dbm,
+                frequency_mhz,
+                band,
+                sampled_at
+            FROM wifi_samples
+            WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+              AND location_label = ?2
+            ORDER BY sampled_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(minutes)
+        .bind(location_label)
+        .fetch_optional(pool)
+        .await?;
 
-    let row = sqlx::query(
-        r#"
-        SELECT
-            COUNT(*) AS sample_count,
-            AVG(rssi_dbm) AS avg_rssi_dbm,
-            MIN(rssi_dbm) AS min_rssi_dbm,
-            MAX(rssi_dbm) AS max_rssi_dbm
-        FROM wifi_samples
-        WHERE sampled_at >= datetime('now', '-' || ?1 || ' minutes')
-          AND (?2 IS NULL OR location_label = ?2)
-        "#,
-    )
-    .bind(minutes)
-    .bind(location_label)
-    .fetch_one(pool)
-    .await?;
+        let row = sqlx::query(
+            r#"
+            SELECT
+                COUNT(*) AS sample_count,
+                AVG(rssi_dbm) AS avg_rssi_dbm,
+                MIN(rssi_dbm) AS min_rssi_dbm,
+                MAX(rssi_dbm) AS max_rssi_dbm
+            FROM wifi_samples
+            WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+              AND location_label = ?2
+            "#,
+        )
+        .bind(minutes)
+        .bind(location_label)
+        .fetch_one(pool)
+        .await?;
+
+        (latest, row)
+    } else {
+        let latest = sqlx::query_as::<_, WifiSample>(
+            r#"
+            SELECT
+                id,
+                location_label,
+                interface_name,
+                ssid,
+                bssid,
+                rssi_dbm,
+                frequency_mhz,
+                band,
+                sampled_at
+            FROM wifi_samples
+            WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+            ORDER BY sampled_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(minutes)
+        .fetch_optional(pool)
+        .await?;
+
+        let row = sqlx::query(
+            r#"
+            SELECT
+                COUNT(*) AS sample_count,
+                AVG(rssi_dbm) AS avg_rssi_dbm,
+                MIN(rssi_dbm) AS min_rssi_dbm,
+                MAX(rssi_dbm) AS max_rssi_dbm
+            FROM wifi_samples
+            WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+            "#,
+        )
+        .bind(minutes)
+        .fetch_one(pool)
+        .await?;
+
+        (latest, row)
+    };
 
     let sample_count: i64 = row.get("sample_count");
     let avg_rssi_dbm: Option<f64> = row.try_get("avg_rssi_dbm").ok();
