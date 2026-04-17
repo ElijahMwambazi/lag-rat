@@ -336,7 +336,7 @@ export const api = {
     ),
   getAlertHistory: async (alertId: number) => {
     const response = await fetch(
-      `${API_BASE}/alerts/${alertId}/history`,
+      `${API_BASE}/api/alerts/${alertId}/history`,
     );
 
     if (!response.ok) {
