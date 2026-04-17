@@ -765,3 +765,394 @@ async fn latest_wifi_sample_for_location_returns_latest_for_requested_room() -> 
 
     Ok(())
 }
+
+#[tokio::test]
+async fn wifi_summary_api_returns_rollup_for_location_and_window() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-55),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(5),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-65),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(10),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "bedroom",
+        "wlan0",
+        Some("BedroomWifi"),
+        Some("aa:bb:cc:dd:ee:02"),
+        Some(-71),
+        Some(2412),
+        Some("2.4ghz"),
+        now - Duration::minutes(6),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-80),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(120),
+    )
+    .await?;
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/wifi/summary?minutes=60&location_label=office")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+
+    assert_eq!(json["window_minutes"].as_u64(), Some(60));
+    assert_eq!(json["location_label"].as_str(), Some("office"));
+    assert_eq!(json["sample_count"].as_u64(), Some(2));
+    assert_eq!(json["min_rssi_dbm"].as_i64(), Some(-65));
+    assert_eq!(json["max_rssi_dbm"].as_i64(), Some(-55));
+    assert_eq!(
+        json["latest_sample"]["location_label"].as_str(),
+        Some("office")
+    );
+    assert_eq!(json["latest_sample"]["rssi_dbm"].as_i64(), Some(-55));
+
+    let avg = json["avg_rssi_dbm"].as_f64().expect("avg should exist");
+    assert!((avg - (-60.0)).abs() < f64::EPSILON);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn wifi_summary_api_returns_global_rollup_without_location_filter() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-55),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(5),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "bedroom",
+        "wlan0",
+        Some("BedroomWifi"),
+        Some("aa:bb:cc:dd:ee:02"),
+        Some(-70),
+        Some(2412),
+        Some("2.4ghz"),
+        now - Duration::minutes(7),
+    )
+    .await?;
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/wifi/summary?minutes=60")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+
+    assert_eq!(json["window_minutes"].as_u64(), Some(60));
+    assert!(json["location_label"].is_null());
+    assert_eq!(json["sample_count"].as_u64(), Some(2));
+    assert_eq!(json["min_rssi_dbm"].as_i64(), Some(-70));
+    assert_eq!(json["max_rssi_dbm"].as_i64(), Some(-55));
+    assert_eq!(
+        json["latest_sample"]["location_label"].as_str(),
+        Some("office")
+    );
+    assert_eq!(json["latest_sample"]["rssi_dbm"].as_i64(), Some(-55));
+
+    let avg = json["avg_rssi_dbm"].as_f64().expect("avg should exist");
+    assert!((avg - (-62.5)).abs() < f64::EPSILON);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn wifi_locations_api_returns_distinct_labels() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-55),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(5),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-60),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(3),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "bedroom",
+        "wlan0",
+        Some("BedroomWifi"),
+        Some("aa:bb:cc:dd:ee:02"),
+        Some(-70),
+        Some(2412),
+        Some("2.4ghz"),
+        now - Duration::minutes(4),
+    )
+    .await?;
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/wifi/locations")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+
+    let items = json["items"].as_array().expect("items should be an array");
+
+    let mut labels: Vec<String> = items
+        .iter()
+        .filter_map(|item| item.as_str().map(ToString::to_string))
+        .collect();
+
+    labels.sort();
+
+    assert_eq!(labels, vec!["bedroom".to_string(), "office".to_string()]);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn wifi_location_summaries_api_returns_per_room_items() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-55),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(5),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-65),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(10),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "bedroom",
+        "wlan0",
+        Some("BedroomWifi"),
+        Some("aa:bb:cc:dd:ee:02"),
+        Some(-70),
+        Some(2412),
+        Some("2.4ghz"),
+        now - Duration::minutes(6),
+    )
+    .await?;
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/wifi/locations/summary?minutes=60")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+
+    assert_eq!(json["window_minutes"].as_u64(), Some(60));
+
+    let items = json["items"].as_array().expect("items should be an array");
+
+    assert_eq!(items.len(), 2);
+
+    let bedroom = items
+        .iter()
+        .find(|item| item["location_label"].as_str() == Some("bedroom"))
+        .expect("bedroom summary should exist");
+
+    assert_eq!(bedroom["sample_count"].as_u64(), Some(1));
+    assert_eq!(bedroom["avg_rssi_dbm"].as_f64(), Some(-70.0));
+    assert_eq!(bedroom["min_rssi_dbm"].as_i64(), Some(-70));
+    assert_eq!(bedroom["max_rssi_dbm"].as_i64(), Some(-70));
+    assert_eq!(bedroom["latest_sample"]["rssi_dbm"].as_i64(), Some(-70));
+
+    let office = items
+        .iter()
+        .find(|item| item["location_label"].as_str() == Some("office"))
+        .expect("office summary should exist");
+
+    assert_eq!(office["sample_count"].as_u64(), Some(2));
+    assert_eq!(office["avg_rssi_dbm"].as_f64(), Some(-60.0));
+    assert_eq!(office["min_rssi_dbm"].as_i64(), Some(-65));
+    assert_eq!(office["max_rssi_dbm"].as_i64(), Some(-55));
+    assert_eq!(office["latest_sample"]["rssi_dbm"].as_i64(), Some(-55));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn wifi_samples_api_filters_by_location_label() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-55),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(5),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "office",
+        "wlan0",
+        Some("OfficeWifi"),
+        Some("aa:bb:cc:dd:ee:01"),
+        Some(-47),
+        Some(5180),
+        Some("5ghz"),
+        now - Duration::minutes(1),
+    )
+    .await?;
+
+    db::insert_wifi_sample(
+        &harness.state.db,
+        "bedroom",
+        "wlan0",
+        Some("BedroomWifi"),
+        Some("aa:bb:cc:dd:ee:02"),
+        Some(-70),
+        Some(2412),
+        Some("2.4ghz"),
+        now - Duration::minutes(2),
+    )
+    .await?;
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/wifi/samples?minutes=60&location_label=office&limit=10")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+    let items = json
+        .as_array()
+        .expect("wifi samples response should be an array");
+
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0]["location_label"].as_str(), Some("office"));
+    assert_eq!(items[1]["location_label"].as_str(), Some("office"));
+    assert_eq!(items[0]["rssi_dbm"].as_i64(), Some(-47));
+    assert_eq!(items[1]["rssi_dbm"].as_i64(), Some(-55));
+
+    Ok(())
+}
