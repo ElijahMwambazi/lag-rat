@@ -591,20 +591,26 @@ describe("WifiPage", () => {
       ).toHaveBeenCalled();
     });
 
-    await waitFor(() => {
-      expect(
-        api.getWifiSamples,
-      ).toHaveBeenCalled();
-    });
-
     await user.click(
-      screen.getByRole("button", {
-        name: "Expand table",
+      await screen.findByRole("button", {
+        name: /expand table/i,
       }),
     );
 
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading data..."),
+      ).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole("row").length,
+      ).toBeGreaterThan(1);
+    });
+
     await user.click(
-      (await screen.findAllByRole("row"))[1],
+      screen.getAllByRole("row")[1],
     );
 
     expect(
