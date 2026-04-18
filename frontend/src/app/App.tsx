@@ -8,6 +8,7 @@ import MetricsPage from "../pages/MetricsPage";
 import DevicesPage from "../pages/DevicesPage";
 import ReportsPage from "../pages/ReportsPage";
 import WifiPage from "../pages/WifiPage";
+import TrafficPage from "../pages/TrafficPage";
 
 const navItems = [
   { to: "/", label: "Overview" },
@@ -15,6 +16,7 @@ const navItems = [
   { to: "/wifi", label: "Wi-Fi" },
   { to: "/devices", label: "Devices" },
   { to: "/reports", label: "Reports" },
+  { to: "/traffic", label: "Traffic" },
 ];
 
 export default function App() {
@@ -76,6 +78,10 @@ export default function App() {
           <Route
             path="/wifi"
             element={<WifiPage />}
+          />
+          <Route
+            path="/traffic"
+            element={<TrafficPage />}
           />
         </Routes>
       </main>
