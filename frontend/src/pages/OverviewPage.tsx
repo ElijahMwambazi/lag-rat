@@ -51,6 +51,33 @@ function formatMinutesAgo(value?: string | null) {
   return `${diffMinutes} minutes ago`;
 }
 
+function formatBytes(value?: number | null) {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let unitIndex = 0;
+
+  while (
+    size >= 1024 &&
+    unitIndex < units.length - 1
+  ) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${size >= 10 || unitIndex === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function formatInterfaceName(
+  value?: string | null,
+) {
+  if (!value) return "—";
+  return value;
+}
+
 function getWeakestWifiRoom(
   items: Array<{
     location_label: string;
@@ -124,12 +151,6 @@ export default function OverviewPage() {
     retry: false,
   });
 
-  const overview = overviewQuery.data;
-  const summary = summaryQuery.data;
-
-  const wifiSummaryItems =
-    wifiSummaryQuery.data?.items ?? [];
-
   const wifiAlertsQuery = useQuery({
     queryKey: ["alerts", "active", "wifi"],
     queryFn: () =>
@@ -141,6 +162,35 @@ export default function OverviewPage() {
     refetchInterval: 30000,
     retry: false,
   });
+
+  const criticalAlertsQuery = useQuery({
+    queryKey: [
+      "alerts",
+      "critical",
+      "active",
+      "overview",
+    ],
+    queryFn: () =>
+      api.getAlerts({
+        status: "active",
+        severity: "critical",
+        limit: 1,
+      }),
+    staleTime: 0,
+    refetchInterval: 15000,
+  });
+
+  const trafficSummaryQuery = useQuery({
+    queryKey: ["traffic-summary", 60],
+    queryFn: () => api.getTrafficSummary(60),
+  });
+
+  const overview = overviewQuery.data;
+  const summary = summaryQuery.data;
+  const trafficSummary = trafficSummaryQuery.data;
+
+  const wifiSummaryItems =
+    wifiSummaryQuery.data?.items ?? [];
 
   const activeWifiAlerts =
     wifiAlertsQuery.data ?? [];
@@ -168,23 +218,6 @@ export default function OverviewPage() {
 
   const alertsSectionRef =
     useRef<HTMLDivElement | null>(null);
-
-  const criticalAlertsQuery = useQuery({
-    queryKey: [
-      "alerts",
-      "critical",
-      "active",
-      "overview",
-    ],
-    queryFn: () =>
-      api.getAlerts({
-        status: "active",
-        severity: "critical",
-        limit: 1,
-      }),
-    staleTime: 0,
-    refetchInterval: 15000,
-  });
 
   const criticalAlerts = (
     criticalAlertsQuery.data ?? []
@@ -589,6 +622,55 @@ export default function OverviewPage() {
                       .most_recent_seen_at,
                   )}`
                 : "Waiting for overview data"
+            }
+          />
+
+          <StatCard
+            label="Traffic (1h)"
+            value={
+              trafficSummary
+                ? formatBytes(
+                    trafficSummary.total_bytes,
+                  )
+                : trafficSummaryQuery.isLoading
+                  ? "Loading"
+                  : "—"
+            }
+            hint={
+              trafficSummary
+                ? `${trafficSummary.interface_count} interface${
+                    trafficSummary.interface_count ===
+                    1
+                      ? ""
+                      : "s"
+                  } observed`
+                : trafficSummaryQuery.isError
+                  ? "Traffic summary unavailable"
+                  : "Waiting for traffic data"
+            }
+          />
+
+          <StatCard
+            label="Top talker"
+            value={
+              trafficSummary?.top_talker
+                ? formatInterfaceName(
+                    trafficSummary.top_talker
+                      .interface_name,
+                  )
+                : trafficSummaryQuery.isLoading
+                  ? "Loading"
+                  : "—"
+            }
+            hint={
+              trafficSummary?.top_talker
+                ? `${formatBytes(
+                    trafficSummary.top_talker
+                      .delta_bytes_total,
+                  )} moved in last hour`
+                : trafficSummaryQuery.isError
+                  ? "Top talker unavailable"
+                  : "Waiting for traffic data"
             }
           />
 
