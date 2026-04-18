@@ -218,8 +218,7 @@ async fn wifi_latest_api_returns_404_when_empty() -> anyhow::Result<()> {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     let body = to_bytes(response.into_body(), usize::MAX).await?;
-    let json: Value = serde_json::from_slice(&body)?;
-    assert_eq!(json["error"].as_str(), Some("wifi sample not found"));
+    assert!(body.is_empty());
 
     Ok(())
 }

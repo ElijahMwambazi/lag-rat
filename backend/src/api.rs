@@ -14,7 +14,7 @@ use crate::{
         AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
         IncidentTargetSummaryItem, KnownDeviceView, MetricsSummaryResponse, OutageReportItem,
         RecentAlertEventItem, RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse,
-        ReportTrendPoint, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
+        ReportTrendPoint, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint, TrafficSample,
         TrafficSummaryResponse, TrafficTopTalkersResponse, WifiSample,
     },
     services::{devices, status_overview},
@@ -107,6 +107,17 @@ struct TrafficWindowQuery {
     limit: Option<u32>,
 }
 
+#[derive(Debug, Deserialize)]
+struct WifiLatestQuery {
+    location_label: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TrafficSamplesQuery {
+    minutes: Option<u32>,
+    limit: Option<u32>,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/status/overview", get(get_status_overview))
@@ -148,6 +159,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/traffic/summary", get(get_traffic_summary))
         .route("/api/traffic/top-talkers", get(get_traffic_top_talkers))
+        .route("/api/traffic/samples", get(get_traffic_samples))
         .with_state(state)
 }
 
@@ -665,18 +677,19 @@ async fn get_wifi_samples(
 
 async fn get_latest_wifi_sample(
     State(state): State<AppState>,
-) -> Result<Json<WifiSample>, (StatusCode, Json<serde_json::Value>)> {
-    let sample = db::latest_wifi_sample(&state.db)
-        .await
-        .map_err(internal_error)?;
+    Query(query): Query<WifiLatestQuery>,
+) -> Result<Json<WifiSample>, StatusCode> {
+    let item = if let Some(location_label) = query.location_label.as_deref() {
+        db::latest_wifi_sample_for_location(&state.db, location_label)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    } else {
+        db::latest_wifi_sample(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    };
 
-    match sample {
-        Some(sample) => Ok(Json(sample)),
-        None => Err((
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": "wifi sample not found" })),
-        )),
-    }
+    item.map(Json).ok_or(StatusCode::NOT_FOUND)
 }
 
 async fn get_wifi_summary(
@@ -799,4 +812,18 @@ fn internal_error(err: anyhow::Error) -> (StatusCode, Json<serde_json::Value>) {
         StatusCode::INTERNAL_SERVER_ERROR,
         Json(json!({ "error": err.to_string() })),
     )
+}
+
+async fn get_traffic_samples(
+    State(state): State<AppState>,
+    Query(query): Query<TrafficSamplesQuery>,
+) -> Result<Json<Vec<TrafficSample>>, StatusCode> {
+    let minutes = query.minutes.unwrap_or(60) as i64;
+    let limit = query.limit.unwrap_or(50) as i64;
+
+    let items = db::list_traffic_samples(&state.db, minutes, limit)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(items))
 }
