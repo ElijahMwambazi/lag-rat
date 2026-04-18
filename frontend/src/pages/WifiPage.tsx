@@ -13,12 +13,13 @@ import {
 import ChartCard from "../components/ChartCard";
 import QueryState from "../components/QueryState";
 import StateCard from "../components/StateCard";
-import AlertDetailDrawer from "../components/AlertDetailDrawer";
+import AlertDetailDrawer from "../components/alerts/AlertDetailDrawer";
 import SideDrawer from "../components/SideDrawer";
 import WifiSampleDetailDrawer from "../components/WifiSampleDetailDrawer";
 import DataTableCard from "../components/DataTableCard";
 import CollapsibleInspectionSection from "../components/CollapsibleInspectionSection";
 import DrawerDetailSection from "../components/DrawerDetailSection";
+import PageFilterBar from "../components/PageFilterBar";
 import {
   api,
   type Alert,
@@ -713,42 +714,37 @@ export default function WifiPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">
-            Wi-Fi
-          </h2>
-          <p className="mt-2 text-zinc-400">
-            Room-based Wi-Fi signal history and
-            latest observed link state.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:items-end">
-          <div className="flex flex-col gap-2 sm:flex-row">
+      <PageFilterBar
+        title="Wi-Fi"
+        description="Room-based Wi-Fi summaries, comparisons, and recent samples across the selected operational window."
+        controls={
+          <>
             <select
               value={windowMinutes}
               onChange={(e) => {
                 const nextMinutes = Number(
                   e.target.value,
                 );
+
                 setWindowMinutes(nextMinutes);
+                setDrawerAlertId(null);
+                setAlertDrawerOpen(false);
+                setRecoveryDrawerAlert(null);
+
                 updateSearchParams({
                   minutes: nextMinutes,
                   location: locationLabel,
-                  alertId: drawerAlertId,
+                  alertId: null,
                 });
               }}
-              className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 sm:w-auto"
             >
-              {WINDOWS.map((option) => (
-                <option
-                  key={option.minutes}
-                  value={option.minutes}
-                >
-                  Last {option.label}
-                </option>
-              ))}
+              <option value={15}>Last 15m</option>
+              <option value={60}>Last 1h</option>
+              <option value={360}>Last 6h</option>
+              <option value={1440}>
+                Last 24h
+              </option>
             </select>
 
             <select
@@ -767,7 +763,7 @@ export default function WifiPage() {
                   alertId: null,
                 });
               }}
-              className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 sm:w-auto"
             >
               <option value="">
                 All locations
@@ -778,17 +774,19 @@ export default function WifiPage() {
                 </option>
               ))}
             </select>
-          </div>
+          </>
+        }
+      >
+        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
+          Last {formatWindowLabel(windowMinutes)}
+        </span>
 
-          <p className="text-sm text-zinc-400 sm:text-right">
-            Last{" "}
-            {formatWindowLabel(windowMinutes)}
-            {locationLabel
-              ? ` · ${locationLabel}`
-              : " · All locations"}
-          </p>
-        </div>
-      </section>
+        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
+          {locationLabel
+            ? `Viewing · ${locationLabel}`
+            : "Viewing · All locations"}
+        </span>
+      </PageFilterBar>
 
       {summaryQuery.isError ? (
         <QueryState

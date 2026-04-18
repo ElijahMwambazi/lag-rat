@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import DataTableCard from "../components/DataTableCard";
 import QueryState from "../components/QueryState";
 import StatCard from "../components/StatCard";
+import PageFilterBar from "../components/PageFilterBar";
 import {
   api,
   type TrafficSample,
@@ -126,19 +127,10 @@ export default function TrafficPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">
-            Traffic
-          </h2>
-          <p className="mt-2 text-zinc-400">
-            Interface-level traffic summaries and
-            top talkers across the selected
-            operational window.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:items-end">
+      <PageFilterBar
+        title="Traffic"
+        description="Interface-level traffic summaries and top talkers across the selected operational window."
+        controls={
           <select
             value={windowMinutes}
             onChange={(event) =>
@@ -153,11 +145,12 @@ export default function TrafficPage() {
             <option value={360}>Last 6h</option>
             <option value={1440}>Last 24h</option>
           </select>
-          <p className="text-sm text-zinc-400">
-            Summary window · {windowMinutes}m
-          </p>
-        </div>
-      </section>
+        }
+      >
+        <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+          Summary window · {windowMinutes}m
+        </span>
+      </PageFilterBar>
 
       {trafficSummaryQuery.isError ? (
         <QueryState

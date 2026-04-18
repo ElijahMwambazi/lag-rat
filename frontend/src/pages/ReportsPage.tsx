@@ -18,6 +18,7 @@ import StateCard from "../components/StateCard";
 import OutageDetailDrawer from "../components/OutageDetailDrawer";
 import DataTableCard from "../components/DataTableCard";
 import CollapsibleInspectionSection from "../components/CollapsibleInspectionSection";
+import PageFilterBar from "../components/PageFilterBar";
 import {
   buildAlertHeadline,
   buildAlertSubtext,
@@ -736,20 +737,11 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-4">
-      <section className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">
-            Reports
-          </h2>
-          <p className="mt-2 text-zinc-400">
-            Reporting summaries, recent incidents,
-            and exportable operational history for
-            the selected window.
-          </p>
-        </div>
-
-        <div className="flex w-full flex-col gap-3 xl:w-auto xl:items-end">
-          <div className="grid gap-3 sm:grid-cols-3 xl:flex xl:flex-wrap xl:justify-end">
+      <PageFilterBar
+        title="Reports"
+        description="Reporting summaries, recent incidents, and exportable operational history for the selected window."
+        controls={
+          <>
             <select
               value={windowHours}
               onChange={(e) =>
@@ -759,7 +751,7 @@ export default function ReportsPage() {
                     | 168,
                 )
               }
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 xl:w-auto"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 sm:w-auto"
             >
               <option value={24}>Last 24h</option>
               <option value={168}>Last 7d</option>
@@ -769,7 +761,7 @@ export default function ReportsPage() {
               type="button"
               onClick={exportReportsJson}
               disabled={isExportingSnapshot}
-              className="w-full rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 xl:w-auto"
+              className="w-full rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isExportingSnapshot
                 ? "Exporting..."
@@ -779,19 +771,23 @@ export default function ReportsPage() {
             <button
               type="button"
               onClick={exportReportsCsv}
-              className="w-full rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 xl:w-auto"
+              className="w-full rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 sm:w-auto"
             >
               Export CSV
             </button>
-          </div>
+          </>
+        }
+      >
+        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
+          {formatReportsWindowLabel(windowHours)}
+        </span>
 
-          <p className="text-sm text-zinc-400 xl:text-right">
-            {outagesQuery.isLoading
-              ? "Loading..."
-              : `${visibleOutages.length} shown · ${windowedOutages.length} in window · ${activeCount} active`}
-          </p>
-        </div>
-      </section>
+        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
+          {outagesQuery.isLoading
+            ? "Loading..."
+            : `${visibleOutages.length} shown · ${windowedOutages.length} in window · ${activeCount} active`}
+        </span>
+      </PageFilterBar>
 
       {reportsSummaryQuery.isError ? (
         <QueryState
