@@ -2,7 +2,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import AlertDetailDrawer from "../components/AlertDetailDrawer";
+import AlertDetailDrawer from "../components/alerts/AlertDetailDrawer";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../utils/incidentText", () => ({

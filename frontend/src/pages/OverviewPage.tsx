@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import AlertsPanel from "../components/AlertsPanel";
+import AlertsPanel from "../components/alerts/AlertsPanel";
 import DebugPanel from "../components/DebugPanel";
 import IssuePanel from "../components/IssuePanel";
 import QueryState from "../components/QueryState";

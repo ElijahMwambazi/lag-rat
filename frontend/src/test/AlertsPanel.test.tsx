@@ -10,7 +10,7 @@ import {
   it,
   vi,
 } from "vitest";
-import AlertsPanel from "../components/AlertsPanel";
+import AlertsPanel from "../components/alerts/AlertsPanel";
 import { renderWithQueryClient } from "./render";
 
 vi.mock(

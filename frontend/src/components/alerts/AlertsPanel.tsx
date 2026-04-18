@@ -13,7 +13,7 @@ import {
   api,
   type Alert,
   type AlertHistoryItem,
-} from "../services/api";
+} from "../../services/api";
 import AlertDetailDrawer from "./AlertDetailDrawer";
 import {
   buildAlertHeadline,
@@ -21,7 +21,7 @@ import {
   formatAlertEventTransition,
   formatIncidentState,
   formatIncidentType,
-} from "../utils/incidentText";
+} from "../../utils/incidentText";
 
 type StatusFilter = "all" | "active" | "resolved";
 type SeverityFilter =

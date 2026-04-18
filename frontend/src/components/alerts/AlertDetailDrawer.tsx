@@ -1,15 +1,15 @@
 import type {
   Alert,
   AlertHistoryItem,
-} from "../services/api";
-import SideDrawer from "./SideDrawer";
-import DrawerDetailSection from "./DrawerDetailSection";
+} from "../../services/api";
+import SideDrawer from "../SideDrawer";
+import DrawerDetailSection from "../DrawerDetailSection";
 import {
   buildAlertHeadline,
   buildAlertSubtext,
   formatIncidentState,
   formatIncidentType,
-} from "../utils/incidentText";
+} from "../../utils/incidentText";
 
 type Props = {
   alert: Alert | null;
