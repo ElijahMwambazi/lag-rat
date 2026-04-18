@@ -332,6 +332,7 @@ pub enum CollectorObservation {
     Dns(DnsObservation),
     Device(DeviceObservation),
     Wifi(WifiObservation),
+    Traffic(TrafficObservation),
 }
 
 #[derive(Debug, Clone)]
@@ -401,4 +402,68 @@ pub struct WifiObservation {
     pub frequency_mhz: Option<i64>,
     pub band: Option<String>,
     pub observed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, FromRow, Clone)]
+pub struct TrafficSample {
+    pub id: i64,
+    pub interface_name: String,
+    pub entity_type: String,
+    pub entity_key: String,
+    pub device_ip_address: Option<String>,
+    pub mac_address: Option<String>,
+    pub bytes_rx: i64,
+    pub bytes_tx: i64,
+    pub packets_rx: Option<i64>,
+    pub packets_tx: Option<i64>,
+    pub sampled_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TrafficObservation {
+    pub module: String,
+    pub collector_type: String,
+    pub interface_name: String,
+    pub entity_type: String,
+    pub entity_key: String,
+    pub device_ip_address: Option<String>,
+    pub mac_address: Option<String>,
+    pub bytes_rx: i64,
+    pub bytes_tx: i64,
+    pub packets_rx: Option<i64>,
+    pub packets_tx: Option<i64>,
+    pub observed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TrafficSummaryResponse {
+    pub window_minutes: u32,
+    pub total_bytes_rx: i64,
+    pub total_bytes_tx: i64,
+    pub total_bytes: i64,
+    pub interface_count: u32,
+    pub top_talker: Option<TrafficTopTalkerItem>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TrafficTopTalkerItem {
+    pub interface_name: String,
+    pub entity_type: String,
+    pub entity_key: String,
+    pub device_ip_address: Option<String>,
+    pub mac_address: Option<String>,
+    pub latest_bytes_rx: i64,
+    pub latest_bytes_tx: i64,
+    pub earliest_bytes_rx: i64,
+    pub earliest_bytes_tx: i64,
+    pub delta_bytes_rx: i64,
+    pub delta_bytes_tx: i64,
+    pub delta_bytes_total: i64,
+    pub latest_sampled_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TrafficTopTalkersResponse {
+    pub window_minutes: u32,
+    pub items: Vec<TrafficTopTalkerItem>,
 }

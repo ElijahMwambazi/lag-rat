@@ -2,7 +2,7 @@ use crate::{
     db,
     models::{
         CollectorObservation, DeviceObservation, DnsObservation, ServiceObservation,
-        WifiObservation,
+        TrafficObservation, WifiObservation,
     },
     services::alerts,
     state::AppState,
@@ -17,6 +17,7 @@ pub async fn ingest(state: &AppState, observation: CollectorObservation) -> anyh
         CollectorObservation::Dns(observation) => ingest_dns(state, &observation).await,
         CollectorObservation::Device(observation) => ingest_device(state, &observation).await,
         CollectorObservation::Wifi(observation) => ingest_wifi(state, &observation).await,
+        CollectorObservation::Traffic(observation) => ingest_traffic(state, &observation).await,
     }
 }
 
@@ -122,6 +123,36 @@ async fn ingest_wifi(state: &AppState, observation: &WifiObservation) -> anyhow:
 
     alerts::evaluate_wifi_observation(state, observation).await?;
     alerts::evaluate_all_wifi_sample_freshness(state).await?;
+
+    Ok(())
+}
+
+async fn ingest_traffic(state: &AppState, observation: &TrafficObservation) -> anyhow::Result<()> {
+    debug!(
+        module = %observation.module,
+        collector_type = %observation.collector_type,
+        interface_name = %observation.interface_name,
+        entity_type = %observation.entity_type,
+        entity_key = %observation.entity_key,
+        bytes_rx = observation.bytes_rx,
+        bytes_tx = observation.bytes_tx,
+        "ingesting traffic observation",
+    );
+
+    db::insert_traffic_sample(
+        &state.db,
+        &observation.interface_name,
+        &observation.entity_type,
+        &observation.entity_key,
+        observation.device_ip_address.as_deref(),
+        observation.mac_address.as_deref(),
+        observation.bytes_rx,
+        observation.bytes_tx,
+        observation.packets_rx,
+        observation.packets_tx,
+        observation.observed_at,
+    )
+    .await?;
 
     Ok(())
 }

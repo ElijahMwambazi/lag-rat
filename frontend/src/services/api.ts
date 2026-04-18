@@ -256,6 +256,36 @@ export type AlertHistoryEvent = {
   created_at: string;
 };
 
+export type TrafficTopTalkerItem = {
+  interface_name: string;
+  entity_type: string;
+  entity_key: string;
+  device_ip_address: string | null;
+  mac_address: string | null;
+  latest_bytes_rx: number;
+  latest_bytes_tx: number;
+  earliest_bytes_rx: number;
+  earliest_bytes_tx: number;
+  delta_bytes_rx: number;
+  delta_bytes_tx: number;
+  delta_bytes_total: number;
+  latest_sampled_at: string;
+};
+
+export type TrafficSummaryResponse = {
+  window_minutes: number;
+  total_bytes_rx: number;
+  total_bytes_tx: number;
+  total_bytes: number;
+  interface_count: number;
+  top_talker: TrafficTopTalkerItem | null;
+};
+
+export type TrafficTopTalkersResponse = {
+  window_minutes: number;
+  items: TrafficTopTalkerItem[];
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -518,4 +548,16 @@ export const api = {
       `/api/wifi/locations/summary${suffix ? `?${suffix}` : ""}`,
     );
   },
+  getTrafficSummary: (minutes = 60) =>
+    getJson<TrafficSummaryResponse>(
+      `/api/traffic/summary?minutes=${minutes}`,
+    ),
+
+  getTrafficTopTalkers: (
+    minutes = 60,
+    limit = 5,
+  ) =>
+    getJson<TrafficTopTalkersResponse>(
+      `/api/traffic/top-talkers?minutes=${minutes}&limit=${limit}`,
+    ),
 };

@@ -14,7 +14,8 @@ use crate::{
         AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
         IncidentTargetSummaryItem, KnownDeviceView, MetricsSummaryResponse, OutageReportItem,
         RecentAlertEventItem, RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse,
-        ReportTrendPoint, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint, WifiSample,
+        ReportTrendPoint, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint,
+        TrafficSummaryResponse, TrafficTopTalkersResponse, WifiSample,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -49,6 +50,11 @@ pub struct AlertQuery {
     pub entity_type: Option<String>,
     pub search: Option<String>,
     pub limit: Option<u32>,
+}
+
+#[derive(Deserialize)]
+pub struct HistoryQuery {
+    pub minutes: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -95,6 +101,12 @@ pub struct WifiLocationSummariesResponse {
     pub items: Vec<WifiLocationSummaryItem>,
 }
 
+#[derive(Debug, Deserialize)]
+struct TrafficWindowQuery {
+    minutes: Option<u32>,
+    limit: Option<u32>,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/status/overview", get(get_status_overview))
@@ -134,12 +146,9 @@ pub fn router(state: AppState) -> Router {
             "/api/wifi/locations/summary",
             get(get_wifi_location_summaries),
         )
+        .route("/api/traffic/summary", get(get_traffic_summary))
+        .route("/api/traffic/top-talkers", get(get_traffic_top_talkers))
         .with_state(state)
-}
-
-#[derive(Deserialize)]
-pub struct HistoryQuery {
-    pub minutes: Option<u32>,
 }
 
 async fn get_status_overview(
@@ -732,6 +741,44 @@ async fn get_wifi_location_summaries(
         .collect();
 
     Ok(Json(WifiLocationSummariesResponse {
+        window_minutes: minutes as u32,
+        items,
+    }))
+}
+
+async fn get_traffic_summary(
+    State(state): State<AppState>,
+    Query(query): Query<TrafficWindowQuery>,
+) -> Result<Json<TrafficSummaryResponse>, StatusCode> {
+    let minutes = query.minutes.unwrap_or(60) as i64;
+
+    let (total_bytes_rx, total_bytes_tx, interface_count, top_talker) =
+        db::traffic_summary(&state.db, minutes)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(TrafficSummaryResponse {
+        window_minutes: minutes as u32,
+        total_bytes_rx,
+        total_bytes_tx,
+        total_bytes: total_bytes_rx + total_bytes_tx,
+        interface_count,
+        top_talker,
+    }))
+}
+
+async fn get_traffic_top_talkers(
+    State(state): State<AppState>,
+    Query(query): Query<TrafficWindowQuery>,
+) -> Result<Json<TrafficTopTalkersResponse>, StatusCode> {
+    let minutes = query.minutes.unwrap_or(60) as i64;
+    let limit = query.limit.unwrap_or(5) as i64;
+
+    let items = db::traffic_top_talkers(&state.db, minutes, limit)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(TrafficTopTalkersResponse {
         window_minutes: minutes as u32,
         items,
     }))

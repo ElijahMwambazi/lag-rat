@@ -8,7 +8,7 @@ use crate::models::{
     Alert, ConnectivityCheck, Device, DeviceHistoryEvent, DnsCheck, IncidentTargetSummaryItem,
     KnownDevice, MetricsSummaryResponse, Outage, ProbeMetricsSummaryItem, RecentAlertEventItem,
     RecentDeviceEventItem, ReportSummaryResponse, ReportTrendPoint, SummaryResponse,
-    TimeseriesPoint, WifiSample,
+    TimeseriesPoint, TrafficSample, TrafficTopTalkerItem, WifiSample,
 };
 
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
@@ -1969,4 +1969,225 @@ pub async fn wifi_minutes_since_last_sample(
 
     let sampled_at: chrono::DateTime<chrono::Utc> = row.get("sampled_at");
     Ok(Some((Utc::now() - sampled_at).num_minutes()))
+}
+
+pub async fn insert_traffic_sample(
+    pool: &SqlitePool,
+    interface_name: &str,
+    entity_type: &str,
+    entity_key: &str,
+    device_ip_address: Option<&str>,
+    mac_address: Option<&str>,
+    bytes_rx: i64,
+    bytes_tx: i64,
+    packets_rx: Option<i64>,
+    packets_tx: Option<i64>,
+    sampled_at: DateTime<Utc>,
+) -> anyhow::Result<i64> {
+    let result = sqlx::query(
+        r#"
+        INSERT INTO traffic_samples (
+            interface_name,
+            entity_type,
+            entity_key,
+            device_ip_address,
+            mac_address,
+            bytes_rx,
+            bytes_tx,
+            packets_rx,
+            packets_tx,
+            sampled_at
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+        "#,
+    )
+    .bind(interface_name)
+    .bind(entity_type)
+    .bind(entity_key)
+    .bind(device_ip_address)
+    .bind(mac_address)
+    .bind(bytes_rx)
+    .bind(bytes_tx)
+    .bind(packets_rx)
+    .bind(packets_tx)
+    .bind(sampled_at)
+    .execute(pool)
+    .await?;
+
+    Ok(result.last_insert_rowid())
+}
+
+pub async fn list_traffic_samples(
+    pool: &SqlitePool,
+    minutes: i64,
+    limit: i64,
+) -> anyhow::Result<Vec<TrafficSample>> {
+    let items = sqlx::query_as::<_, TrafficSample>(
+        r#"
+        SELECT
+            id,
+            interface_name,
+            entity_type,
+            entity_key,
+            device_ip_address,
+            mac_address,
+            bytes_rx,
+            bytes_tx,
+            packets_rx,
+            packets_tx,
+            sampled_at
+        FROM traffic_samples
+        WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+        ORDER BY sampled_at DESC
+        LIMIT ?2
+        "#,
+    )
+    .bind(minutes)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(items)
+}
+
+pub async fn traffic_top_talkers(
+    pool: &SqlitePool,
+    minutes: i64,
+    limit: i64,
+) -> anyhow::Result<Vec<TrafficTopTalkerItem>> {
+    let rows = sqlx::query(
+        r#"
+        WITH windowed AS (
+            SELECT *
+            FROM traffic_samples
+            WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+        ),
+        ranked AS (
+            SELECT
+                interface_name,
+                entity_type,
+                entity_key,
+                device_ip_address,
+                mac_address,
+                bytes_rx,
+                bytes_tx,
+                sampled_at,
+                ROW_NUMBER() OVER (
+                    PARTITION BY interface_name, entity_key
+                    ORDER BY datetime(sampled_at) ASC
+                ) AS rn_asc,
+                ROW_NUMBER() OVER (
+                    PARTITION BY interface_name, entity_key
+                    ORDER BY datetime(sampled_at) DESC
+                ) AS rn_desc
+            FROM windowed
+        ),
+        earliest AS (
+            SELECT
+                interface_name,
+                entity_type,
+                entity_key,
+                device_ip_address,
+                mac_address,
+                bytes_rx AS earliest_bytes_rx,
+                bytes_tx AS earliest_bytes_tx
+            FROM ranked
+            WHERE rn_asc = 1
+        ),
+        latest AS (
+            SELECT
+                interface_name,
+                entity_type,
+                entity_key,
+                device_ip_address,
+                mac_address,
+                bytes_rx AS latest_bytes_rx,
+                bytes_tx AS latest_bytes_tx,
+                sampled_at AS latest_sampled_at
+            FROM ranked
+            WHERE rn_desc = 1
+        )
+        SELECT
+            latest.interface_name,
+            latest.entity_type,
+            latest.entity_key,
+            latest.device_ip_address,
+            latest.mac_address,
+            latest.latest_bytes_rx,
+            latest.latest_bytes_tx,
+            earliest.earliest_bytes_rx,
+            earliest.earliest_bytes_tx,
+            (latest.latest_bytes_rx - earliest.earliest_bytes_rx) AS delta_bytes_rx,
+            (latest.latest_bytes_tx - earliest.earliest_bytes_tx) AS delta_bytes_tx,
+            ((latest.latest_bytes_rx - earliest.earliest_bytes_rx) +
+             (latest.latest_bytes_tx - earliest.earliest_bytes_tx)) AS delta_bytes_total,
+            latest.latest_sampled_at
+        FROM latest
+        JOIN earliest
+          ON earliest.interface_name = latest.interface_name
+         AND earliest.entity_key = latest.entity_key
+        ORDER BY delta_bytes_total DESC, latest.latest_sampled_at DESC
+        LIMIT ?2
+        "#,
+    )
+    .bind(minutes)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    let items = rows
+        .into_iter()
+        .map(|row| TrafficTopTalkerItem {
+            interface_name: row.get("interface_name"),
+            entity_type: row.get("entity_type"),
+            entity_key: row.get("entity_key"),
+            device_ip_address: row.try_get("device_ip_address").ok(),
+            mac_address: row.try_get("mac_address").ok(),
+            latest_bytes_rx: row.get("latest_bytes_rx"),
+            latest_bytes_tx: row.get("latest_bytes_tx"),
+            earliest_bytes_rx: row.get("earliest_bytes_rx"),
+            earliest_bytes_tx: row.get("earliest_bytes_tx"),
+            delta_bytes_rx: row.get("delta_bytes_rx"),
+            delta_bytes_tx: row.get("delta_bytes_tx"),
+            delta_bytes_total: row.get("delta_bytes_total"),
+            latest_sampled_at: row.get("latest_sampled_at"),
+        })
+        .collect();
+
+    Ok(items)
+}
+
+pub async fn traffic_summary(
+    pool: &SqlitePool,
+    minutes: i64,
+) -> anyhow::Result<(i64, i64, u32, Option<TrafficTopTalkerItem>)> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            COALESCE(SUM(bytes_rx), 0) AS total_bytes_rx,
+            COALESCE(SUM(bytes_tx), 0) AS total_bytes_tx,
+            COUNT(DISTINCT interface_name) AS interface_count
+        FROM traffic_samples
+        WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+        "#,
+    )
+    .bind(minutes)
+    .fetch_one(pool)
+    .await?;
+
+    let total_bytes_rx: i64 = row.get("total_bytes_rx");
+    let total_bytes_tx: i64 = row.get("total_bytes_tx");
+    let interface_count: i64 = row.get("interface_count");
+
+    let top_talker = traffic_top_talkers(pool, minutes, 1)
+        .await?
+        .into_iter()
+        .next();
+
+    Ok((
+        total_bytes_rx,
+        total_bytes_tx,
+        interface_count as u32,
+        top_talker,
+    ))
 }
