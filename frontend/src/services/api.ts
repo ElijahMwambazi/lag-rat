@@ -286,6 +286,20 @@ export type TrafficTopTalkersResponse = {
   items: TrafficTopTalkerItem[];
 };
 
+export type TrafficSample = {
+  id: number;
+  interface_name: string;
+  entity_type: string;
+  entity_key: string;
+  device_ip_address: string | null;
+  mac_address: string | null;
+  bytes_rx: number;
+  bytes_tx: number;
+  packets_rx: number | null;
+  packets_tx: number | null;
+  sampled_at: string;
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
 async function getJson<T>(
@@ -559,5 +573,9 @@ export const api = {
   ) =>
     getJson<TrafficTopTalkersResponse>(
       `/api/traffic/top-talkers?minutes=${minutes}&limit=${limit}`,
+    ),
+  getTrafficSamples: (minutes = 60, limit = 50) =>
+    getJson<TrafficSample[]>(
+      `/api/traffic/samples?minutes=${minutes}&limit=${limit}`,
     ),
 };

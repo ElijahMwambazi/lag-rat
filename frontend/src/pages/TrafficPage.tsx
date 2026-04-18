@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import DataTableCard from "../components/DataTableCard";
 import QueryState from "../components/QueryState";
 import StatCard from "../components/StatCard";
-import { api } from "../services/api";
+import {
+  api,
+  type TrafficSample,
+} from "../services/api";
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -40,6 +43,34 @@ function formatInterfaceName(
   return value;
 }
 
+function formatSampleAge(value?: string | null) {
+  if (!value) return "Unknown";
+  const parsed = new Date(value);
+  const diffMs = Date.now() - parsed.getTime();
+
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    diffMs < 0
+  ) {
+    return "Unknown";
+  }
+
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes === 1) return "1 minute ago";
+  if (diffMinutes < 60)
+    return `${diffMinutes} minutes ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours === 1) return "1 hour ago";
+  if (diffHours < 24)
+    return `${diffHours} hours ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "1 day ago";
+  return `${diffDays} days ago`;
+}
+
 export default function TrafficPage() {
   const [windowMinutes, setWindowMinutes] =
     useState(60);
@@ -61,6 +92,20 @@ export default function TrafficPage() {
       api.getTrafficTopTalkers(windowMinutes, 20),
     refetchInterval: 30000,
   });
+
+  const trafficSamplesQuery = useQuery({
+    queryKey: [
+      "traffic-samples",
+      windowMinutes,
+      20,
+    ],
+    queryFn: () =>
+      api.getTrafficSamples(windowMinutes, 20),
+    refetchInterval: 30000,
+  });
+
+  const trafficSamples: TrafficSample[] =
+    trafficSamplesQuery.data ?? [];
 
   const summary = trafficSummaryQuery.data;
   const topTalkers =
@@ -246,6 +291,7 @@ export default function TrafficPage() {
           hasData={topTalkers.length > 0}
           tableMinWidthClassName="min-w-[980px]"
           variant="flush"
+          hideHeader
         >
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
@@ -306,6 +352,122 @@ export default function TrafficPage() {
                     {formatDate(
                       item.latest_sampled_at,
                     )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </DataTableCard>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium">
+            Recent traffic samples
+          </h3>
+          <p className="mt-1 text-sm text-zinc-400">
+            Most recent interface counter samples
+            captured in the selected window.
+          </p>
+        </div>
+
+        <DataTableCard
+          title="Recent traffic samples"
+          description="Latest raw traffic counter observations for the selected window."
+          rightSlot={
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                {trafficSamples.length} sample
+                {trafficSamples.length === 1
+                  ? ""
+                  : "s"}
+              </span>
+            </div>
+          }
+          helperText="These are raw interface-level samples. Deltas and rankings are shown in the top-talkers table above."
+          isLoading={
+            trafficSamplesQuery.isLoading
+          }
+          isError={trafficSamplesQuery.isError}
+          errorMessage={
+            trafficSamplesQuery.error instanceof
+            Error
+              ? trafficSamplesQuery.error.message
+              : "Traffic samples could not be loaded."
+          }
+          emptyTitle="Recent traffic samples"
+          emptyMessage="No traffic samples were available for this window."
+          hasData={trafficSamples.length > 0}
+          tableMinWidthClassName="min-w-[1080px]"
+          variant="flush"
+          hideHeader
+        >
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-800/50 text-zinc-300">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">
+                  Time
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  Interface
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  Entity
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  RX bytes
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  TX bytes
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  RX packets
+                </th>
+                <th className="px-4 py-3 text-left font-medium">
+                  TX packets
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {trafficSamples.map((item) => (
+                <tr
+                  key={item.id}
+                  className="border-t border-zinc-800"
+                >
+                  <td className="px-4 py-3 text-zinc-300">
+                    <div>
+                      {formatDate(
+                        item.sampled_at,
+                      )}
+                    </div>
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {formatSampleAge(
+                        item.sampled_at,
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-100">
+                    {formatInterfaceName(
+                      item.interface_name,
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    <div>{item.entity_key}</div>
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {item.entity_type}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    {formatBytes(item.bytes_rx)}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    {formatBytes(item.bytes_tx)}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    {item.packets_rx ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    {item.packets_tx ?? "—"}
                   </td>
                 </tr>
               ))}
