@@ -142,7 +142,7 @@ describe("TrafficPage", () => {
 
     expect(
       await screen.findByText(
-        "Recent traffic samples",
+        "Most recent interface counter samples captured in the selected window.",
       ),
     ).toBeInTheDocument();
 

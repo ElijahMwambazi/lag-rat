@@ -58,13 +58,15 @@ function formatSampleAge(value?: string | null) {
   const diffMinutes = Math.floor(diffMs / 60000);
   if (diffMinutes < 1) return "Just now";
   if (diffMinutes === 1) return "1 minute ago";
-  if (diffMinutes < 60)
+  if (diffMinutes < 60) {
     return `${diffMinutes} minutes ago`;
+  }
 
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours === 1) return "1 hour ago";
-  if (diffHours < 24)
+  if (diffHours < 24) {
     return `${diffHours} hours ago`;
+  }
 
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays === 1) return "1 day ago";
@@ -108,6 +110,7 @@ export default function TrafficPage() {
     trafficSamplesQuery.data ?? [];
 
   const summary = trafficSummaryQuery.data;
+
   const topTalkers =
     topTalkersQuery.data?.items ?? [];
 
@@ -400,7 +403,6 @@ export default function TrafficPage() {
           hasData={trafficSamples.length > 0}
           tableMinWidthClassName="min-w-[1080px]"
           variant="flush"
-          hideHeader
         >
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">

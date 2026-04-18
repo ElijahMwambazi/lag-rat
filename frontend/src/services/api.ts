@@ -574,7 +574,7 @@ export const api = {
     getJson<TrafficTopTalkersResponse>(
       `/api/traffic/top-talkers?minutes=${minutes}&limit=${limit}`,
     ),
-  getTrafficSamples: (minutes = 60, limit = 50) =>
+  getTrafficSamples: (minutes = 60, limit = 20) =>
     getJson<TrafficSample[]>(
       `/api/traffic/samples?minutes=${minutes}&limit=${limit}`,
     ),
