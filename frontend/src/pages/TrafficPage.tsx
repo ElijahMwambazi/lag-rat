@@ -198,10 +198,7 @@ export default function TrafficPage() {
             }
             hint={
               summary?.top_talker
-                ? `${formatBytes(
-                    summary.top_talker
-                      .delta_bytes_total,
-                  )} moved in window`
+                ? `${formatBytes(summary.top_talker.delta_bytes_total)} moved in window`
                 : "No ranked traffic yet"
             }
           />
