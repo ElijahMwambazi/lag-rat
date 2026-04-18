@@ -9,6 +9,7 @@ vi.mock("../services/api", () => ({
   api: {
     getTrafficSummary: vi.fn(),
     getTrafficTopTalkers: vi.fn(),
+    getTrafficSamples: vi.fn(),
   },
 }));
 
@@ -80,6 +81,37 @@ describe("TrafficPage", () => {
       ],
     });
 
+    vi.mocked(
+      api.getTrafficSamples,
+    ).mockResolvedValue([
+      {
+        id: 1,
+        interface_name: "docker0",
+        entity_type: "interface",
+        entity_key: "docker0",
+        device_ip_address: null,
+        mac_address: null,
+        bytes_rx: 8_000_000,
+        bytes_tx: 9_000_000,
+        packets_rx: 1200,
+        packets_tx: 1300,
+        sampled_at: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: null,
+        mac_address: null,
+        bytes_rx: 20_000_000,
+        bytes_tx: 30_000_000,
+        packets_rx: 4200,
+        packets_tx: 5100,
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
     renderWithQueryClient(
       <MemoryRouter initialEntries={["/traffic"]}>
         <TrafficPage />
@@ -95,8 +127,10 @@ describe("TrafficPage", () => {
     ).toBeInTheDocument();
 
     expect(
-      await screen.findAllByText("Top talkers"),
-    ).toHaveLength(2);
+      await screen.findByText(
+        "Interfaces ranked by traffic delta over the selected window.",
+      ),
+    ).toBeInTheDocument();
 
     expect(
       await screen.findAllByText("docker0"),
@@ -104,6 +138,20 @@ describe("TrafficPage", () => {
 
     expect(
       await screen.findAllByText("eth0"),
-    ).toHaveLength(2);
+    ).toHaveLength(4);
+
+    expect(
+      await screen.findByText(
+        "Recent traffic samples",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findAllByText("docker0"),
+    ).not.toHaveLength(0);
+
+    expect(
+      await screen.findAllByText("eth0"),
+    ).toHaveLength(4);
   });
 });
