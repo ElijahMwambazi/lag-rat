@@ -18,62 +18,27 @@ http://127.0.0.1:8080
 
 ## Current API shape
 
-The current API serves four broad categories:
+The current API serves five broad categories:
 
 - operational status
 - historical probe data
 - incidents and alerts
 - reports and metrics summaries
+- Wi-Fi sample and room-health workflows
 
 ---
 
 ## Status
 
-### `GET /api/status/overview`
+### `GET /api/overview`
 
-Returns a dashboard-oriented operational summary including:
+Returns the main dashboard overview payload, including:
 
-- router health
-- internet health
-- HTTP probe health
-- TCP probe health
-- DNS health
-- device activity summary
-- outage summary
-- alert summary
-
-### `GET /api/health/current`
-
-Returns the latest current health state including:
-
-- router reachable
-- internet reachable
-- DNS healthy
-- latest check timestamp
-
----
-
-## Historical probe data
-
-### `GET /api/health/history?minutes=60`
-
-Returns time-series latency data for the internet HTTP probe.
-
-### `GET /api/health/history/tcp?minutes=60`
-
-Returns time-series latency data for the internet TCP probe.
-
-### `GET /api/dns/history?minutes=60`
-
-Returns time-series DNS response-time data.
-
-### `GET /api/stats/summary`
-
-Returns a compact 24-hour summary including:
-
-- uptime percentage
-- average latency
-- outage count
+- current health cards
+- active outage summary
+- active alert summary
+- recent device summary
+- Wi-Fi summary block when available
 
 ---
 
@@ -81,58 +46,30 @@ Returns a compact 24-hour summary including:
 
 ### `GET /api/alerts`
 
-Lists alerts with optional filters.
+Returns filtered alerts.
 
-Supported query params:
+Common query parameters:
 
-- `status=active|resolved`
-- `severity=critical|warning|info`
-- `entity_type=router|internet|dns|...`
-- `search=<text>`
-- `limit=<n>`
+- `severity`
+- `status`
+- `entity_type`
+- `limit`
 
 ### `POST /api/alerts/{id}/acknowledge`
 
-Acknowledges an active alert and returns the updated alert record.
+Acknowledges an active alert.
 
 ### `GET /api/alerts/{id}/history`
 
-Returns lifecycle history for a single alert.
+Returns alert lifecycle events for a single alert.
 
-Typical events include:
+Typical event types:
 
-- opened
-- severity changed
-- message changed
-- acknowledged
-- resolved
-
----
-
-## Outages
-
-### `GET /api/outages`
-
-Lists outages with optional filters.
-
-Supported query params:
-
-- `status=active|resolved`
-- `outage_type=internet_http|internet_tcp|dns|router`
-- `search=<text>`
-- `limit=<n>`
-
-Returned items include:
-
-- outage type
-- target
-- started at
-- ended at
-- active/resolved state
-- start error
-- recovery note
-- computed duration
-- normalized status string
+- `opened`
+- `severity_changed`
+- `message_changed`
+- `acknowledged`
+- `resolved`
 
 ---
 
@@ -140,26 +77,27 @@ Returned items include:
 
 ### `GET /api/devices`
 
-Returns enriched devices for the dashboard, including label and confidence information.
+Returns enriched current device inventory.
 
-### `POST /api/devices/known`
+### `GET /api/devices/history`
 
-Creates or updates a known device label record.
+Returns device lifecycle/change history.
 
-Request body:
+---
 
-```json
-{
-  "ip_address": "192.168.1.20",
-  "mac_address": null,
-  "label": "Office laptop",
-  "notes": "Main work machine"
-}
-```
+## Outages
 
-### `GET /api/devices/{ip}/history`
+### `GET /api/outages`
 
-Returns historical device events for a single IP.
+Returns outage records.
+
+Common query parameters:
+
+- `hours`
+- `status`
+- `type`
+- `target`
+- `limit`
 
 ---
 
@@ -167,30 +105,11 @@ Returns historical device events for a single IP.
 
 ### `GET /api/reports/summary?hours=24`
 
-Returns summary metrics for the selected reporting window.
-
-Fields include:
-
-- uptime percentage
-- average latency
-- outage count
-- total downtime
-- DNS failure count
-- device history event count
-- active alert count
-- active critical alert count
-- active unacknowledged alert count
+Returns report summary counts for the selected report window.
 
 ### `GET /api/reports/trends?hours=24`
 
-Returns bucketed report trend data for charts.
-
-Fields include per-bucket counts for:
-
-- outages
-- DNS failures
-- internet HTTP failures
-- internet TCP failures
+Returns trend buckets for outages and failures over the selected report window.
 
 ### `GET /api/reports/alerts/recent?hours=24`
 
@@ -243,6 +162,73 @@ Each item includes:
 
 ---
 
+## Wi-Fi
+
+### `GET /api/wifi/samples?minutes=60&location_label=office&limit=50`
+
+Returns recent Wi-Fi samples ordered newest first.
+
+Supported query parameters:
+
+- `minutes`
+- `location_label` (optional)
+- `limit` (optional)
+
+Each item includes:
+
+- `id`
+- `location_label`
+- `interface_name`
+- `ssid`
+- `bssid`
+- `rssi_dbm`
+- `frequency_mhz`
+- `band`
+- `sampled_at`
+
+### `GET /api/wifi/latest`
+
+Returns the newest Wi-Fi sample across all locations.
+
+Returns `404` when no Wi-Fi samples exist.
+
+### `GET /api/wifi/summary?minutes=60&location_label=office`
+
+Returns a windowed Wi-Fi rollup for all locations or a single location.
+
+Fields include:
+
+- `window_minutes`
+- `location_label`
+- `latest_sample`
+- `sample_count`
+- `avg_rssi_dbm`
+- `min_rssi_dbm`
+- `max_rssi_dbm`
+
+### `GET /api/wifi/locations`
+
+Returns distinct Wi-Fi location labels.
+
+Response shape:
+
+- `items: string[]`
+
+### `GET /api/wifi/locations/summary?minutes=60`
+
+Returns per-location Wi-Fi summary items for the selected window.
+
+Each item includes:
+
+- `location_label`
+- `latest_sample`
+- `sample_count`
+- `avg_rssi_dbm`
+- `min_rssi_dbm`
+- `max_rssi_dbm`
+
+---
+
 ## Current module scope
 
 Today, this API is primarily the API contract for the **home network observability** module.
@@ -257,6 +243,7 @@ That includes:
 - alerts
 - reports
 - metrics
+- Wi-Fi room health and sample workflows
 
 ---
 
@@ -277,7 +264,6 @@ These should stay familiar across modules:
 
 These may expand over time:
 
-- Wi-Fi sampling data
 - traffic summary endpoints
 - optional capture/export endpoints
 - Bitcoin node observability summaries
@@ -291,16 +277,4 @@ The goal is to keep the dashboard contract familiar even as new observability mo
 
 - This API is local-first and intended for dashboard use.
 - Query parameters are currently simple and operator-focused.
-- Reports and metrics endpoints form part of the stable dashboard-facing contract.
-
----
-
-## Maintenance notes
-
-When updating this file:
-
-- add new endpoints under the relevant domain section
-- keep shared platform patterns separate from module-specific resources
-- document current implemented behavior first
-- place speculative or future endpoints only in **Future API direction**
-- prefer small edits over large rewrites
+- Reports, metrics, and Wi-Fi endpoints form part of the stable dashboard-facing contract.

@@ -17,6 +17,7 @@ The schema supports three layers of usage:
 1. **raw probe storage**
    - connectivity checks
    - DNS checks
+   - Wi-Fi samples
 
 2. **derived incident state**
    - outages
@@ -30,6 +31,7 @@ The schema supports three layers of usage:
    - metrics summary
    - recent event panels
    - snapshot export
+   - Wi-Fi room summaries
 
 ---
 
@@ -74,6 +76,28 @@ Notes:
 
 - feeds DNS history, summaries, alerts, outages, and metrics summaries
 
+### `wifi_samples`
+
+Stores Wi-Fi sampling observations.
+
+Fields:
+
+- `id`
+- `location_label`
+- `interface_name`
+- `ssid`
+- `bssid`
+- `rssi_dbm`
+- `frequency_mhz`
+- `band`
+- `sampled_at`
+
+Notes:
+
+- used for latest-sample lookups and recent-sample tables
+- powers Wi-Fi summary and per-location summary rollups
+- feeds weak-signal and stale-sample alert evaluation
+
 ### `outages`
 
 Tracks outage lifecycle records.
@@ -117,6 +141,7 @@ Notes:
 - supports active/resolved views
 - severity may change over time
 - acknowledgment is tracked explicitly
+- includes Wi-Fi signal weakness and stale-sample lifecycle state
 
 ### `alert_history`
 
@@ -143,6 +168,7 @@ Notes:
 
 - powers alert timeline drawers
 - powers recent report alert events
+- includes Wi-Fi alert transitions and recovery history
 
 ### `devices`
 
@@ -240,6 +266,7 @@ These tables are currently specific to the first implemented module:
 - dns_checks
 - devices
 - known_devices
+- wifi_samples
 
 Future modules should reuse shared incident/reporting patterns where possible rather than inventing separate lifecycle models.
 
@@ -255,54 +282,7 @@ The schema is beyond initial draft stage and already supports:
 - alert history
 - known device labeling
 - device history
+- Wi-Fi sample persistence
+- Wi-Fi summary aggregation and per-location rollups
+- Wi-Fi alert evaluation inputs
 - report and metrics aggregation queries
-
----
-
-## Planned schema extensions
-
-### Wi-Fi sampling tables
-
-Possible fields:
-
-- location_label
-- rssi_dbm
-- band
-- latency_ms
-- packet_loss_pct
-- sampled_at
-
-### Traffic summary tables
-
-Possible fields:
-
-- device or interface identifier
-- bytes sent/received
-- packets sent/received
-- observation window
-- protocol or category summary
-
-### Optional capture/export metadata
-
-Near-term direction should favor export hooks and metadata over full packet storage inside Lag Rat.
-
-Possible fields:
-
-- export_type
-- export_path or export_reference
-- capture_started_at
-- capture_ended_at
-- related_device or target
-- related_incident_id
-
----
-
-## Maintenance notes
-
-When updating this file:
-
-- keep current implemented tables separate from planned extensions
-- treat shared incident/history/report patterns as platform primitives
-- add new module-specific tables under planned extensions until they are implemented
-- prefer documenting current usage before speculative schema design
-- prefer additive edits over large restructuring

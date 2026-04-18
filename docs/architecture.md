@@ -21,33 +21,34 @@ Lag Rat is built around three main layers:
 ## High-level architecture
 
 ```text
-[ Router / Internet / LAN Devices ]
-                |
-                v
-        [ Rust Collector Service ]
-                |
-      +---------+----------+
-      |                    |
-      v                    v
-[ SQLite / Metrics DB ]   [ Local API ]
-                                |
-                                v
-                   [ React + TypeScript Dashboard ]
+[ Router / Internet / LAN Devices / Wi-Fi Environment ]
+                         |
+                         v
+               [ Rust Collector Service ]
+                         |
+           +-------------+-------------+
+           |                           |
+           v                           v
+   [ SQLite / Aggregation DB ]      [ Local API ]
+                                         |
+                                         v
+                            [ React + TypeScript Dashboard ]
 ```
 
 ---
 
 ## Main runtime flow
 
-1. Scheduled monitors run connectivity, DNS, and device checks.
+1. Scheduled monitors run connectivity, DNS, device, and Wi-Fi sampling checks.
 2. Raw observations are persisted in SQLite.
 3. Derived lifecycle state is updated:
    - outages open and recover
    - alerts open, escalate, acknowledge, and resolve
    - device history records are appended
-4. Aggregation queries build status, metrics, and report views.
+   - Wi-Fi signal weakness and stale-sample alerts are evaluated
+4. Aggregation queries build status, metrics, report, and Wi-Fi module views.
 5. Axum serves local REST endpoints.
-6. The React dashboard renders overview, alerts, reports, metrics, devices, and detail drawers.
+6. The React dashboard renders overview, alerts, reports, metrics, devices, Wi-Fi, and detail drawers.
 
 ---
 
@@ -91,6 +92,8 @@ It currently covers:
 - device inventory/activity
 - outages and alerts
 - reports and metrics summaries
+- room-based Wi-Fi sampling
+- room-level Wi-Fi health summaries and timelines
 
 ---
 
@@ -102,6 +105,7 @@ The backend currently owns:
 - connectivity checks
 - DNS checks
 - device discovery / ingestion
+- Wi-Fi sample ingest
 - persistence
 - outage lifecycle updates
 - alert lifecycle updates
@@ -129,6 +133,15 @@ The backend currently owns:
 - known device labeling
 - device history events
 - local host registration and inventory parsing
+
+#### Wi-Fi
+
+- Wi-Fi sample ingest and persistence
+- latest-sample lookup
+- windowed Wi-Fi summaries
+- per-location summary rollups
+- weak-signal alert evaluation
+- stale-sample freshness evaluation
 
 #### Incident state
 
@@ -159,6 +172,7 @@ The frontend currently owns:
 - report/export workflows
 - incident drill-down drawers
 - operator-friendly copy for primary surfaces
+- Wi-Fi room comparison, sample inspection, and room-specific incident flows
 
 ### Current dashboard surfaces
 
@@ -167,15 +181,17 @@ The frontend currently owns:
 - Reports
 - Metrics
 - Devices
+- Wi-Fi
 
 ### Current UI patterns
 
 - shared `SideDrawer` shell
 - shared `DrawerDetailSection`
 - card-level loading / empty / error states
-- time-window controls for reports and metrics
+- time-window controls for reports, metrics, and Wi-Fi
 - list/table surfaces with friendlier wording
 - drawers retaining raw technical detail
+- collapsible inspection sections for dense module-specific workflows
 
 ---
 
@@ -191,6 +207,7 @@ SQLite is currently the system of record for:
 - devices
 - device history
 - known devices
+- Wi-Fi samples
 - schema migration tracking
 
 The database supports both raw-event storage and higher-level dashboard aggregation.
@@ -209,6 +226,7 @@ Architectural emphasis is now on:
 - separating operator-friendly surface language from technical drawer detail
 - improving cohesion without redesigning from scratch
 - defining a clean collector/plugin boundary for future observability domains
+- using Wi-Fi as the first richer module workflow built on shared alert/report primitives
 
 ---
 
@@ -217,9 +235,9 @@ Architectural emphasis is now on:
 These are the most likely next architectural extensions:
 
 - responsive/mobile dashboard polish
-- room-based Wi-Fi sampling
 - traffic summaries / top talkers
 - optional packet capture export hooks
+- clearer collector/plugin boundaries
 
 ---
 
@@ -227,7 +245,6 @@ These are the most likely next architectural extensions:
 
 The architecture should leave room for future modules such as:
 
-- Wi-Fi sampling
 - traffic summaries / top talkers
 - Bitcoin node observability
 - Lightning observability
@@ -238,7 +255,6 @@ The architecture should leave room for future modules such as:
 
 These are not yet core architectural modules or completed platform capabilities:
 
-- room-based Wi-Fi workflows
 - traffic summaries
 - optional packet capture export
 - Prometheus-compatible export
@@ -255,15 +271,3 @@ Recommended separation:
 - discovery tools: inventory enrichment
 - packet capture tools: deep forensic analysis
 - Wireshark: external protocol-level drill-down
-
----
-
-## Maintenance notes
-
-When updating this file:
-
-- keep **current implemented architecture** separate from **future platform direction**
-- document shared platform responsibilities before module-specific details
-- add new domains under **Current module** or **Future modules** as appropriate
-- treat near-term additions as likely next implementation work, not as already-built capabilities
-- prefer additive edits rather than reshaping the whole file

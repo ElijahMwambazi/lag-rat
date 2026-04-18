@@ -10,6 +10,7 @@ Today, the first implemented module is network monitoring for:
 - outages and alerts
 - local device activity
 - reports and metrics
+- room-based Wi-Fi sampling and Wi-Fi alerting
 
 The current product shape is:
 
@@ -33,6 +34,10 @@ Implemented:
 - metrics summary and metrics page
 - shared drawer shell and drawer detail sections
 - backend integration coverage for major dashboard-facing APIs
+- Wi-Fi sample ingest and persistence
+- Wi-Fi signal alerting and stale-sample alerting
+- Wi-Fi summaries, location summaries, and recent-sample workflows
+- Wi-Fi page with room comparison, timelines, recoveries, and sample detail drawers
 
 ## Current focus
 
@@ -40,6 +45,7 @@ Implemented:
 - dashboard cohesion and operator-friendly wording
 - docs refresh
 - defining a collector/plugin boundary for future observability domains
+- continuing Wi-Fi contract and operator-path refinement as a maturing module
 
 ## Platform model
 
@@ -69,13 +75,14 @@ The current primary module is **home network observability**:
 - alerts
 - reports
 - metrics
+- Wi-Fi samples and room-level Wi-Fi health
 
 ### Near-term additions
 
 - responsive/mobile dashboard polish
-- room-based Wi-Fi sampling
 - traffic summaries / top talkers
 - optional packet capture export hooks
+- clearer collector/plugin boundaries for future modules
 
 ### Future modules
 
@@ -89,16 +96,19 @@ The current primary module is **home network observability**:
 - keep technical detail in drawers while keeping list/table surfaces more human-friendly
 - design the collector/plugin boundary for future modules
 - continue docs and repo polish
+- use Wi-Fi as the first deeper module-level workflow built on shared platform primitives
 
 ## Testing
 
 Current strength:
 
-- backend integration coverage for alerts, outages, overview, reports, and metrics endpoints
+- backend integration coverage for alerts, outages, overview, reports, metrics, and Wi-Fi endpoints
+- frontend coverage for dashboard surfaces including Wi-Fi flows and drawer interactions
 
 Next major testing step:
 
-- expand frontend component/state coverage for dashboard surfaces, especially reports and metrics flows
+- expand HTTP/API coverage for remaining module-specific surfaces
+- continue operator-path verification for Wi-Fi and future module additions
 
 ## Stack
 
@@ -136,14 +146,12 @@ Next major testing step:
 lag-rat/
 ├── README.md
 ├── docs/
-│   ├── docs-index.md
-│   ├── docs-crosslink-guide.md
 │   ├── architecture.md
 │   ├── api.md
 │   ├── database-schema.md
 │   ├── roadmap.md
 │   ├── experiments.md
-│   └── lag-rat.md
+│   └── lag_rat.md
 ├── backend/
 ├── frontend/
 └── scripts/
