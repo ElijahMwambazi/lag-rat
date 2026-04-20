@@ -1,12 +1,6 @@
 import { screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import OverviewPage from "../pages/OverviewPage";
 import { renderWithQueryClient } from "./render";
 import { api } from "../services/api";
@@ -20,9 +14,9 @@ vi.mock("../components/AlertsPanel", () => ({
 }));
 
 vi.mock("../utils/incidentText", async () => {
-  const actual = await vi.importActual<
-    typeof import("../utils/incidentText")
-  >("../utils/incidentText");
+  const actual = await vi.importActual<typeof import("../utils/incidentText")>(
+    "../utils/incidentText",
+  );
 
   return {
     ...actual,
@@ -43,15 +37,11 @@ describe("OverviewPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(
-      api.getWifiLocationSummaries,
-    ).mockRejectedValue(
+    vi.mocked(api.getWifiLocationSummaries).mockRejectedValue(
       new Error("Wi-Fi summaries unavailable"),
     );
 
-    vi.mocked(
-      api.getTrafficSummary,
-    ).mockResolvedValue({
+    vi.mocked(api.getTrafficSummary).mockResolvedValue({
       window_minutes: 60,
       total_bytes_rx: 40_000_000,
       total_bytes_tx: 70_000_000,
@@ -70,16 +60,13 @@ describe("OverviewPage", () => {
         delta_bytes_rx: 0,
         delta_bytes_tx: 0,
         delta_bytes_total: 0,
-        latest_sampled_at:
-          new Date().toISOString(),
+        latest_sampled_at: new Date().toISOString(),
       },
     });
   });
 
   it("renders overview failure state", async () => {
-    vi.mocked(
-      api.getStatusOverview,
-    ).mockRejectedValue(
+    vi.mocked(api.getStatusOverview).mockRejectedValue(
       new Error("Overview exploded"),
     );
     vi.mocked(api.getSummary).mockResolvedValue({
@@ -87,31 +74,27 @@ describe("OverviewPage", () => {
       avg_latency_ms_24h: 18,
       outage_count_24h: 1,
     });
-    vi.mocked(api.getAlerts).mockResolvedValue(
-      [],
-    );
+    vi.mocked(api.getAlerts).mockResolvedValue([]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <OverviewPage />
       </MemoryRouter>,
     );
 
     expect(
-      await screen.findByText(
-        "Overview request failed",
-      ),
+      await screen.findByText("Overview request failed"),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByText("Overview exploded")
-        .length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Overview exploded").length).toBeGreaterThan(0);
   });
 
   it("renders critical alert banner when critical unacknowledged alerts exist", async () => {
-    vi.mocked(
-      api.getStatusOverview,
-    ).mockResolvedValue({
+    vi.mocked(api.getStatusOverview).mockResolvedValue({
       checked_at: "2026-04-11T12:00:00Z",
       router: {
         is_healthy: true,
@@ -155,8 +138,7 @@ describe("OverviewPage", () => {
       },
       devices: {
         active_count_24h: 7,
-        most_recent_seen_at:
-          "2026-04-11T11:50:00Z",
+        most_recent_seen_at: "2026-04-11T11:50:00Z",
       },
       outages: {
         active_count: 1,
@@ -167,8 +149,7 @@ describe("OverviewPage", () => {
         active_critical_count: 1,
         active_unacknowledged_count: 1,
         active_unacknowledged_critical_count: 1,
-        most_recent_created_at:
-          "2026-04-11T11:58:00Z",
+        most_recent_created_at: "2026-04-11T11:58:00Z",
       },
     });
 
@@ -185,8 +166,7 @@ describe("OverviewPage", () => {
         severity: "critical",
         entity_type: "internet_http",
         entity_key: "https://example.com",
-        message:
-          "internet_http check failed: timeout",
+        message: "internet_http check failed: timeout",
         is_active: true,
         created_at: "2026-04-11T11:58:00Z",
         resolved_at: null,
@@ -195,52 +175,39 @@ describe("OverviewPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <OverviewPage />
       </MemoryRouter>,
     );
 
     expect(
-      await screen.findByText(
-        "Immediate attention needed",
-      ),
+      await screen.findByText("Immediate attention needed"),
     ).toBeInTheDocument();
 
-    expect(
-      screen.getByText("Review alerts"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Review alerts")).toBeInTheDocument();
+
+    expect(screen.getByText("Take action")).toBeInTheDocument();
+
+    expect(screen.getByText("Activity snapshot")).toBeInTheDocument();
+
+    expect(await screen.findByText("Traffic (1h)")).toBeInTheDocument();
+
+    expect(await screen.findByText("Top talker")).toBeInTheDocument();
+
+    expect(await screen.findByText("docker0")).toBeInTheDocument();
 
     expect(
-      screen.getByText("Take action"),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Activity snapshot"),
-    ).toBeInTheDocument();
-
-    expect(
-      await screen.findByText("Traffic (1h)"),
-    ).toBeInTheDocument();
-
-    expect(
-      await screen.findByText("Top talker"),
-    ).toBeInTheDocument();
-
-    expect(
-      await screen.findByText("docker0"),
-    ).toBeInTheDocument();
-
-    expect(
-      await screen.findByText(
-        "4 interfaces observed",
-      ),
+      await screen.findByText("4 interfaces observed"),
     ).toBeInTheDocument();
   });
 
   it("renders traffic fallback state when traffic summary is unavailable", async () => {
-    vi.mocked(
-      api.getStatusOverview,
-    ).mockResolvedValue({
+    vi.mocked(api.getStatusOverview).mockResolvedValue({
       checked_at: "2026-04-11T12:00:00Z",
       router: {
         is_healthy: true,
@@ -307,41 +274,34 @@ describe("OverviewPage", () => {
       outage_count_24h: 0,
     });
 
-    vi.mocked(api.getAlerts).mockResolvedValue(
-      [],
-    );
+    vi.mocked(api.getAlerts).mockResolvedValue([]);
 
-    vi.mocked(
-      api.getTrafficSummary,
-    ).mockRejectedValue(
+    vi.mocked(api.getTrafficSummary).mockRejectedValue(
       new Error("Traffic summary unavailable"),
     );
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <OverviewPage />
       </MemoryRouter>,
     );
 
-    expect(
-      await screen.findByText("Traffic (1h)"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Traffic (1h)")).toBeInTheDocument();
+
+    expect(await screen.findByText("Top talker")).toBeInTheDocument();
 
     expect(
-      await screen.findByText("Top talker"),
-    ).toBeInTheDocument();
-
-    expect(
-      await screen.findByText(
-        "Traffic summary unavailable",
-      ),
+      await screen.findByText("Traffic summary unavailable"),
     ).toBeInTheDocument();
   });
 
   it("renders wifi health summary card", async () => {
-    vi.mocked(
-      api.getStatusOverview,
-    ).mockResolvedValue({
+    vi.mocked(api.getStatusOverview).mockResolvedValue({
       checked_at: "2026-04-11T12:00:00Z",
       router: {
         is_healthy: true,
@@ -385,8 +345,7 @@ describe("OverviewPage", () => {
       },
       devices: {
         active_count_24h: 7,
-        most_recent_seen_at:
-          "2026-04-11T11:50:00Z",
+        most_recent_seen_at: "2026-04-11T11:50:00Z",
       },
       outages: {
         active_count: 0,
@@ -407,13 +366,9 @@ describe("OverviewPage", () => {
       outage_count_24h: 0,
     });
 
-    vi.mocked(api.getAlerts).mockResolvedValue(
-      [],
-    );
+    vi.mocked(api.getAlerts).mockResolvedValue([]);
 
-    vi.mocked(
-      api.getWifiLocationSummaries,
-    ).mockResolvedValue({
+    vi.mocked(api.getWifiLocationSummaries).mockResolvedValue({
       window_minutes: 60,
       items: [
         {
@@ -463,9 +418,7 @@ describe("OverviewPage", () => {
       ],
     });
 
-    vi.mocked(
-      api.getWifiLocationSummaries,
-    ).mockResolvedValue({
+    vi.mocked(api.getWifiLocationSummaries).mockResolvedValue({
       window_minutes: 60,
       items: [
         {
@@ -516,28 +469,25 @@ describe("OverviewPage", () => {
     });
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <OverviewPage />
       </MemoryRouter>,
     );
 
     expect(
-      await screen.findByText(
-        "Weakest room: bedroom",
-      ),
+      await screen.findByText("Weakest room: bedroom"),
     ).toBeInTheDocument();
 
-    expect(
-      await screen.findByText("-74 dBm"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("-74 dBm")).toBeInTheDocument();
 
-    expect(
-      await screen.findByText("Rooms reporting"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Rooms reporting")).toBeInTheDocument();
 
-    expect(
-      await screen.findByText("Stale rooms"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Stale rooms")).toBeInTheDocument();
 
     expect(
       await screen.findByRole("button", {

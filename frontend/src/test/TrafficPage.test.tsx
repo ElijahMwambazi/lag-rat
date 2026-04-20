@@ -105,7 +105,13 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={["/traffic"]}>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -227,7 +233,13 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={["/traffic"]}>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -319,7 +331,13 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={["/traffic"]}>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );

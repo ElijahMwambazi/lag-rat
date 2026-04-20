@@ -1,22 +1,11 @@
-import {
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import ReportsPage from "../pages/ReportsPage";
 import { renderWithQueryClient } from "./render";
 
 function seedReportsSuccessState() {
-  vi.mocked(
-    api.getReportsSummary,
-  ).mockResolvedValue({
+  vi.mocked(api.getReportsSummary).mockResolvedValue({
     window_hours: 24,
     uptime_pct: 99.9,
     avg_latency_ms: 15,
@@ -29,9 +18,7 @@ function seedReportsSuccessState() {
     active_unacknowledged_alert_count: 1,
   });
 
-  vi.mocked(
-    api.getReportTrends,
-  ).mockResolvedValue([
+  vi.mocked(api.getReportTrends).mockResolvedValue([
     {
       bucket_start: "2026-04-11T10:00:00Z",
       label: "10:00",
@@ -42,9 +29,7 @@ function seedReportsSuccessState() {
     },
   ]);
 
-  vi.mocked(
-    api.getRecentReportAlertEvents,
-  ).mockResolvedValue([
+  vi.mocked(api.getRecentReportAlertEvents).mockResolvedValue([
     {
       alert_id: 1,
       event_type: "opened",
@@ -52,17 +37,14 @@ function seedReportsSuccessState() {
       entity_type: "internet_http",
       entity_key: "https://example.com",
       alert_type: "service_health",
-      message:
-        "internet_http check failed: timeout",
+      message: "internet_http check failed: timeout",
       previous_value: null,
       new_value: "critical",
       created_at: "2026-04-11T10:00:00Z",
     },
   ]);
 
-  vi.mocked(
-    api.getRecentReportDeviceEvents,
-  ).mockResolvedValue([
+  vi.mocked(api.getRecentReportDeviceEvents).mockResolvedValue([
     {
       device_ip_address: "192.168.1.20",
       event_type: "hostname_changed",
@@ -72,9 +54,7 @@ function seedReportsSuccessState() {
     },
   ]);
 
-  vi.mocked(
-    api.getTopIncidentTargets,
-  ).mockResolvedValue([
+  vi.mocked(api.getTopIncidentTargets).mockResolvedValue([
     {
       incident_type: "internet_http",
       target: "https://example.com",
@@ -100,9 +80,7 @@ function seedReportsSuccessState() {
     },
   ]);
 
-  vi.mocked(
-    api.getReportsSnapshot,
-  ).mockResolvedValue({
+  vi.mocked(api.getReportsSnapshot).mockResolvedValue({
     generated_at: "2026-04-11T10:00:00Z",
     window_hours: 24,
     narrative_summary: "Test snapshot",
@@ -113,9 +91,7 @@ function seedReportsSuccessState() {
     outages: [],
   } as never);
 
-  vi.mocked(
-    api.getRecentReportAlertEvents,
-  ).mockResolvedValue([
+  vi.mocked(api.getRecentReportAlertEvents).mockResolvedValue([
     {
       alert_id: 1,
       event_type: "opened",
@@ -123,8 +99,7 @@ function seedReportsSuccessState() {
       entity_type: "wifi",
       entity_key: "office",
       alert_type: "wifi_signal_weak",
-      message:
-        "wifi signal is weak in office: -72 dBm",
+      message: "wifi signal is weak in office: -72 dBm",
       previous_value: null,
       new_value: "warning",
       created_at: "2026-04-11T10:00:00Z",
@@ -136,26 +111,21 @@ vi.mock("recharts", async () => {
   return await import("./mocks/recharts");
 });
 
-vi.mock(
-  "../components/OutageDetailDrawer",
-  () => ({
-    default: ({
-      open,
-      outage,
-    }: {
-      open: boolean;
-      outage?: { target?: string } | null;
-    }) =>
-      open ? (
-        <div>
-          Outage detail drawer
-          {outage?.target
-            ? `: ${outage.target}`
-            : ""}
-        </div>
-      ) : null,
-  }),
-);
+vi.mock("../components/OutageDetailDrawer", () => ({
+  default: ({
+    open,
+    outage,
+  }: {
+    open: boolean;
+    outage?: { target?: string } | null;
+  }) =>
+    open ? (
+      <div>
+        Outage detail drawer
+        {outage?.target ? `: ${outage.target}` : ""}
+      </div>
+    ) : null,
+}));
 
 vi.mock("../components/DataTableCard", () => ({
   default: ({
@@ -179,18 +149,15 @@ vi.mock("../components/DataTableCard", () => ({
 }));
 
 vi.mock("../utils/incidentText", () => ({
-  buildAlertHeadline: () =>
-    "Web connectivity check failed",
+  buildAlertHeadline: () => "Web connectivity check failed",
   buildAlertSubtext: () => ({
     targetLabel: "Target: https://example.com",
   }),
-  formatAlertEventTransition: () =>
-    "Alert recovered",
+  formatAlertEventTransition: () => "Alert recovered",
   formatIncidentState: (value: string) =>
     value === "active" ? "Ongoing" : "Recovered",
   formatIncidentType: () => "Web connectivity",
-  summarizeOutageCause: () =>
-    "Web probe request failed",
+  summarizeOutageCause: () => "Web probe request failed",
 }));
 
 vi.mock("../services/api", () => ({
@@ -213,43 +180,25 @@ describe("ReportsPage", () => {
   });
 
   it("shows reports summary failure state", async () => {
-    vi.mocked(
-      api.getReportsSummary,
-    ).mockRejectedValue(
+    vi.mocked(api.getReportsSummary).mockRejectedValue(
       new Error("reports summary failed"),
     );
-    vi.mocked(
-      api.getReportTrends,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.getRecentReportAlertEvents,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.getRecentReportDeviceEvents,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.getTopIncidentTargets,
-    ).mockResolvedValue([]);
-    vi.mocked(api.getOutages).mockResolvedValue(
-      [],
-    );
+    vi.mocked(api.getReportTrends).mockResolvedValue([]);
+    vi.mocked(api.getRecentReportAlertEvents).mockResolvedValue([]);
+    vi.mocked(api.getRecentReportDeviceEvents).mockResolvedValue([]);
+    vi.mocked(api.getTopIncidentTargets).mockResolvedValue([]);
+    vi.mocked(api.getOutages).mockResolvedValue([]);
 
     renderWithQueryClient(<ReportsPage />);
 
     expect(
-      await screen.findByText(
-        "Reports summary request failed",
-      ),
+      await screen.findByText("Reports summary request failed"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("reports summary failed"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("reports summary failed")).toBeInTheDocument();
   });
 
   it("shows empty recent alert events state", async () => {
-    vi.mocked(
-      api.getReportsSummary,
-    ).mockResolvedValue({
+    vi.mocked(api.getReportsSummary).mockResolvedValue({
       window_hours: 24,
       uptime_pct: 99.9,
       avg_latency_ms: 15,
@@ -261,21 +210,11 @@ describe("ReportsPage", () => {
       active_critical_alert_count: 0,
       active_unacknowledged_alert_count: 0,
     });
-    vi.mocked(
-      api.getReportTrends,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.getRecentReportAlertEvents,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.getRecentReportDeviceEvents,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.getTopIncidentTargets,
-    ).mockResolvedValue([]);
-    vi.mocked(api.getOutages).mockResolvedValue(
-      [],
-    );
+    vi.mocked(api.getReportTrends).mockResolvedValue([]);
+    vi.mocked(api.getRecentReportAlertEvents).mockResolvedValue([]);
+    vi.mocked(api.getRecentReportDeviceEvents).mockResolvedValue([]);
+    vi.mocked(api.getTopIncidentTargets).mockResolvedValue([]);
+    vi.mocked(api.getOutages).mockResolvedValue([]);
 
     renderWithQueryClient(<ReportsPage />);
 
@@ -293,30 +232,15 @@ it("refetches reports queries when the window changes to 7d", async () => {
 
   renderWithQueryClient(<ReportsPage />);
 
-  expect(
-    await screen.findByDisplayValue("Last 24h"),
-  ).toBeInTheDocument();
+  expect(await screen.findByDisplayValue("Last 24h")).toBeInTheDocument();
 
-  await user.selectOptions(
-    screen.getAllByRole("combobox")[0],
-    "168",
-  );
+  await user.selectOptions(screen.getAllByRole("combobox")[0], "168");
 
-  expect(
-    api.getReportsSummary,
-  ).toHaveBeenCalledWith(168);
-  expect(
-    api.getReportTrends,
-  ).toHaveBeenCalledWith(168);
-  expect(
-    api.getRecentReportAlertEvents,
-  ).toHaveBeenCalledWith(168);
-  expect(
-    api.getRecentReportDeviceEvents,
-  ).toHaveBeenCalledWith(168);
-  expect(
-    api.getTopIncidentTargets,
-  ).toHaveBeenCalledWith(168);
+  expect(api.getReportsSummary).toHaveBeenCalledWith(168);
+  expect(api.getReportTrends).toHaveBeenCalledWith(168);
+  expect(api.getRecentReportAlertEvents).toHaveBeenCalledWith(168);
+  expect(api.getRecentReportDeviceEvents).toHaveBeenCalledWith(168);
+  expect(api.getTopIncidentTargets).toHaveBeenCalledWith(168);
 });
 
 it("renders recent alert events as a fixed inspection panel", async () => {
@@ -324,17 +248,9 @@ it("renders recent alert events as a fixed inspection panel", async () => {
 
   renderWithQueryClient(<ReportsPage />);
 
-  expect(
-    await screen.findByText(
-      "Recent alert events",
-    ),
-  ).toBeInTheDocument();
+  expect(await screen.findByText("Recent alert events")).toBeInTheDocument();
 
-  expect(
-    screen.getByText(
-      "Web connectivity check failed",
-    ),
-  ).toBeInTheDocument();
+  expect(screen.getByText("Web connectivity check failed")).toBeInTheDocument();
 
   expect(
     screen.queryByRole("button", {
@@ -348,15 +264,9 @@ it("renders recent device changes as a fixed inspection panel", async () => {
 
   renderWithQueryClient(<ReportsPage />);
 
-  expect(
-    await screen.findByText(
-      "Recent device changes",
-    ),
-  ).toBeInTheDocument();
+  expect(await screen.findByText("Recent device changes")).toBeInTheDocument();
 
-  expect(
-    screen.getByText("Hostname changed"),
-  ).toBeInTheDocument();
+  expect(screen.getByText("Hostname changed")).toBeInTheDocument();
 
   expect(
     screen.queryByRole("button", {
@@ -370,15 +280,9 @@ it("renders top incident targets as a fixed inspection panel", async () => {
 
   renderWithQueryClient(<ReportsPage />);
 
-  expect(
-    await screen.findByText(
-      "Top incident targets",
-    ),
-  ).toBeInTheDocument();
+  expect(await screen.findByText("Top incident targets")).toBeInTheDocument();
 
-  expect(
-    screen.getByText("2 incidents"),
-  ).toBeInTheDocument();
+  expect(screen.getByText("2 incidents")).toBeInTheDocument();
 });
 
 it("opens outage detail drawer when an outage row is clicked", async () => {
@@ -395,37 +299,52 @@ it("opens outage detail drawer when an outage row is clicked", async () => {
     )[0],
   );
 
-  const cells = await screen.findAllByText(
-    "https://example.com",
-  );
+  const cells = await screen.findAllByText("https://example.com");
   await user.click(cells[cells.length - 1]);
 
-  expect(
-    await screen.findByText(/Incident details/i),
-  ).toBeInTheDocument();
+  expect(await screen.findByText(/Incident details/i)).toBeInTheDocument();
 });
 
 it("exports JSON using the selected window", async () => {
   const user = userEvent.setup();
   seedReportsSuccessState();
 
-  const originalCreateObjectURL =
-    URL.createObjectURL;
-  const originalRevokeObjectURL =
-    URL.revokeObjectURL;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  const originalCreateElement = document.createElement.bind(document);
 
   URL.createObjectURL = vi.fn(() => "blob:test");
   URL.revokeObjectURL = vi.fn();
+
+  const createElementSpy = vi
+    .spyOn(document, "createElement")
+    .mockImplementation(((
+      tagName: string,
+      options?: ElementCreationOptions,
+    ) => {
+      const element = originalCreateElement(tagName, options);
+
+      if (tagName.toLowerCase() === "a") {
+        Object.defineProperty(element, "click", {
+          configurable: true,
+          value: vi.fn(),
+        });
+
+        Object.defineProperty(element, "remove", {
+          configurable: true,
+          value: vi.fn(),
+        });
+      }
+
+      return element;
+    }) as typeof document.createElement);
 
   try {
     renderWithQueryClient(<ReportsPage />);
 
     await screen.findByText("Reports");
 
-    await user.selectOptions(
-      screen.getAllByRole("combobox")[0],
-      "168",
-    );
+    await user.selectOptions(screen.getAllByRole("combobox")[0], "168");
 
     await user.click(
       screen.getByRole("button", {
@@ -433,10 +352,9 @@ it("exports JSON using the selected window", async () => {
       }),
     );
 
-    expect(
-      api.getReportsSnapshot,
-    ).toHaveBeenCalledWith(168);
+    expect(api.getReportsSnapshot).toHaveBeenCalledWith(168);
   } finally {
+    createElementSpy.mockRestore();
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
   }
@@ -456,28 +374,19 @@ it("passes search and filter params to outages query", async () => {
     )[0],
   );
 
-  await screen.findByPlaceholderText(
-    "Search target, type, status, error...",
-  );
+  await screen.findByPlaceholderText("Search target, type, status, error...");
 
   await user.type(
-    screen.getByPlaceholderText(
-      "Search target, type, status, error...",
-    ),
+    screen.getByPlaceholderText("Search target, type, status, error..."),
     "example",
   );
 
   const selects = screen.getAllByRole("combobox");
   await user.selectOptions(selects[1], "dns");
-  await user.selectOptions(
-    selects[2],
-    "resolved",
-  );
+  await user.selectOptions(selects[2], "resolved");
 
   await waitFor(() => {
-    expect(
-      api.getOutages,
-    ).toHaveBeenLastCalledWith(
+    expect(api.getOutages).toHaveBeenLastCalledWith(
       expect.objectContaining({
         outage_type: "dns",
         status: "resolved",
