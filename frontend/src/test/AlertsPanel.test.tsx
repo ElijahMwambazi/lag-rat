@@ -1,24 +1,12 @@
-import {
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import AlertsPanel from "../components/alerts/AlertsPanel";
 import { renderWithQueryClient } from "./render";
 
-vi.mock(
-  "../components/AlertDetailDrawer",
-  () => ({
-    default: () => <div>Alert detail drawer</div>,
-  }),
-);
+vi.mock("../components/AlertDetailDrawer", () => ({
+  default: () => <div>Alert detail drawer</div>,
+}));
 
 vi.mock("../utils/incidentText", () => ({
   formatIncidentType: (value: string) => {
@@ -38,9 +26,7 @@ vi.mock("../utils/incidentText", () => ({
   }) => {
     if (
       entityType === "wifi" &&
-      message
-        .toLowerCase()
-        .includes("wifi signal is weak")
+      message.toLowerCase().includes("wifi signal is weak")
     ) {
       return `Weak Wi-Fi signal in ${entityKey}`;
     }
@@ -78,60 +64,34 @@ describe("AlertsPanel", () => {
   });
 
   it("renders loading state", async () => {
-    vi.mocked(api.getAlerts).mockImplementation(
-      () => new Promise(() => {}),
-    );
-    vi.mocked(
-      api.getAlertHistory,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.acknowledgeAlert,
-    ).mockResolvedValue({} as never);
+    vi.mocked(api.getAlerts).mockImplementation(() => new Promise(() => {}));
+    vi.mocked(api.getAlertHistory).mockResolvedValue([]);
+    vi.mocked(api.acknowledgeAlert).mockResolvedValue({} as never);
 
     renderWithQueryClient(<AlertsPanel />);
 
-    expect(
-      await screen.findByText(
-        "Loading alerts...",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Loading alerts...")).toBeInTheDocument();
   });
 
   it("renders error state", async () => {
-    vi.mocked(api.getAlerts).mockRejectedValue(
-      new Error("alerts failed"),
-    );
-    vi.mocked(
-      api.getAlertHistory,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.acknowledgeAlert,
-    ).mockResolvedValue({} as never);
+    vi.mocked(api.getAlerts).mockRejectedValue(new Error("alerts failed"));
+    vi.mocked(api.getAlertHistory).mockResolvedValue([]);
+    vi.mocked(api.acknowledgeAlert).mockResolvedValue({} as never);
 
     renderWithQueryClient(<AlertsPanel />);
 
-    expect(
-      await screen.findByText("alerts failed"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("alerts failed")).toBeInTheDocument();
   });
 
   it("renders empty state", async () => {
-    vi.mocked(api.getAlerts).mockResolvedValue(
-      [],
-    );
-    vi.mocked(
-      api.getAlertHistory,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.acknowledgeAlert,
-    ).mockResolvedValue({} as never);
+    vi.mocked(api.getAlerts).mockResolvedValue([]);
+    vi.mocked(api.getAlertHistory).mockResolvedValue([]);
+    vi.mocked(api.acknowledgeAlert).mockResolvedValue({} as never);
 
     renderWithQueryClient(<AlertsPanel />);
 
     expect(
-      await screen.findByText(
-        "No alerts match the current filters.",
-      ),
+      await screen.findByText("No alerts match the current filters."),
     ).toBeInTheDocument();
   });
 
@@ -143,59 +103,38 @@ describe("AlertsPanel", () => {
         severity: "critical",
         entity_type: "internet_http",
         entity_key: "https://example.com",
-        message:
-          "internet_http check failed: timeout",
+        message: "internet_http check failed: timeout",
         is_active: true,
         created_at: "2026-04-11T11:58:00Z",
         resolved_at: null,
         acknowledged_at: null,
       },
     ]);
-    vi.mocked(
-      api.getAlertHistory,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.acknowledgeAlert,
-    ).mockResolvedValue({} as never);
+    vi.mocked(api.getAlertHistory).mockResolvedValue([]);
+    vi.mocked(api.acknowledgeAlert).mockResolvedValue({} as never);
 
     renderWithQueryClient(<AlertsPanel />);
 
     expect(
-      await screen.findByText(
-        "Web connectivity check failed",
-      ),
+      await screen.findByText("Web connectivity check failed"),
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText(
-        "Target: https://example.com",
-      ),
+      await screen.findByText("Target: https://example.com"),
     ).toBeInTheDocument();
 
-    expect(
-      screen.getByText("Ongoing"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Ongoing")).toBeInTheDocument();
   });
 
   it("applies active-critical focus mode", async () => {
-    vi.mocked(api.getAlerts).mockResolvedValue(
-      [],
-    );
-    vi.mocked(
-      api.getAlertHistory,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.acknowledgeAlert,
-    ).mockResolvedValue({} as never);
+    vi.mocked(api.getAlerts).mockResolvedValue([]);
+    vi.mocked(api.getAlertHistory).mockResolvedValue([]);
+    vi.mocked(api.acknowledgeAlert).mockResolvedValue({} as never);
 
-    renderWithQueryClient(
-      <AlertsPanel focusMode="active-critical" />,
-    );
+    renderWithQueryClient(<AlertsPanel focusMode="active-critical" />);
 
     await waitFor(() => {
-      expect(
-        api.getAlerts,
-      ).toHaveBeenLastCalledWith(
+      expect(api.getAlerts).toHaveBeenLastCalledWith(
         expect.objectContaining({
           status: "active",
           severity: "critical",
@@ -214,62 +153,45 @@ describe("AlertsPanel", () => {
         severity: "critical",
         entity_type: "internet_http",
         entity_key: "https://example.com",
-        message:
-          "internet_http check failed: timeout",
+        message: "internet_http check failed: timeout",
         is_active: true,
         created_at: "2026-04-11T11:58:00Z",
         resolved_at: null,
         acknowledged_at: null,
       },
     ]);
-    vi.mocked(
-      api.getAlertHistory,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.acknowledgeAlert,
-    ).mockResolvedValue({} as never);
+    vi.mocked(api.getAlertHistory).mockResolvedValue([]);
+    vi.mocked(api.acknowledgeAlert).mockResolvedValue({} as never);
 
     renderWithQueryClient(<AlertsPanel />);
 
-    const card = await screen.findByRole(
-      "button",
-      {
-        name: /web connectivity check failed/i,
-      },
-    );
+    const card = await screen.findByRole("button", {
+      name: /web connectivity check failed/i,
+    });
 
     await user.click(card);
 
+    expect(await screen.findByText("Technical message")).toBeInTheDocument();
+
     expect(
-      await screen.findByText(
-        "Alert detail drawer",
-      ),
+      await screen.findByText("internet_http check failed: timeout"),
     ).toBeInTheDocument();
   });
 
   it("passes wifi entity filter to alerts query", async () => {
     const user = userEvent.setup();
 
-    vi.mocked(api.getAlerts).mockResolvedValue(
-      [],
-    );
-    vi.mocked(
-      api.getAlertHistory,
-    ).mockResolvedValue([]);
-    vi.mocked(
-      api.acknowledgeAlert,
-    ).mockResolvedValue({} as never);
+    vi.mocked(api.getAlerts).mockResolvedValue([]);
+    vi.mocked(api.getAlertHistory).mockResolvedValue([]);
+    vi.mocked(api.acknowledgeAlert).mockResolvedValue({} as never);
 
     renderWithQueryClient(<AlertsPanel />);
 
-    const selects =
-      await screen.findAllByRole("combobox");
+    const selects = await screen.findAllByRole("combobox");
     await user.selectOptions(selects[2], "wifi");
 
     await waitFor(() => {
-      expect(
-        api.getAlerts,
-      ).toHaveBeenLastCalledWith(
+      expect(api.getAlerts).toHaveBeenLastCalledWith(
         expect.objectContaining({
           entity_type: "wifi",
         }),

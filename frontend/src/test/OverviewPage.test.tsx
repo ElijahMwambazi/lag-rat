@@ -19,14 +19,15 @@ vi.mock("../components/AlertsPanel", () => ({
   default: () => <div>Alerts panel</div>,
 }));
 
-vi.mock("../utils/incidentText", () => ({
-  buildAlertHeadline: () =>
-    "Web connectivity check failed",
-  buildAlertSubtext: () => ({
-    targetLabel: "Target: https://example.com",
-  }),
-  formatIncidentType: () => "Web connectivity",
-}));
+vi.mock("../utils/incidentText", async () => {
+  const actual = await vi.importActual<
+    typeof import("../utils/incidentText")
+  >("../utils/incidentText");
+
+  return {
+    ...actual,
+  };
+});
 
 vi.mock("../services/api", () => ({
   api: {

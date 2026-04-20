@@ -4,10 +4,7 @@ import DataTableCard from "../components/DataTableCard";
 import QueryState from "../components/QueryState";
 import StatCard from "../components/StatCard";
 import PageFilterBar from "../components/PageFilterBar";
-import {
-  api,
-  type TrafficSample,
-} from "../services/api";
+import { api, type TrafficSample } from "../services/api";
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -26,10 +23,7 @@ function formatBytes(value?: number | null) {
   let size = value;
   let unitIndex = 0;
 
-  while (
-    size >= 1024 &&
-    unitIndex < units.length - 1
-  ) {
+  while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024;
     unitIndex += 1;
   }
@@ -37,9 +31,7 @@ function formatBytes(value?: number | null) {
   return `${size >= 10 || unitIndex === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function formatInterfaceName(
-  value?: string | null,
-) {
+function formatInterfaceName(value?: string | null) {
   if (!value) return "—";
   return value;
 }
@@ -49,10 +41,7 @@ function formatSampleAge(value?: string | null) {
   const parsed = new Date(value);
   const diffMs = Date.now() - parsed.getTime();
 
-  if (
-    Number.isNaN(parsed.getTime()) ||
-    diffMs < 0
-  ) {
+  if (Number.isNaN(parsed.getTime()) || diffMs < 0) {
     return "Unknown";
   }
 
@@ -75,54 +64,76 @@ function formatSampleAge(value?: string | null) {
 }
 
 export default function TrafficPage() {
-  const [windowMinutes, setWindowMinutes] =
-    useState(60);
+  const [windowMinutes, setWindowMinutes] = useState(60);
+
+  const [selectedInterface, setSelectedInterface] = useState("");
 
   const trafficSummaryQuery = useQuery({
     queryKey: ["traffic-summary", windowMinutes],
-    queryFn: () =>
-      api.getTrafficSummary(windowMinutes),
+    queryFn: () => api.getTrafficSummary(windowMinutes),
     refetchInterval: 30000,
   });
 
   const topTalkersQuery = useQuery({
-    queryKey: [
-      "traffic-top-talkers",
-      windowMinutes,
-      20,
-    ],
-    queryFn: () =>
-      api.getTrafficTopTalkers(windowMinutes, 20),
+    queryKey: ["traffic-top-talkers", windowMinutes, 20],
+    queryFn: () => api.getTrafficTopTalkers(windowMinutes, 20),
     refetchInterval: 30000,
   });
 
   const trafficSamplesQuery = useQuery({
-    queryKey: [
-      "traffic-samples",
-      windowMinutes,
-      20,
-    ],
-    queryFn: () =>
-      api.getTrafficSamples(windowMinutes, 20),
+    queryKey: ["traffic-samples", windowMinutes, 20],
+    queryFn: () => api.getTrafficSamples(windowMinutes, 20),
     refetchInterval: 30000,
   });
 
-  const trafficSamples: TrafficSample[] =
-    trafficSamplesQuery.data ?? [];
+  const trafficSamples: TrafficSample[] = trafficSamplesQuery.data ?? [];
 
   const summary = trafficSummaryQuery.data;
 
-  const topTalkers =
-    topTalkersQuery.data?.items ?? [];
+  const topTalkers = topTalkersQuery.data?.items ?? [];
+
+  const interfaceOptions = useMemo(() => {
+    const values = new Set<string>();
+
+    for (const item of topTalkers) {
+      if (item.interface_name?.trim()) {
+        values.add(item.interface_name);
+      }
+    }
+
+    for (const item of trafficSamples) {
+      if (item.interface_name?.trim()) {
+        values.add(item.interface_name);
+      }
+    }
+
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [topTalkers, trafficSamples]);
+
+  const filteredTopTalkers = useMemo(() => {
+    if (!selectedInterface) {
+      return topTalkers;
+    }
+
+    return topTalkers.filter(
+      (item) => item.interface_name === selectedInterface,
+    );
+  }, [topTalkers, selectedInterface]);
+
+  const filteredTrafficSamples = useMemo(() => {
+    if (!selectedInterface) {
+      return trafficSamples;
+    }
+
+    return trafficSamples.filter(
+      (item) => item.interface_name === selectedInterface,
+    );
+  }, [trafficSamples, selectedInterface]);
 
   const totalDeltaBytes = useMemo(
     () =>
-      topTalkers.reduce(
-        (sum, item) =>
-          sum + item.delta_bytes_total,
-        0,
-      ),
-    [topTalkers],
+      filteredTopTalkers.reduce((sum, item) => sum + item.delta_bytes_total, 0),
+    [filteredTopTalkers],
   );
 
   return (
@@ -131,24 +142,43 @@ export default function TrafficPage() {
         title="Traffic"
         description="Interface-level traffic summaries and top talkers across the selected operational window."
         controls={
-          <select
-            value={windowMinutes}
-            onChange={(event) =>
-              setWindowMinutes(
-                Number(event.target.value),
-              )
-            }
-            className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
-          >
-            <option value={15}>Last 15m</option>
-            <option value={60}>Last 1h</option>
-            <option value={360}>Last 6h</option>
-            <option value={1440}>Last 24h</option>
-          </select>
+          <>
+            <select
+              aria-label="Traffic window"
+              value={windowMinutes}
+              onChange={(event) => setWindowMinutes(Number(event.target.value))}
+              className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+            >
+              <option value={15}>Last 15m</option>
+              <option value={60}>Last 1h</option>
+              <option value={360}>Last 6h</option>
+              <option value={1440}>Last 24h</option>
+            </select>
+
+            <select
+              aria-label="Traffic interface"
+              value={selectedInterface}
+              onChange={(event) => setSelectedInterface(event.target.value)}
+              className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100"
+            >
+              <option value="">All interfaces</option>
+              {interfaceOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </>
         }
       >
         <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
           Summary window · {windowMinutes}m
+        </span>
+
+        <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+          {selectedInterface
+            ? `Interface · ${selectedInterface}`
+            : "Interface · All interfaces"}
         </span>
       </PageFilterBar>
 
@@ -157,8 +187,7 @@ export default function TrafficPage() {
           title="Traffic summary request failed"
           tone="error"
           message={
-            trafficSummaryQuery.error instanceof
-            Error
+            trafficSummaryQuery.error instanceof Error
               ? trafficSummaryQuery.error.message
               : "Traffic summary could not be loaded."
           }
@@ -167,12 +196,9 @@ export default function TrafficPage() {
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-medium">
-            Traffic summary
-          </h3>
+          <h3 className="text-lg font-medium">Traffic summary</h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Recent interface traffic across the
-            current dashboard window.
+            Recent interface traffic across the current dashboard window.
           </p>
         </div>
 
@@ -189,9 +215,7 @@ export default function TrafficPage() {
             hint={
               summary
                 ? `${summary.interface_count} interface${
-                    summary.interface_count === 1
-                      ? ""
-                      : "s"
+                    summary.interface_count === 1 ? "" : "s"
                   } observed`
                 : "Waiting for traffic summary"
             }
@@ -201,9 +225,7 @@ export default function TrafficPage() {
             label="RX total"
             value={
               summary
-                ? formatBytes(
-                    summary.total_bytes_rx,
-                  )
+                ? formatBytes(summary.total_bytes_rx)
                 : trafficSummaryQuery.isLoading
                   ? "Loading"
                   : "—"
@@ -215,9 +237,7 @@ export default function TrafficPage() {
             label="TX total"
             value={
               summary
-                ? formatBytes(
-                    summary.total_bytes_tx,
-                  )
+                ? formatBytes(summary.total_bytes_tx)
                 : trafficSummaryQuery.isLoading
                   ? "Loading"
                   : "—"
@@ -229,10 +249,7 @@ export default function TrafficPage() {
             label="Top talker"
             value={
               summary?.top_talker
-                ? formatInterfaceName(
-                    summary.top_talker
-                      .interface_name,
-                  )
+                ? formatInterfaceName(summary.top_talker.interface_name)
                 : trafficSummaryQuery.isLoading
                   ? "Loading"
                   : "—"
@@ -248,12 +265,9 @@ export default function TrafficPage() {
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-medium">
-            Top talkers
-          </h3>
+          <h3 className="text-lg font-medium">Top talkers</h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Interfaces ranked by traffic delta
-            over the selected window.
+            Interfaces ranked by traffic delta over the selected window.
           </p>
         </div>
 
@@ -263,14 +277,11 @@ export default function TrafficPage() {
           rightSlot={
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                {topTalkers.length} item
-                {topTalkers.length === 1
-                  ? ""
-                  : "s"}
+                {filteredTopTalkers.length} item
+                {filteredTopTalkers.length === 1 ? "" : "s"}
               </span>
               <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                {formatBytes(totalDeltaBytes)}{" "}
-                total delta
+                {formatBytes(totalDeltaBytes)} total delta
               </span>
             </div>
           }
@@ -284,7 +295,7 @@ export default function TrafficPage() {
           }
           emptyTitle="Top talkers"
           emptyMessage="No traffic samples were available for this window."
-          hasData={topTalkers.length > 0}
+          hasData={filteredTopTalkers.length > 0}
           tableMinWidthClassName="min-w-[980px]"
           variant="flush"
           hideHeader
@@ -292,36 +303,24 @@ export default function TrafficPage() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">
-                  Interface
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  Entity
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  RX delta
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  TX delta
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  Total delta
-                </th>
+                <th className="px-4 py-3 text-left font-medium">Interface</th>
+                <th className="px-4 py-3 text-left font-medium">Entity</th>
+                <th className="px-4 py-3 text-left font-medium">RX delta</th>
+                <th className="px-4 py-3 text-left font-medium">TX delta</th>
+                <th className="px-4 py-3 text-left font-medium">Total delta</th>
                 <th className="px-4 py-3 text-left font-medium">
                   Latest sample
                 </th>
               </tr>
             </thead>
             <tbody>
-              {topTalkers.map((item) => (
+              {filteredTopTalkers.map((item) => (
                 <tr
                   key={`${item.interface_name}-${item.entity_key}`}
                   className="border-t border-zinc-800"
                 >
                   <td className="px-4 py-3 text-zinc-100">
-                    {formatInterfaceName(
-                      item.interface_name,
-                    )}
+                    {formatInterfaceName(item.interface_name)}
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
                     <div>{item.entity_key}</div>
@@ -330,24 +329,16 @@ export default function TrafficPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
-                    {formatBytes(
-                      item.delta_bytes_rx,
-                    )}
+                    {formatBytes(item.delta_bytes_rx)}
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
-                    {formatBytes(
-                      item.delta_bytes_tx,
-                    )}
+                    {formatBytes(item.delta_bytes_tx)}
                   </td>
                   <td className="px-4 py-3 text-zinc-100">
-                    {formatBytes(
-                      item.delta_bytes_total,
-                    )}
+                    {formatBytes(item.delta_bytes_total)}
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
-                    {formatDate(
-                      item.latest_sampled_at,
-                    )}
+                    {formatDate(item.latest_sampled_at)}
                   </td>
                 </tr>
               ))}
@@ -358,12 +349,10 @@ export default function TrafficPage() {
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-medium">
-            Recent traffic samples
-          </h3>
+          <h3 className="text-lg font-medium">Recent traffic samples</h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Most recent interface counter samples
-            captured in the selected window.
+            Most recent interface counter samples captured in the selected
+            window.
           </p>
         </div>
 
@@ -373,78 +362,48 @@ export default function TrafficPage() {
           rightSlot={
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                {trafficSamples.length} sample
-                {trafficSamples.length === 1
-                  ? ""
-                  : "s"}
+                {filteredTrafficSamples.length} sample
+                {filteredTrafficSamples.length === 1 ? "" : "s"}
               </span>
             </div>
           }
           helperText="These are raw interface-level samples. Deltas and rankings are shown in the top-talkers table above."
-          isLoading={
-            trafficSamplesQuery.isLoading
-          }
+          isLoading={trafficSamplesQuery.isLoading}
           isError={trafficSamplesQuery.isError}
           errorMessage={
-            trafficSamplesQuery.error instanceof
-            Error
+            trafficSamplesQuery.error instanceof Error
               ? trafficSamplesQuery.error.message
               : "Traffic samples could not be loaded."
           }
           emptyTitle="Recent traffic samples"
           emptyMessage="No traffic samples were available for this window."
-          hasData={trafficSamples.length > 0}
+          hasData={filteredTrafficSamples.length > 0}
           tableMinWidthClassName="min-w-[1080px]"
           variant="flush"
         >
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">
-                  Time
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  Interface
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  Entity
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  RX bytes
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  TX bytes
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  RX packets
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  TX packets
-                </th>
+                <th className="px-4 py-3 text-left font-medium">Time</th>
+                <th className="px-4 py-3 text-left font-medium">Interface</th>
+                <th className="px-4 py-3 text-left font-medium">Entity</th>
+                <th className="px-4 py-3 text-left font-medium">RX bytes</th>
+                <th className="px-4 py-3 text-left font-medium">TX bytes</th>
+                <th className="px-4 py-3 text-left font-medium">RX packets</th>
+                <th className="px-4 py-3 text-left font-medium">TX packets</th>
               </tr>
             </thead>
             <tbody>
-              {trafficSamples.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-t border-zinc-800"
-                >
+              {filteredTrafficSamples.map((item) => (
+                <tr key={item.id} className="border-t border-zinc-800">
                   <td className="px-4 py-3 text-zinc-300">
-                    <div>
-                      {formatDate(
-                        item.sampled_at,
-                      )}
-                    </div>
+                    <div>{formatDate(item.sampled_at)}</div>
                     <div className="mt-1 text-xs text-zinc-500">
-                      {formatSampleAge(
-                        item.sampled_at,
-                      )}
+                      {formatSampleAge(item.sampled_at)}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-zinc-100">
-                    {formatInterfaceName(
-                      item.interface_name,
-                    )}
+                    {formatInterfaceName(item.interface_name)}
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
                     <div>{item.entity_key}</div>

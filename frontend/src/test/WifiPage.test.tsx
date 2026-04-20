@@ -491,8 +491,12 @@ describe("WifiPage", () => {
     );
 
     expect(
+      await screen.findAllByText("Last 1h"),
+    ).not.toHaveLength(0);
+
+    expect(
       await screen.findByText(
-        "Last 1h · bedroom",
+        "Viewing · bedroom",
       ),
     ).toBeInTheDocument();
 
@@ -997,12 +1001,14 @@ describe("WifiPage", () => {
     ).toBeGreaterThan(0);
 
     expect(
-      (
-        await screen.findAllByText(
-          "Last 1h · bedroom",
-        )
-      ).length,
-    ).toBeGreaterThan(0);
+      await screen.findAllByText("Last 1h"),
+    ).not.toHaveLength(0);
+
+    expect(
+      await screen.findByText(
+        "Viewing · bedroom",
+      ),
+    ).toBeInTheDocument();
 
     expect(
       await screen.findByText(
