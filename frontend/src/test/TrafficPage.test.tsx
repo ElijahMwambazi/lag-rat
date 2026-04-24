@@ -356,4 +356,101 @@ describe("TrafficPage", () => {
 
     expect(screen.getAllByText("eth0")).not.toHaveLength(0);
   });
+
+  it("opens a top talker detail drawer when a ranked row is clicked", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(<TrafficPage />);
+
+    expect(await screen.findByText("Top talkers")).toBeInTheDocument();
+
+    const topTalkersHeading = screen.getByText("Top talkers");
+    const topTalkersSection = topTalkersHeading.closest("section");
+
+    const eth0Cell = within(topTalkersSection as HTMLElement).getAllByText(
+      "eth0",
+    )[0];
+
+    await user.click(eth0Cell);
+
+    expect(await screen.findByText("Top talker · eth0")).toBeInTheDocument();
+
+    expect(screen.getByText("Movement summary")).toBeInTheDocument();
+
+    expect(screen.getAllByText("Scope").length).toBeGreaterThan(0);
+
+    expect(screen.getByText("Counters")).toBeInTheDocument();
+
+    expect(screen.getByText("Identifiers")).toBeInTheDocument();
+
+    expect(screen.getAllByText("8.6 MB").length).toBeGreaterThan(0);
+
+    expect(screen.getAllByText("3.8 MB").length).toBeGreaterThan(0);
+
+    expect(screen.getAllByText("4.8 MB").length).toBeGreaterThan(0);
+
+    expect(
+      screen.getByRole("button", {
+        name: /close/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("closes the top talker detail drawer", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(<TrafficPage />);
+
+    const topTalkersHeading = await screen.findByText("Top talkers");
+    const topTalkersSection = topTalkersHeading.closest("section");
+
+    const eth0Cell = within(topTalkersSection as HTMLElement).getAllByText(
+      "eth0",
+    )[0];
+
+    await user.click(eth0Cell);
+
+    expect(await screen.findByText("Top talker · eth0")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /close/i,
+      }),
+    );
+
+    expect(screen.queryByText("Top talker · eth0")).not.toBeInTheDocument();
+  });
+
+  it("opens the correct top talker drawer after interface filtering", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(<TrafficPage />);
+
+    const interfaceSelect = await screen.findByRole("combobox", {
+      name: "Traffic interface",
+    });
+
+    expect(
+      await within(interfaceSelect).findByRole("option", { name: "eth0" }),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(interfaceSelect, "eth0");
+
+    const topTalkersHeading = screen.getByText("Top talkers");
+    const topTalkersSection = topTalkersHeading.closest("section");
+
+    const eth0Cell = within(topTalkersSection as HTMLElement).getAllByText(
+      "eth0",
+    )[0];
+
+    await user.click(eth0Cell);
+
+    expect(await screen.findByText("Top talker · eth0")).toBeInTheDocument();
+
+    expect(screen.getAllByText("Moderate movement").length).toBeGreaterThan(0);
+
+    expect(screen.getAllByText("8.6 MB").length).toBeGreaterThan(0);
+
+    expect(screen.queryByText("Top talker · docker0")).not.toBeInTheDocument();
+  });
 });
