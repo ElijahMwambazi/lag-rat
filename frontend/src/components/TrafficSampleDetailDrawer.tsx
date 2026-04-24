@@ -1,4 +1,5 @@
 import type { TrafficSample } from "../services/api";
+import { useNavigate } from "react-router-dom";
 import DrawerDetailSection from "./DrawerDetailSection";
 import SideDrawer from "./SideDrawer";
 
@@ -122,6 +123,8 @@ export default function TrafficSampleDetailDrawer({
   open,
   onClose,
 }: Props) {
+  const navigate = useNavigate();
+
   async function copyText(value?: string | null) {
     if (!value) return;
 
@@ -136,7 +139,28 @@ export default function TrafficSampleDetailDrawer({
     return null;
   }
 
-  const totalTraffic = (sample.bytes_rx ?? 0) + (sample.bytes_tx ?? 0);
+  const currentSample = sample;
+  const totalTraffic =
+    (currentSample.bytes_rx ?? 0) + (currentSample.bytes_tx ?? 0);
+
+  function openDeviceDetails() {
+    const params = new URLSearchParams();
+
+    if (currentSample.device_ip_address) {
+      params.set("deviceIp", currentSample.device_ip_address);
+    }
+
+    if (currentSample.mac_address) {
+      params.set("deviceMac", currentSample.mac_address);
+    }
+
+    if (!params.toString()) {
+      return;
+    }
+
+    onClose();
+    navigate(`/devices?${params.toString()}`);
+  }
 
   return (
     <SideDrawer
@@ -221,6 +245,16 @@ export default function TrafficSampleDetailDrawer({
           >
             Copy entity key
           </button>
+
+          {sample.device_ip_address || sample.mac_address ? (
+            <button
+              type="button"
+              onClick={openDeviceDetails}
+              className="rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-900"
+            >
+              Open device details
+            </button>
+          ) : null}
         </div>
 
         <DrawerDetailSection label="Sample">

@@ -112,8 +112,12 @@ export default function AlertsPanel({
   focusMode?: AlertsPanelFocusMode;
   selectedAlertId?: number | null;
 }) {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    focusMode === "active-critical" ? "active" : "all",
+  );
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>(
+    focusMode === "active-critical" ? "critical" : "all",
+  );
   const [entityFilter, setEntityFilter] = useState<EntityFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);

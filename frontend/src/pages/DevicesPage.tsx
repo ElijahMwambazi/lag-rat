@@ -1,32 +1,18 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import QueryState from "../components/QueryState";
 import DeviceRow from "../components/devices/DeviceRow";
 import DeviceDetailDrawer from "../components/devices/DeviceDetailDrawer";
-import {
-  api,
-  type KnownDevice,
-} from "../services/api";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { api, type KnownDevice } from "../services/api";
 
-type SortKey =
-  | "last_seen"
-  | "name"
-  | "confidence";
+type SortKey = "last_seen" | "name" | "confidence";
 
-const SHOW_LOW_CONFIDENCE_STORAGE_KEY =
-  "lag-rat:devices:show-low-confidence";
+const SHOW_LOW_CONFIDENCE_STORAGE_KEY = "lag-rat:devices:show-low-confidence";
+const DEVICE_IP_PARAM = "deviceIp";
+const DEVICE_MAC_PARAM = "deviceMac";
 
-function confidenceRank(
-  value: "high" | "medium" | "low",
-) {
+function confidenceRank(value: "high" | "medium" | "low") {
   if (value === "high") return 0;
   if (value === "medium") return 1;
   return 2;
@@ -39,21 +25,18 @@ export default function DevicesPage() {
     refetchInterval: 60000,
   });
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const devices = devicesQuery.data ?? [];
 
-  const [
-    showLowConfidence,
-    setShowLowConfidence,
-  ] = useState<boolean>(() => {
+  const [showLowConfidence, setShowLowConfidence] = useState<boolean>(() => {
     if (typeof window === "undefined") {
       return false;
     }
 
     try {
       return (
-        window.localStorage.getItem(
-          SHOW_LOW_CONFIDENCE_STORAGE_KEY,
-        ) === "true"
+        window.localStorage.getItem(SHOW_LOW_CONFIDENCE_STORAGE_KEY) === "true"
       );
     } catch {
       return false;
@@ -61,20 +44,19 @@ export default function DevicesPage() {
   });
 
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] =
-    useState<SortKey>("last_seen");
+  const [sortBy, setSortBy] = useState<SortKey>("last_seen");
 
   const queryClient = useQueryClient();
-  const [editingId, setEditingId] = useState<
-    number | null
-  >(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [label, setLabel] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [selectedDevice, setSelectedDevice] =
-    useState<(typeof devices)[number] | null>(
-      null,
-    );
+  const [selectedDevice, setSelectedDevice] = useState<
+    (typeof devices)[number] | null
+  >(null);
+
+  const selectedDeviceIp = searchParams.get(DEVICE_IP_PARAM);
+  const selectedDeviceMac = searchParams.get(DEVICE_MAC_PARAM);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -91,6 +73,56 @@ export default function DevicesPage() {
     }
   }, [showLowConfidence]);
 
+  useEffect(() => {
+    if (!selectedDeviceIp && !selectedDeviceMac) {
+      return;
+    }
+
+    const matchedDevice =
+      devices.find(
+        (device) =>
+          (selectedDeviceIp && device.ip_address === selectedDeviceIp) ||
+          (selectedDeviceMac && device.mac_address === selectedDeviceMac),
+      ) ?? null;
+
+    if (matchedDevice) {
+      setSelectedDevice((current) =>
+        current?.id === matchedDevice.id ? current : matchedDevice,
+      );
+    }
+  }, [devices, selectedDeviceIp, selectedDeviceMac]);
+
+  useEffect(() => {
+    if (!selectedDeviceIp && !selectedDeviceMac) {
+      setSelectedDevice(null);
+    }
+  }, [selectedDeviceIp, selectedDeviceMac]);
+
+  function openDeviceDetails(device: (typeof devices)[number]) {
+    const next = new URLSearchParams(searchParams);
+
+    next.set(DEVICE_IP_PARAM, device.ip_address);
+
+    if (device.mac_address) {
+      next.set(DEVICE_MAC_PARAM, device.mac_address);
+    } else {
+      next.delete(DEVICE_MAC_PARAM);
+    }
+
+    setSelectedDevice(device);
+    setSearchParams(next);
+  }
+
+  function closeDeviceDetails() {
+    const next = new URLSearchParams(searchParams);
+
+    next.delete(DEVICE_IP_PARAM);
+    next.delete(DEVICE_MAC_PARAM);
+
+    setSelectedDevice(null);
+    setSearchParams(next);
+  }
+
   const saveKnownDeviceMutation = useMutation<
     KnownDevice,
     Error,
@@ -100,19 +132,15 @@ export default function DevicesPage() {
     onSuccess: async (savedDevice) => {
       const nextSelectedDevice =
         selectedDevice &&
-        (savedDevice.ip_address ===
-          selectedDevice.ip_address ||
+        (savedDevice.ip_address === selectedDevice.ip_address ||
           (savedDevice.mac_address &&
-            savedDevice.mac_address ===
-              selectedDevice.mac_address))
+            savedDevice.mac_address === selectedDevice.mac_address))
           ? {
               ...selectedDevice,
               label: savedDevice.label,
               notes: savedDevice.notes,
               is_known: true,
-              display_name:
-                savedDevice.label ??
-                selectedDevice.display_name,
+              display_name: savedDevice.label ?? selectedDevice.display_name,
             }
           : selectedDevice;
 
@@ -131,23 +159,16 @@ export default function DevicesPage() {
 
       if (savedDevice.ip_address) {
         await queryClient.invalidateQueries({
-          queryKey: [
-            "device-history",
-            savedDevice.ip_address,
-          ],
+          queryKey: ["device-history", savedDevice.ip_address],
         });
       }
     },
   });
 
-  function startEdit(
-    device: (typeof devices)[number],
-  ) {
-    setSelectedDevice(null);
+  function startEdit(device: (typeof devices)[number]) {
+    closeDeviceDetails();
     setEditingId(device.id);
-    setLabel(
-      device.label ?? device.display_name ?? "",
-    );
+    setLabel(device.label ?? device.display_name ?? "");
     setNotes(device.notes ?? "");
   }
 
@@ -155,10 +176,7 @@ export default function DevicesPage() {
     const needle = search.trim().toLowerCase();
 
     const filtered = devices.filter((device) => {
-      if (
-        !showLowConfidence &&
-        device.confidence === "low"
-      ) {
+      if (!showLowConfidence && device.confidence === "low") {
         return false;
       }
 
@@ -183,61 +201,41 @@ export default function DevicesPage() {
 
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === "name") {
-        return a.display_name.localeCompare(
-          b.display_name,
-        );
+        return a.display_name.localeCompare(b.display_name);
       }
 
       if (sortBy === "confidence") {
         return (
-          confidenceRank(a.confidence) -
-            confidenceRank(b.confidence) ||
-          a.display_name.localeCompare(
-            b.display_name,
-          )
+          confidenceRank(a.confidence) - confidenceRank(b.confidence) ||
+          a.display_name.localeCompare(b.display_name)
         );
       }
 
-      const aTime = a.last_seen
-        ? new Date(a.last_seen).getTime()
-        : 0;
-      const bTime = b.last_seen
-        ? new Date(b.last_seen).getTime()
-        : 0;
+      const aTime = a.last_seen ? new Date(a.last_seen).getTime() : 0;
+      const bTime = b.last_seen ? new Date(b.last_seen).getTime() : 0;
 
       return bTime - aTime;
     });
 
     return sorted;
-  }, [
-    devices,
-    search,
-    showLowConfidence,
-    sortBy,
-  ]);
+  }, [devices, search, showLowConfidence, sortBy]);
 
   const lowConfidenceCount = devices.filter(
     (device) => device.confidence === "low",
   ).length;
 
-  const hiddenLowConfidenceCount =
-    showLowConfidence ? 0 : lowConfidenceCount;
+  const hiddenLowConfidenceCount = showLowConfidence ? 0 : lowConfidenceCount;
 
   const hasFiltersApplied =
-    search.trim().length > 0 ||
-    sortBy !== "last_seen" ||
-    showLowConfidence;
+    search.trim().length > 0 || sortBy !== "last_seen" || showLowConfidence;
 
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">
-            Devices
-          </h2>
+          <h2 className="text-2xl font-semibold">Devices</h2>
           <p className="mt-2 text-zinc-400">
-            Review devices seen on your local
-            network, save labels, and inspect
+            Review devices seen on your local network, save labels, and inspect
             device history.
           </p>
         </div>
@@ -251,11 +249,8 @@ export default function DevicesPage() {
 
           {hiddenLowConfidenceCount > 0 ? (
             <p className="mt-1 text-xs text-zinc-500">
-              {hiddenLowConfidenceCount}{" "}
-              low-confidence{" "}
-              {hiddenLowConfidenceCount === 1
-                ? "device is"
-                : "devices are"}{" "}
+              {hiddenLowConfidenceCount} low-confidence{" "}
+              {hiddenLowConfidenceCount === 1 ? "device is" : "devices are"}{" "}
               hidden to reduce scan noise.
             </p>
           ) : null}
@@ -265,13 +260,10 @@ export default function DevicesPage() {
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-1">
-            <h3 className="text-sm font-medium text-zinc-100">
-              Explorer
-            </h3>
+            <h3 className="text-sm font-medium text-zinc-100">Explorer</h3>
             <p className="text-sm leading-6 text-zinc-400">
-              Search by label, hostname, IP, MAC,
-              or notes. Open a row for full device
-              details and history.
+              Search by label, hostname, IP, MAC, or notes. Open a row for full
+              device details and history.
             </p>
           </div>
 
@@ -279,45 +271,29 @@ export default function DevicesPage() {
             <input
               type="checkbox"
               checked={showLowConfidence}
-              onChange={(e) =>
-                setShowLowConfidence(
-                  e.target.checked,
-                )
-              }
+              onChange={(e) => setShowLowConfidence(e.target.checked)}
               className="mt-0.5 lg:mt-0"
             />
-            <span>
-              Include low-confidence devices
-            </span>
+            <span>Include low-confidence devices</span>
           </label>
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px]">
           <input
             value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search label, host, IP, MAC, or notes..."
             className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 lg:col-span-1"
           />
 
           <select
             value={sortBy}
-            onChange={(e) =>
-              setSortBy(e.target.value as SortKey)
-            }
+            onChange={(e) => setSortBy(e.target.value as SortKey)}
             className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
           >
-            <option value="last_seen">
-              Sort: Last seen
-            </option>
-            <option value="name">
-              Sort: Name
-            </option>
-            <option value="confidence">
-              Sort: Confidence
-            </option>
+            <option value="last_seen">Sort: Last seen</option>
+            <option value="name">Sort: Name</option>
+            <option value="confidence">Sort: Confidence</option>
           </select>
         </div>
       </section>
@@ -339,19 +315,16 @@ export default function DevicesPage() {
           title="Save failed"
           tone="error"
           message={
-            saveKnownDeviceMutation.error instanceof
-            Error
-              ? saveKnownDeviceMutation.error
-                  .message
+            saveKnownDeviceMutation.error instanceof Error
+              ? saveKnownDeviceMutation.error.message
               : "Could not save known device."
           }
         />
       ) : null}
 
       <div className="rounded-t-2xl border border-zinc-800 border-b-0 bg-zinc-950/40 px-4 py-3 text-sm leading-6 text-zinc-400">
-        Swipe horizontally to view all device
-        columns. Tap a row to open full device
-        details.
+        Swipe horizontally to view all device columns. Tap a row to open full
+        device details.
       </div>
 
       <div className="overflow-hidden rounded-b-2xl border border-zinc-800 bg-zinc-900">
@@ -359,43 +332,24 @@ export default function DevicesPage() {
           <table className="w-full min-w-[880px] text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
               <tr>
-                <th className="px-4 py-3 text-left">
-                  Device
-                </th>
-                <th className="px-4 py-3 text-left">
-                  IP
-                </th>
-                <th className="px-4 py-3 text-left">
-                  MAC
-                </th>
-                <th className="px-4 py-3 text-left">
-                  Hostname
-                </th>
-                <th className="px-4 py-3 text-left">
-                  Last seen
-                </th>
-                <th className="px-4 py-3 text-left">
-                  Flags
-                </th>
+                <th className="px-4 py-3 text-left">Device</th>
+                <th className="px-4 py-3 text-left">IP</th>
+                <th className="px-4 py-3 text-left">MAC</th>
+                <th className="px-4 py-3 text-left">Hostname</th>
+                <th className="px-4 py-3 text-left">Last seen</th>
+                <th className="px-4 py-3 text-left">Flags</th>
               </tr>
             </thead>
             <tbody>
-              {devicesQuery.isLoading &&
-              devices.length === 0 ? (
+              {devicesQuery.isLoading && devices.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-6 text-zinc-400"
-                  >
+                  <td colSpan={6} className="px-4 py-6 text-zinc-400">
                     Loading devices...
                   </td>
                 </tr>
               ) : visibleDevices.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-6 text-zinc-400"
-                  >
+                  <td colSpan={6} className="px-4 py-6 text-zinc-400">
                     {hasFiltersApplied
                       ? "No devices match the current search or filters."
                       : "No devices have been recorded yet."}
@@ -415,9 +369,7 @@ export default function DevicesPage() {
                     notes={notes}
                     onStartEdit={startEdit}
                     onCancelEdit={() => {
-                      if (
-                        saveKnownDeviceMutation.isPending
-                      ) {
+                      if (saveKnownDeviceMutation.isPending) {
                         return;
                       }
 
@@ -426,28 +378,20 @@ export default function DevicesPage() {
                       setNotes("");
                     }}
                     onSave={(device) => {
-                      if (
-                        saveKnownDeviceMutation.isPending
-                      ) {
+                      if (saveKnownDeviceMutation.isPending) {
                         return;
                       }
 
-                      saveKnownDeviceMutation.mutate(
-                        {
-                          ip_address:
-                            device.ip_address,
-                          mac_address:
-                            device.mac_address,
-                          label,
-                          notes,
-                        },
-                      );
+                      saveKnownDeviceMutation.mutate({
+                        ip_address: device.ip_address,
+                        mac_address: device.mac_address,
+                        label,
+                        notes,
+                      });
                     }}
                     onLabelChange={setLabel}
                     onNotesChange={setNotes}
-                    onOpenDetails={
-                      setSelectedDevice
-                    }
+                    onOpenDetails={openDeviceDetails}
                   />
                 ))
               )}
@@ -458,7 +402,7 @@ export default function DevicesPage() {
         <DeviceDetailDrawer
           device={selectedDevice}
           open={selectedDevice !== null}
-          onClose={() => setSelectedDevice(null)}
+          onClose={closeDeviceDetails}
           onEdit={startEdit}
         />
       </div>

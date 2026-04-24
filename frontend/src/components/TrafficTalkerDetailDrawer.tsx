@@ -1,4 +1,5 @@
 import type { TrafficTopTalkerItem } from "../services/api";
+import { useNavigate } from "react-router-dom";
 import DrawerDetailSection from "./DrawerDetailSection";
 import SideDrawer from "./SideDrawer";
 
@@ -135,6 +136,8 @@ export default function TrafficTalkerDetailDrawer({
   open,
   onClose,
 }: Props) {
+  const navigate = useNavigate();
+
   async function copyText(value?: string | null) {
     if (!value) return;
 
@@ -149,7 +152,27 @@ export default function TrafficTalkerDetailDrawer({
     return null;
   }
 
-  const tone = getTalkerTone(talker);
+  const currentTalker = talker;
+  const tone = getTalkerTone(currentTalker);
+
+  function openDeviceDetails() {
+    const params = new URLSearchParams();
+
+    if (currentTalker.device_ip_address) {
+      params.set("deviceIp", currentTalker.device_ip_address);
+    }
+
+    if (currentTalker.mac_address) {
+      params.set("deviceMac", currentTalker.mac_address);
+    }
+
+    if (!params.toString()) {
+      return;
+    }
+
+    onClose();
+    navigate(`/devices?${params.toString()}`);
+  }
 
   return (
     <SideDrawer
@@ -234,6 +257,16 @@ export default function TrafficTalkerDetailDrawer({
           >
             Copy entity key
           </button>
+
+          {talker.device_ip_address || talker.mac_address ? (
+            <button
+              type="button"
+              onClick={openDeviceDetails}
+              className="rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-900"
+            >
+              Open device details
+            </button>
+          ) : null}
         </div>
 
         <DrawerDetailSection label="Movement summary">

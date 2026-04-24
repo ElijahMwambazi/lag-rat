@@ -1,4 +1,5 @@
 import type { WifiSample } from "../services/api";
+import { useNavigate } from "react-router-dom";
 import DrawerDetailSection from "./DrawerDetailSection";
 import SideDrawer from "./SideDrawer";
 
@@ -21,23 +22,18 @@ function formatSampleAge(value?: string | null) {
   const parsed = new Date(value);
   const diffMs = Date.now() - parsed.getTime();
 
-  if (
-    Number.isNaN(parsed.getTime()) ||
-    diffMs < 0
-  ) {
+  if (Number.isNaN(parsed.getTime()) || diffMs < 0) {
     return "Unknown";
   }
 
   const diffMinutes = Math.floor(diffMs / 60000);
   if (diffMinutes < 1) return "Just now";
   if (diffMinutes === 1) return "1 minute ago";
-  if (diffMinutes < 60)
-    return `${diffMinutes} minutes ago`;
+  if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
 
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours === 1) return "1 hour ago";
-  if (diffHours < 24)
-    return `${diffHours} hours ago`;
+  if (diffHours < 24) return `${diffHours} hours ago`;
 
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays === 1) return "1 day ago";
@@ -51,9 +47,7 @@ function formatRssi(value?: number | null) {
   return `${value} dBm`;
 }
 
-function getWifiSampleDisplayTitle(
-  sample: WifiSample | null,
-) {
+function getWifiSampleDisplayTitle(sample: WifiSample | null) {
   if (!sample) return "Wi-Fi sample";
 
   return sample.location_label
@@ -61,13 +55,8 @@ function getWifiSampleDisplayTitle(
     : "Wi-Fi sample";
 }
 
-function getWifiSampleStatusTone(
-  sample: WifiSample,
-) {
-  if (
-    sample.rssi_dbm === null ||
-    sample.rssi_dbm === undefined
-  ) {
+function getWifiSampleStatusTone(sample: WifiSample) {
+  if (sample.rssi_dbm === null || sample.rssi_dbm === undefined) {
     return "stale";
   }
 
@@ -82,9 +71,7 @@ function getWifiSampleStatusTone(
   return "healthy";
 }
 
-function getWifiSampleStatusLabel(
-  sample: WifiSample,
-) {
+function getWifiSampleStatusLabel(sample: WifiSample) {
   const tone = getWifiSampleStatusTone(sample);
 
   switch (tone) {
@@ -100,9 +87,7 @@ function getWifiSampleStatusLabel(
   }
 }
 
-function getWifiSampleStatusBadgeClasses(
-  tone: string,
-) {
+function getWifiSampleStatusBadgeClasses(tone: string) {
   switch (tone) {
     case "critical":
       return "border-red-800 bg-red-950 text-red-300";
@@ -116,9 +101,7 @@ function getWifiSampleStatusBadgeClasses(
   }
 }
 
-function getWifiSampleNarrative(
-  sample: WifiSample,
-) {
+function getWifiSampleNarrative(sample: WifiSample) {
   const tone = getWifiSampleStatusTone(sample);
 
   switch (tone) {
@@ -139,6 +122,8 @@ export default function WifiSampleDetailDrawer({
   open,
   onClose,
 }: Props) {
+  const navigate = useNavigate();
+
   async function copyText(value?: string | null) {
     if (!value) return;
 
@@ -151,6 +136,20 @@ export default function WifiSampleDetailDrawer({
 
   if (!open || !sample) {
     return null;
+  }
+
+  const currentSample = sample;
+
+  function openDeviceDetails() {
+    if (!currentSample.bssid) {
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set("deviceMac", currentSample.bssid);
+
+    onClose();
+    navigate(`/devices?${params.toString()}`);
   }
 
   return (
@@ -260,6 +259,16 @@ export default function WifiSampleDetailDrawer({
           >
             Copy BSSID
           </button>
+
+          {sample.bssid ? (
+            <button
+              type="button"
+              onClick={openDeviceDetails}
+              className="rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-900"
+            >
+              Open device details
+            </button>
+          ) : null}
         </div>
 
         <DrawerDetailSection label="Identifiers">
