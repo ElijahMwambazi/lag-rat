@@ -1,10 +1,20 @@
 import userEvent from "@testing-library/user-event";
 import { screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import WifiPage from "../pages/WifiPage";
 import { renderWithQueryClient } from "./render";
 import { api } from "../services/api";
+
+function LocationSearchProbe() {
+  const location = useLocation();
+
+  return (
+    <div data-testid="location-search">
+      {`${location.pathname}${location.search}`}
+    </div>
+  );
+}
 
 function mockWifiLocationSummaries() {
   vi.mocked(api.getWifiLocationSummaries).mockResolvedValue({
@@ -557,6 +567,84 @@ describe("WifiPage", () => {
     ).toBeInTheDocument();
 
     expect(await screen.findByText("d5:8a:f7:59:88:f1")).toBeInTheDocument();
+  });
+
+  it("opens device details from the wifi sample drawer", async () => {
+    mockWifiLocationSummaries();
+
+    vi.mocked(api.getWifiSummary).mockResolvedValue({
+      window_minutes: 60,
+      location_label: null,
+      sample_count: 2,
+      avg_rssi_dbm: -45,
+      min_rssi_dbm: -48,
+      max_rssi_dbm: -42,
+      latest_sample: {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(api.getWifiSamples).mockResolvedValue([
+      {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/wifi"]}
+      >
+        <WifiPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /expand table/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("row").length).toBeGreaterThan(1);
+    });
+
+    await user.click(screen.getAllByRole("row")[1]);
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Open device details",
+      }),
+    );
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "/devices?",
+    );
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "deviceMac=d5%3A8a%3Af7%3A59%3A88%3Af1",
+    );
   });
 
   it("renders empty state when no wifi samples exist", async () => {

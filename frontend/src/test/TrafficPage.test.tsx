@@ -9,7 +9,11 @@ import userEvent from "@testing-library/user-event";
 function LocationSearchProbe() {
   const location = useLocation();
 
-  return <div data-testid="location-search">{location.search}</div>;
+  return (
+    <div data-testid="location-search">
+      {`${location.pathname}${location.search}`}
+    </div>
+  );
 }
 
 vi.mock("../services/api", () => ({
@@ -410,6 +414,106 @@ describe("TrafficPage", () => {
         name: /close/i,
       }),
     ).toBeInTheDocument();
+  });
+
+  it("opens device details from the top talker drawer", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.getTrafficSummary).mockResolvedValue({
+      window_minutes: 60,
+      total_bytes_rx: 20_000_000,
+      total_bytes_tx: 30_000_000,
+      total_bytes: 50_000_000,
+      interface_count: 1,
+      top_talker: {
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: "192.168.1.10",
+        mac_address: "aa:bb:cc:dd:ee:ff",
+        latest_bytes_rx: 8_000_000,
+        latest_bytes_tx: 10_000_000,
+        earliest_bytes_rx: 4_000_000,
+        earliest_bytes_tx: 5_000_000,
+        delta_bytes_rx: 4_000_000,
+        delta_bytes_tx: 5_000_000,
+        delta_bytes_total: 9_000_000,
+        latest_sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(api.getTrafficTopTalkers).mockResolvedValue({
+      window_minutes: 60,
+      items: [
+        {
+          interface_name: "eth0",
+          entity_type: "interface",
+          entity_key: "eth0",
+          device_ip_address: "192.168.1.10",
+          mac_address: "aa:bb:cc:dd:ee:ff",
+          latest_bytes_rx: 8_000_000,
+          latest_bytes_tx: 10_000_000,
+          earliest_bytes_rx: 4_000_000,
+          earliest_bytes_tx: 5_000_000,
+          delta_bytes_rx: 4_000_000,
+          delta_bytes_tx: 5_000_000,
+          delta_bytes_total: 9_000_000,
+          latest_sampled_at: new Date().toISOString(),
+        },
+      ],
+    });
+
+    vi.mocked(api.getTrafficSamples).mockResolvedValue([
+      {
+        id: 1,
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: "192.168.1.10",
+        mac_address: "aa:bb:cc:dd:ee:ff",
+        bytes_rx: 8_000_000,
+        bytes_tx: 10_000_000,
+        packets_rx: 1000,
+        packets_tx: 1200,
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
+        <TrafficPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    const topTalkersHeading = await screen.findByText("Top talkers");
+    const topTalkersSection = topTalkersHeading.closest("section");
+
+    await user.click(
+      within(topTalkersSection as HTMLElement).getAllByText("eth0")[0],
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Open device details",
+      }),
+    );
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "/devices?",
+    );
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "deviceIp=192.168.1.10",
+    );
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "deviceMac=aa%3Abb%3Acc%3Add%3Aee%3Aff",
+    );
   });
 
   it("closes the top talker detail drawer", async () => {
@@ -855,6 +959,113 @@ describe("TrafficPage", () => {
 
     expect(screen.getByTestId("location-search")).toHaveTextContent(
       "trafficSampleId=1",
+    );
+  });
+
+  it("opens device details from the traffic sample drawer", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.getTrafficSummary).mockResolvedValue({
+      window_minutes: 60,
+      total_bytes_rx: 20_000_000,
+      total_bytes_tx: 30_000_000,
+      total_bytes: 50_000_000,
+      interface_count: 1,
+      top_talker: {
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: "192.168.1.22",
+        mac_address: "00:11:22:33:44:55",
+        latest_bytes_rx: 8_000_000,
+        latest_bytes_tx: 10_000_000,
+        earliest_bytes_rx: 4_000_000,
+        earliest_bytes_tx: 5_000_000,
+        delta_bytes_rx: 4_000_000,
+        delta_bytes_tx: 5_000_000,
+        delta_bytes_total: 9_000_000,
+        latest_sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(api.getTrafficTopTalkers).mockResolvedValue({
+      window_minutes: 60,
+      items: [
+        {
+          interface_name: "eth0",
+          entity_type: "interface",
+          entity_key: "eth0",
+          device_ip_address: "192.168.1.22",
+          mac_address: "00:11:22:33:44:55",
+          latest_bytes_rx: 8_000_000,
+          latest_bytes_tx: 10_000_000,
+          earliest_bytes_rx: 4_000_000,
+          earliest_bytes_tx: 5_000_000,
+          delta_bytes_rx: 4_000_000,
+          delta_bytes_tx: 5_000_000,
+          delta_bytes_total: 9_000_000,
+          latest_sampled_at: new Date().toISOString(),
+        },
+      ],
+    });
+
+    vi.mocked(api.getTrafficSamples).mockResolvedValue([
+      {
+        id: 1,
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: "192.168.1.22",
+        mac_address: "00:11:22:33:44:55",
+        bytes_rx: 8_000_000,
+        bytes_tx: 10_000_000,
+        packets_rx: 1000,
+        packets_tx: 1200,
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
+        <TrafficPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /expand table/i,
+      }),
+    );
+
+    const sampleSection = screen
+      .getAllByText("Recent traffic samples")[0]
+      .closest("section");
+
+    await user.click(
+      within(sampleSection as HTMLElement).getAllByText("eth0")[0],
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Open device details",
+      }),
+    );
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "/devices?",
+    );
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "deviceIp=192.168.1.22",
+    );
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "deviceMac=00%3A11%3A22%3A33%3A44%3A55",
     );
   });
 });
