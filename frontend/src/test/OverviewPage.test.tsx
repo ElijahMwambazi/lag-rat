@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import OverviewPage from "../pages/OverviewPage";
@@ -9,8 +10,20 @@ vi.mock("recharts", async () => {
   return await import("./mocks/recharts");
 });
 
-vi.mock("../components/AlertsPanel", () => ({
-  default: () => <div>Alerts panel</div>,
+vi.mock("../components/alerts/AlertsPanel", () => ({
+  default: ({
+    focusMode = "default",
+    selectedAlertId = null,
+  }: {
+    focusMode?: string;
+    selectedAlertId?: number | null;
+  }) => (
+    <div>
+      <div>Alerts panel</div>
+      <div>{`focusMode:${focusMode}`}</div>
+      <div>{`selectedAlertId:${selectedAlertId ?? "none"}`}</div>
+    </div>
+  ),
 }));
 
 vi.mock("../utils/incidentText", async () => {
@@ -204,6 +217,111 @@ describe("OverviewPage", () => {
     expect(
       await screen.findByText("4 interfaces observed"),
     ).toBeInTheDocument();
+  });
+
+  it("opens the selected critical alert in the alerts panel", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.getStatusOverview).mockResolvedValue({
+      checked_at: "2026-04-11T12:00:00Z",
+      router: {
+        is_healthy: true,
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: null,
+        latest_latency_ms: 3,
+        latest_error_message: null,
+        active_outage: false,
+      },
+      internet: {
+        is_healthy: false,
+        last_success_at: "2026-04-11T11:30:00Z",
+        last_failure_at: "2026-04-11T11:58:00Z",
+        latest_latency_ms: null,
+        latest_error_message: "timeout",
+        active_outage: true,
+      },
+      internet_tcp: {
+        is_healthy: false,
+        last_success_at: null,
+        last_failure_at: "2026-04-11T11:58:00Z",
+        latest_latency_ms: null,
+        latest_error_message: "timeout",
+        active_outage: true,
+      },
+      internet_http: {
+        is_healthy: false,
+        last_success_at: null,
+        last_failure_at: "2026-04-11T11:58:00Z",
+        latest_latency_ms: null,
+        latest_error_message: "timeout",
+        active_outage: true,
+      },
+      dns: {
+        is_healthy: true,
+        last_success_at: "2026-04-11T11:58:00Z",
+        last_failure_at: null,
+        latest_response_time_ms: 20,
+        latest_error_message: null,
+        active_outage: false,
+      },
+      devices: {
+        active_count_24h: 7,
+        most_recent_seen_at: "2026-04-11T11:50:00Z",
+      },
+      outages: {
+        active_count: 1,
+        last_24h_count: 2,
+      },
+      alerts: {
+        active_count: 2,
+        active_critical_count: 1,
+        active_unacknowledged_count: 1,
+        active_unacknowledged_critical_count: 1,
+        most_recent_created_at: "2026-04-11T11:58:00Z",
+      },
+    });
+
+    vi.mocked(api.getSummary).mockResolvedValue({
+      uptime_pct_24h: 97.5,
+      avg_latency_ms_24h: 22,
+      outage_count_24h: 2,
+    });
+
+    vi.mocked(api.getAlerts).mockResolvedValue([
+      {
+        id: 1,
+        alert_type: "service_health",
+        severity: "critical",
+        entity_type: "internet_http",
+        entity_key: "https://example.com",
+        message: "internet_http check failed: timeout",
+        is_active: true,
+        created_at: "2026-04-11T11:58:00Z",
+        resolved_at: null,
+        acknowledged_at: null,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        <OverviewPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Open alert details",
+      }),
+    );
+
+    expect(screen.getByText("focusMode:active-critical")).toBeInTheDocument();
+
+    expect(screen.getByText("selectedAlertId:1")).toBeInTheDocument();
   });
 
   it("renders traffic fallback state when traffic summary is unavailable", async () => {

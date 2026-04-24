@@ -1,19 +1,6 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import {
-  api,
-  type Alert,
-  type AlertHistoryItem,
-} from "../../services/api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, type Alert, type AlertHistoryItem } from "../../services/api";
 import AlertDetailDrawer from "./AlertDetailDrawer";
 import {
   buildAlertHeadline,
@@ -24,23 +11,11 @@ import {
 } from "../../utils/incidentText";
 
 type StatusFilter = "all" | "active" | "resolved";
-type SeverityFilter =
-  | "all"
-  | "critical"
-  | "warning"
-  | "info";
-type EntityFilter =
-  | "all"
-  | "router"
-  | "internet"
-  | "dns"
-  | "wifi";
-type AlertsPanelFocusMode =
-  | "default"
-  | "active-critical";
+type SeverityFilter = "all" | "critical" | "warning" | "info";
+type EntityFilter = "all" | "router" | "internet" | "dns" | "wifi";
+type AlertsPanelFocusMode = "default" | "active-critical";
 
-const NOTIFIED_ALERT_IDS_STORAGE_KEY =
-  "lag-rat:notified-critical-alert-ids";
+const NOTIFIED_ALERT_IDS_STORAGE_KEY = "lag-rat:notified-critical-alert-ids";
 const MAX_STORED_ALERT_IDS = 500;
 
 function formatDate(value?: string | null) {
@@ -93,9 +68,7 @@ function readNotifiedAlertIds(): number[] {
   }
 
   try {
-    const raw = window.localStorage.getItem(
-      NOTIFIED_ALERT_IDS_STORAGE_KEY,
-    );
+    const raw = window.localStorage.getItem(NOTIFIED_ALERT_IDS_STORAGE_KEY);
 
     if (!raw) {
       return [];
@@ -121,9 +94,7 @@ function writeNotifiedAlertIds(ids: Set<number>) {
   }
 
   try {
-    const trimmed = Array.from(ids).slice(
-      -MAX_STORED_ALERT_IDS,
-    );
+    const trimmed = Array.from(ids).slice(-MAX_STORED_ALERT_IDS);
 
     window.localStorage.setItem(
       NOTIFIED_ALERT_IDS_STORAGE_KEY,
@@ -136,52 +107,32 @@ function writeNotifiedAlertIds(ids: Set<number>) {
 
 export default function AlertsPanel({
   focusMode = "default",
+  selectedAlertId = null,
 }: {
   focusMode?: AlertsPanelFocusMode;
+  selectedAlertId?: number | null;
 }) {
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>("all");
-  const [severityFilter, setSeverityFilter] =
-    useState<SeverityFilter>("all");
-  const [entityFilter, setEntityFilter] =
-    useState<EntityFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
+  const [entityFilter, setEntityFilter] = useState<EntityFilter>("all");
   const [search, setSearch] = useState("");
-  const [selectedAlert, setSelectedAlert] =
-    useState<Alert | null>(null);
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const notifiedAlertIdsRef = useRef<Set<number>>(
     new Set(readNotifiedAlertIds()),
   );
 
-  const [
-    notificationsEnabled,
-    setNotificationsEnabled,
-  ] = useState<boolean>(
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(
     typeof Notification !== "undefined" &&
       Notification.permission === "granted",
   );
 
   const alertsQuery = useQuery({
-    queryKey: [
-      "alerts",
-      statusFilter,
-      severityFilter,
-      entityFilter,
-      search,
-    ],
+    queryKey: ["alerts", statusFilter, severityFilter, entityFilter, search],
     queryFn: () =>
       api.getAlerts({
-        status:
-          statusFilter === "all"
-            ? undefined
-            : statusFilter,
-        severity:
-          severityFilter === "all"
-            ? undefined
-            : severityFilter,
-        entity_type:
-          entityFilter === "all"
-            ? undefined
-            : entityFilter,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        severity: severityFilter === "all" ? undefined : severityFilter,
+        entity_type: entityFilter === "all" ? undefined : entityFilter,
         search: search.trim() || undefined,
         limit: 100,
       }),
@@ -190,27 +141,20 @@ export default function AlertsPanel({
   const alerts = alertsQuery.data ?? [];
 
   const alertHistoryQuery = useQuery({
-    queryKey: [
-      "alert-history",
-      selectedAlert?.id,
-    ],
-    queryFn: () =>
-      api.getAlertHistory(selectedAlert!.id),
+    queryKey: ["alert-history", selectedAlert?.id],
+    queryFn: () => api.getAlertHistory(selectedAlert!.id),
     enabled: !!selectedAlert,
   });
 
   const activeCount = useMemo(
-    () =>
-      alerts.filter((alert) => alert.is_active)
-        .length,
+    () => alerts.filter((alert) => alert.is_active).length,
     [alerts],
   );
 
   const queryClient = useQueryClient();
 
   const acknowledgeMutation = useMutation({
-    mutationFn: (id: number) =>
-      api.acknowledgeAlert(id),
+    mutationFn: (id: number) => api.acknowledgeAlert(id),
     onSuccess: (updatedAlert) => {
       setSelectedAlert(updatedAlert);
 
@@ -218,9 +162,7 @@ export default function AlertsPanel({
         { queryKey: ["alerts"] },
         (oldData: Alert[] | undefined) =>
           oldData?.map((alert) =>
-            alert.id === updatedAlert.id
-              ? updatedAlert
-              : alert,
+            alert.id === updatedAlert.id ? updatedAlert : alert,
           ) ?? oldData,
       );
 
@@ -229,10 +171,7 @@ export default function AlertsPanel({
       });
 
       queryClient.invalidateQueries({
-        queryKey: [
-          "alert-history",
-          updatedAlert.id,
-        ],
+        queryKey: ["alert-history", updatedAlert.id],
       });
 
       queryClient.invalidateQueries({
@@ -240,22 +179,23 @@ export default function AlertsPanel({
       });
 
       queryClient.invalidateQueries({
-        queryKey: [
-          "alerts",
-          "critical",
-          "active",
-          "overview",
-        ],
+        queryKey: ["alerts", "critical", "active", "overview"],
       });
     },
   });
 
   useEffect(() => {
-    if (focusMode === "active-critical") {
-      setStatusFilter("active");
-      setSeverityFilter("critical");
+    if (selectedAlertId === null) {
+      return;
     }
-  }, [focusMode]);
+
+    const matchedAlert =
+      alerts.find((alert) => alert.id === selectedAlertId) ?? null;
+
+    if (matchedAlert) {
+      setSelectedAlert(matchedAlert);
+    }
+  }, [alerts, selectedAlertId]);
 
   const visibleAlerts = useMemo(() => {
     return [...alerts].sort((a, b) => {
@@ -264,8 +204,7 @@ export default function AlertsPanel({
       }
 
       return (
-        new Date(b.created_at).getTime() -
-        new Date(a.created_at).getTime()
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
     });
   }, [alerts]);
@@ -276,16 +215,13 @@ export default function AlertsPanel({
     }
 
     const activeCriticalAlerts = alerts.filter(
-      (alert) =>
-        alert.is_active &&
-        alert.severity === "critical",
+      (alert) => alert.is_active && alert.severity === "critical",
     );
 
     let didPersist = false;
 
     for (const alert of activeCriticalAlerts) {
-      const alreadyNotified =
-        notifiedAlertIdsRef.current.has(alert.id);
+      const alreadyNotified = notifiedAlertIdsRef.current.has(alert.id);
 
       if (alreadyNotified) {
         continue;
@@ -295,19 +231,14 @@ export default function AlertsPanel({
       didPersist = true;
 
       if (Notification.permission === "granted") {
-        new Notification(
-          "Lag Rat critical alert",
-          {
-            body: `${alert.entity_type}: ${alert.message}`,
-          },
-        );
+        new Notification("Lag Rat critical alert", {
+          body: `${alert.entity_type}: ${alert.message}`,
+        });
       }
     }
 
     if (didPersist) {
-      writeNotifiedAlertIds(
-        notifiedAlertIdsRef.current,
-      );
+      writeNotifiedAlertIds(notifiedAlertIdsRef.current);
     }
   }, [alerts]);
 
@@ -321,9 +252,7 @@ export default function AlertsPanel({
         ? "granted"
         : await Notification.requestPermission();
 
-    setNotificationsEnabled(
-      permission === "granted",
-    );
+    setNotificationsEnabled(permission === "granted");
   }
 
   return (
@@ -331,20 +260,15 @@ export default function AlertsPanel({
       <section className="flex h-[32rem] min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="text-lg font-medium">
-              Alerts
-            </h3>
+            <h3 className="text-lg font-medium">Alerts</h3>
             <p className="mt-1 text-xs text-zinc-500">
-              Active and recent alert activity
-              across monitored services.
+              Active and recent alert activity across monitored services.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            {typeof Notification !==
-              "undefined" &&
-            Notification.permission !==
-              "granted" ? (
+            {typeof Notification !== "undefined" &&
+            Notification.permission !== "granted" ? (
               <button
                 type="button"
                 onClick={enableNotifications}
@@ -369,9 +293,7 @@ export default function AlertsPanel({
         <div className="mt-3 flex flex-col gap-3">
           <input
             value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search message, entity, type..."
             className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500"
           />
@@ -381,72 +303,43 @@ export default function AlertsPanel({
               Explorer controls
             </h4>
             <p className="text-xs text-zinc-500">
-              Filter alerts by status, severity,
-              entity, or matching message text.
+              Filter alerts by status, severity, entity, or matching message
+              text.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <select
               value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(
-                  e.target.value as StatusFilter,
-                )
-              }
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
             >
-              <option value="all">
-                All statuses
-              </option>
-              <option value="active">
-                Active
-              </option>
-              <option value="resolved">
-                Resolved
-              </option>
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="resolved">Resolved</option>
             </select>
 
             <select
               value={severityFilter}
               onChange={(e) =>
-                setSeverityFilter(
-                  e.target
-                    .value as SeverityFilter,
-                )
+                setSeverityFilter(e.target.value as SeverityFilter)
               }
               className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
             >
-              <option value="all">
-                All severities
-              </option>
-              <option value="critical">
-                critical
-              </option>
-              <option value="warning">
-                warning
-              </option>
+              <option value="all">All severities</option>
+              <option value="critical">critical</option>
+              <option value="warning">warning</option>
               <option value="info">info</option>
             </select>
 
             <select
               value={entityFilter}
-              onChange={(e) =>
-                setEntityFilter(
-                  e.target.value as EntityFilter,
-                )
-              }
+              onChange={(e) => setEntityFilter(e.target.value as EntityFilter)}
               className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
             >
-              <option value="all">
-                All entities
-              </option>
-              <option value="router">
-                router
-              </option>
-              <option value="internet">
-                internet
-              </option>
+              <option value="all">All entities</option>
+              <option value="router">router</option>
+              <option value="internet">internet</option>
               <option value="dns">dns</option>
               <option value="wifi">wifi</option>
             </select>
@@ -462,11 +355,8 @@ export default function AlertsPanel({
         ) : null}
 
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-          {alertsQuery.isLoading &&
-          visibleAlerts.length === 0 ? (
-            <p className="text-sm text-zinc-400">
-              Loading alerts...
-            </p>
+          {alertsQuery.isLoading && visibleAlerts.length === 0 ? (
+            <p className="text-sm text-zinc-400">Loading alerts...</p>
           ) : visibleAlerts.length === 0 ? (
             <p className="text-sm text-zinc-400">
               No alerts match the current filters.
@@ -478,18 +368,14 @@ export default function AlertsPanel({
                   key={alert.id}
                   type="button"
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 text-left transition-colors hover:bg-zinc-800/60"
-                  onClick={() =>
-                    setSelectedAlert(alert)
-                  }
+                  onClick={() => setSelectedAlert(alert)}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 text-sm font-medium text-zinc-100">
                         {buildAlertHeadline({
-                          entityType:
-                            alert.entity_type,
-                          entityKey:
-                            alert.entity_key,
+                          entityType: alert.entity_type,
+                          entityKey: alert.entity_key,
                           message: alert.message,
                         })}
                       </p>
@@ -497,24 +383,16 @@ export default function AlertsPanel({
                       <p className="mt-1 line-clamp-1 text-sm text-zinc-300">
                         {
                           buildAlertSubtext({
-                            entityType:
-                              alert.entity_type,
-                            entityKey:
-                              alert.entity_key,
-                            message:
-                              alert.message,
+                            entityType: alert.entity_type,
+                            entityKey: alert.entity_key,
+                            message: alert.message,
                           }).targetLabel
                         }
                       </p>
 
                       <p className="mt-1 line-clamp-1 text-[11px] text-zinc-500">
-                        {formatIncidentType(
-                          alert.entity_type,
-                        )}{" "}
-                        · Opened{" "}
-                        {formatDate(
-                          alert.created_at,
-                        )}
+                        {formatIncidentType(alert.entity_type)} · Opened{" "}
+                        {formatDate(alert.created_at)}
                       </p>
                     </div>
 
@@ -533,14 +411,11 @@ export default function AlertsPanel({
                         )}`}
                       >
                         {formatIncidentState(
-                          alert.is_active
-                            ? "active"
-                            : "resolved",
+                          alert.is_active ? "active" : "resolved",
                         )}
                       </span>
 
-                      {alert.is_active &&
-                      alert.acknowledged_at ? (
+                      {alert.is_active && alert.acknowledged_at ? (
                         <span className="rounded-full border border-amber-800 bg-amber-950 px-2 py-0.5 text-[11px] text-amber-300">
                           Acknowledged
                         </span>
@@ -558,24 +433,17 @@ export default function AlertsPanel({
         open={!!selectedAlert}
         onClose={() => setSelectedAlert(null)}
         history={alertHistoryQuery.data ?? []}
-        historyLoading={
-          alertHistoryQuery.isLoading
-        }
+        historyLoading={alertHistoryQuery.isLoading}
         historyError={alertHistoryQuery.isError}
-        acknowledgePending={
-          acknowledgeMutation.isPending
-        }
+        acknowledgePending={acknowledgeMutation.isPending}
         acknowledgeErrorMessage={
           acknowledgeMutation.isError
-            ? acknowledgeMutation.error instanceof
-              Error
+            ? acknowledgeMutation.error instanceof Error
               ? acknowledgeMutation.error.message
               : "Failed to acknowledge alert."
             : null
         }
-        onAcknowledge={(id) =>
-          acknowledgeMutation.mutate(id)
-        }
+        onAcknowledge={(id) => acknowledgeMutation.mutate(id)}
       />
     </>
   );

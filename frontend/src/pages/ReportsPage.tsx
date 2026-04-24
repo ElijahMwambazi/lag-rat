@@ -359,6 +359,14 @@ export default function ReportsPage() {
       })
     : null;
 
+  function openIncidentTargetInExplorer(item: IncidentTargetSummaryItem) {
+    setShowOutageExplorer(true);
+    setSearch(item.target);
+    setTypeFilter(item.incident_type as TypeFilter);
+    setStatusFilter(item.active_count > 0 ? "active" : "resolved");
+    setSortBy("started_desc");
+  }
+
   const activeCount = outages.filter(
     (outage) => outage.status === "active",
   ).length;
@@ -829,7 +837,9 @@ export default function ReportsPage() {
                 topIncidentTargets.map((item: IncidentTargetSummaryItem) => (
                   <InspectionHighlightCard
                     key={`${item.incident_type}-${item.target}`}
-                    className="border-zinc-800 bg-zinc-950/60"
+                    onClick={() => openIncidentTargetInExplorer(item)}
+                    ariaLabel={`Inspect incident target ${item.target}`}
+                    className="border-zinc-800 bg-zinc-950/60 hover:bg-zinc-900/80"
                     title={item.target}
                     subtitle={formatIncidentType(item.incident_type)}
                     statusLabel={
@@ -858,6 +868,7 @@ export default function ReportsPage() {
                         ? "Currently active"
                         : "No active incidents"
                     }
+                    actionHint="Open explorer"
                   />
                 ))
               )}

@@ -285,6 +285,28 @@ it("renders top incident targets as a fixed inspection panel", async () => {
   expect(screen.getByText("2 incidents")).toBeInTheDocument();
 });
 
+it("opens outage explorer filters from a top incident target card", async () => {
+  const user = userEvent.setup();
+  seedReportsSuccessState();
+
+  renderWithQueryClient(<ReportsPage />);
+
+  await user.click(
+    await screen.findByRole("button", {
+      name: "Inspect incident target https://example.com",
+    }),
+  );
+
+  expect(
+    await screen.findByPlaceholderText("Search target, type, status, error..."),
+  ).toHaveValue("https://example.com");
+
+  const selects = screen.getAllByRole("combobox");
+
+  expect(selects[1]).toHaveValue("internet_http");
+  expect(selects[2]).toHaveValue("active");
+});
+
 it("opens outage detail drawer when an outage row is clicked", async () => {
   const user = userEvent.setup();
   seedReportsSuccessState();
