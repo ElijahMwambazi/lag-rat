@@ -5,12 +5,12 @@ import ChartCard from "../components/ChartCard";
 import QueryState from "../components/QueryState";
 import StateCard from "../components/StateCard";
 import AlertDetailDrawer from "../components/alerts/AlertDetailDrawer";
-import SideDrawer from "../components/SideDrawer";
 import WifiSampleDetailDrawer from "../components/WifiSampleDetailDrawer";
 import DataTableCard from "../components/DataTableCard";
 import CollapsibleInspectionSection from "../components/CollapsibleInspectionSection";
 import DrawerDetailSection from "../components/DrawerDetailSection";
 import PageFilterBar from "../components/PageFilterBar";
+import InspectionHighlightCard from "../components/InspectionHighlightCard";
 import {
   api,
   type Alert,
@@ -758,9 +758,8 @@ export default function WifiPage() {
               );
 
               return (
-                <button
+                <InspectionHighlightCard
                   key={location}
-                  type="button"
                   onClick={() => {
                     setLocationLabel(location);
                     setDrawerAlertId(null);
@@ -773,55 +772,41 @@ export default function WifiPage() {
                       alertId: null,
                     });
                   }}
-                  className={getRoomCardClasses(isActive)}
-                >
-                  <div className="flex min-h-[88px] items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1 pr-2">
-                      <div className="text-sm font-medium text-zinc-100">
-                        {location}
-                      </div>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        {latest?.ssid ?? "SSID unavailable"}
-                      </p>
-                    </div>
-
-                    <div className="flex min-h-[68px] flex-col items-end gap-2">
-                      {latest?.band ? (
-                        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                          {latest.band}
-                        </span>
-                      ) : (
-                        <span
-                          className="rounded-full border border-transparent bg-transparent px-2 py-0.5 text-[11px] text-transparent"
-                          aria-hidden="true"
-                        >
-                          —
-                        </span>
-                      )}
-
-                      <span
-                        className={[
-                          "rounded-full border px-2 py-0.5 text-[11px]",
-                          getRoomStatusBadgeClasses(roomHealth.tone),
-                        ].join(" ")}
-                      >
-                        {roomHealth.label}
-                      </span>
-
-                      <SelectionBadge active={isActive} />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 text-xl font-semibold text-zinc-100">
-                    {latest ? formatRssi(latest.rssi_dbm) : "—"}
-                  </div>
-
-                  <p className="mt-2 min-h-[36px] text-xs leading-5 text-zinc-500">
-                    {latest
+                  className={
+                    isActive
+                      ? "border-zinc-500 bg-zinc-800/80"
+                      : "hover:bg-zinc-800/60"
+                  }
+                  title={location}
+                  subtitle={latest?.ssid ?? "SSID unavailable"}
+                  statusLabel={roomHealth.label}
+                  statusBadgeClassName={getRoomStatusBadgeClasses(
+                    roomHealth.tone,
+                  )}
+                  primaryLabel="Latest RSSI"
+                  primaryValue={latest ? formatRssi(latest.rssi_dbm) : "—"}
+                  metrics={[
+                    {
+                      label: "Band",
+                      value: latest?.band ?? "—",
+                    },
+                    {
+                      label: "Samples",
+                      value: String(item.sample_count),
+                    },
+                  ]}
+                  footerLabel="Sampled"
+                  footerValue={
+                    latest
                       ? `Sampled ${formatSampleAge(latest.sampled_at)}`
-                      : "No Wi-Fi sample in this window"}
-                  </p>
-                </button>
+                      : "No Wi-Fi sample in this window"
+                  }
+                  actionHint={isActive ? "Selected room" : "Filter room"}
+                >
+                  <div className="flex justify-end">
+                    <SelectionBadge active={isActive} />
+                  </div>
+                </InspectionHighlightCard>
               );
             })}
           </div>
