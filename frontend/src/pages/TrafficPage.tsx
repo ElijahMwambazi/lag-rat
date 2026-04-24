@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
 import DataTableCard from "../components/DataTableCard";
 import QueryState from "../components/QueryState";
 import StatCard from "../components/StatCard";
@@ -8,6 +7,7 @@ import PageFilterBar from "../components/PageFilterBar";
 import CollapsibleInspectionSection from "../components/CollapsibleInspectionSection";
 import TrafficSampleDetailDrawer from "../components/TrafficSampleDetailDrawer";
 import TrafficTalkerDetailDrawer from "../components/TrafficTalkerDetailDrawer";
+import InspectionHighlightCard from "../components/InspectionHighlightCard";
 import {
   api,
   type TrafficSample,
@@ -20,10 +20,6 @@ const WINDOWS = [
   { label: "6h", minutes: 360 },
   { label: "24h", minutes: 1440 },
 ];
-
-const TRAFFIC_SAMPLE_PARAM = "trafficSampleId";
-const TRAFFIC_TALKER_INTERFACE_PARAM = "trafficTalkerInterface";
-const TRAFFIC_TALKER_KEY_PARAM = "trafficTalkerKey";
 
 function formatWindowLabel(minutes: number) {
   const match = WINDOWS.find((option) => option.minutes === minutes);
@@ -136,9 +132,15 @@ function getTopTalkerStatusLabel(item: TrafficTopTalkerItem) {
 }
 
 export default function TrafficPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [windowMinutes, setWindowMinutes] = useState(60);
   const [selectedInterface, setSelectedInterface] = useState("");
+  const [selectedSample, setSelectedSample] = useState<TrafficSample | null>(
+    null,
+  );
+  const [sampleDrawerOpen, setSampleDrawerOpen] = useState(false);
+  const [selectedTalker, setSelectedTalker] =
+    useState<TrafficTopTalkerItem | null>(null);
+  const [talkerDrawerOpen, setTalkerDrawerOpen] = useState(false);
   const [samplesCollapsed, setSamplesCollapsed] = useState(true);
 
   const trafficSummaryQuery = useQuery({
@@ -213,74 +215,6 @@ export default function TrafficPage() {
   );
 
   const latestSample = filteredTrafficSamples[0] ?? null;
-
-  const selectedSampleId = searchParams.get(TRAFFIC_SAMPLE_PARAM);
-  const selectedTalkerInterface = searchParams.get(
-    TRAFFIC_TALKER_INTERFACE_PARAM,
-  );
-  const selectedTalkerKey = searchParams.get(TRAFFIC_TALKER_KEY_PARAM);
-
-  const selectedSample = useMemo(() => {
-    if (!selectedSampleId) {
-      return null;
-    }
-
-    return (
-      trafficSamples.find((item) => String(item.id) === selectedSampleId) ??
-      null
-    );
-  }, [trafficSamples, selectedSampleId]);
-
-  const selectedTalker = useMemo(() => {
-    if (!selectedTalkerInterface || !selectedTalkerKey) {
-      return null;
-    }
-
-    return (
-      topTalkers.find(
-        (item) =>
-          item.interface_name === selectedTalkerInterface &&
-          item.entity_key === selectedTalkerKey,
-      ) ?? null
-    );
-  }, [topTalkers, selectedTalkerInterface, selectedTalkerKey]);
-
-  function setSampleDrawerParam(sample: TrafficSample) {
-    const next = new URLSearchParams(searchParams);
-
-    next.set(TRAFFIC_SAMPLE_PARAM, String(sample.id));
-    next.delete(TRAFFIC_TALKER_INTERFACE_PARAM);
-    next.delete(TRAFFIC_TALKER_KEY_PARAM);
-
-    setSearchParams(next);
-  }
-
-  function clearSampleDrawerParam() {
-    const next = new URLSearchParams(searchParams);
-
-    next.delete(TRAFFIC_SAMPLE_PARAM);
-
-    setSearchParams(next);
-  }
-
-  function setTalkerDrawerParams(talker: TrafficTopTalkerItem) {
-    const next = new URLSearchParams(searchParams);
-
-    next.set(TRAFFIC_TALKER_INTERFACE_PARAM, talker.interface_name);
-    next.set(TRAFFIC_TALKER_KEY_PARAM, talker.entity_key);
-    next.delete(TRAFFIC_SAMPLE_PARAM);
-
-    setSearchParams(next);
-  }
-
-  function clearTalkerDrawerParams() {
-    const next = new URLSearchParams(searchParams);
-
-    next.delete(TRAFFIC_TALKER_INTERFACE_PARAM);
-    next.delete(TRAFFIC_TALKER_KEY_PARAM);
-
-    setSearchParams(next);
-  }
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -436,20 +370,19 @@ export default function TrafficPage() {
           {topTalkersQuery.isLoading ? (
             <div className="grid gap-3 lg:grid-cols-3">
               {Array.from({ length: 3 }).map((_, index) => (
-                <div
+                <InspectionHighlightCard
                   key={index}
-                  className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4"
-                >
-                  <div className="animate-pulse space-y-3">
-                    <div className="h-4 w-24 rounded bg-zinc-800" />
-                    <div className="h-7 w-28 rounded bg-zinc-800" />
-                    <div className="h-3 w-32 rounded bg-zinc-800" />
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="h-14 rounded bg-zinc-800" />
-                      <div className="h-14 rounded bg-zinc-800" />
-                    </div>
-                  </div>
-                </div>
+                  title="Loading"
+                  primaryLabel="Total moved"
+                  primaryValue="—"
+                  metrics={[
+                    { label: "Received", value: "—" },
+                    { label: "Sent", value: "—" },
+                  ]}
+                  footerLabel="Last seen"
+                  footerValue="Unknown"
+                  className="animate-pulse"
+                />
               ))}
             </div>
           ) : null}
@@ -457,76 +390,35 @@ export default function TrafficPage() {
           {!topTalkersQuery.isLoading && topTalkerHighlights.length > 0 ? (
             <div className="grid gap-3 lg:grid-cols-3">
               {topTalkerHighlights.map((item) => (
-                <button
+                <InspectionHighlightCard
                   key={`highlight-${item.interface_name}-${item.entity_key}`}
-                  type="button"
-                  aria-label={`Inspect top talker ${item.interface_name}`}
-                  onClick={() => setTalkerDrawerParams(item)}
-                  className="group rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-left transition hover:border-zinc-700 hover:bg-zinc-900"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <div className="text-sm font-medium text-zinc-100">
-                        {formatInterfaceName(item.interface_name)}
-                      </div>
-                      <div className="mt-1 text-xs text-zinc-500">
-                        {item.entity_type} · {item.entity_key}
-                      </div>
-                    </div>
-
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-xs ${getTopTalkerBadgeClasses(
-                        getTopTalkerTone(item),
-                      )}`}
-                    >
-                      {getTopTalkerStatusLabel(item)}
-                    </span>
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">
-                      Total moved
-                    </div>
-                    <div className="mt-1 text-2xl font-semibold text-zinc-100">
-                      {formatBytes(item.delta_bytes_total)}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
-                      <div className="text-[11px] uppercase tracking-wide text-zinc-500">
-                        Received
-                      </div>
-                      <div className="mt-1 text-sm text-zinc-100">
-                        {formatBytes(item.delta_bytes_rx)}
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
-                      <div className="text-[11px] uppercase tracking-wide text-zinc-500">
-                        Sent
-                      </div>
-                      <div className="mt-1 text-sm text-zinc-100">
-                        {formatBytes(item.delta_bytes_tx)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-end justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-[11px] uppercase tracking-wide text-zinc-500">
-                        Last seen
-                      </div>
-                      <div className="mt-1 truncate text-sm text-zinc-300">
-                        {formatSampleAge(item.latest_sampled_at)}
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-zinc-500 transition group-hover:text-zinc-400">
-                      Opens details
-                    </div>
-                  </div>
-                </button>
+                  ariaLabel={`Inspect top talker ${item.interface_name}`}
+                  onClick={() => {
+                    setSelectedTalker(item);
+                    setTalkerDrawerOpen(true);
+                  }}
+                  title={formatInterfaceName(item.interface_name)}
+                  subtitle={`${item.entity_type} · ${item.entity_key}`}
+                  statusLabel={getTopTalkerStatusLabel(item)}
+                  statusBadgeClassName={getTopTalkerBadgeClasses(
+                    getTopTalkerTone(item),
+                  )}
+                  primaryLabel="Total moved"
+                  primaryValue={formatBytes(item.delta_bytes_total)}
+                  metrics={[
+                    {
+                      label: "Received",
+                      value: formatBytes(item.delta_bytes_rx),
+                    },
+                    {
+                      label: "Sent",
+                      value: formatBytes(item.delta_bytes_tx),
+                    },
+                  ]}
+                  footerLabel="Last seen"
+                  footerValue={formatSampleAge(item.latest_sampled_at)}
+                  actionHint="Opens details"
+                />
               ))}
             </div>
           ) : null}
@@ -581,7 +473,10 @@ export default function TrafficPage() {
                 <tr
                   key={`${item.interface_name}-${item.entity_key}`}
                   className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
-                  onClick={() => setTalkerDrawerParams(item)}
+                  onClick={() => {
+                    setSelectedTalker(item);
+                    setTalkerDrawerOpen(true);
+                  }}
                 >
                   <td className="px-4 py-3 text-zinc-100">
                     <div>{formatInterfaceName(item.interface_name)}</div>
@@ -625,14 +520,17 @@ export default function TrafficPage() {
               ))}
             </tbody>
           </table>
-
-          <TrafficTalkerDetailDrawer
-            talker={selectedTalker}
-            windowMinutes={windowMinutes}
-            open={!!selectedTalker}
-            onClose={clearTalkerDrawerParams}
-          />
         </DataTableCard>
+
+        <TrafficTalkerDetailDrawer
+          talker={selectedTalker}
+          windowMinutes={windowMinutes}
+          open={talkerDrawerOpen && !!selectedTalker}
+          onClose={() => {
+            setTalkerDrawerOpen(false);
+            setSelectedTalker(null);
+          }}
+        />
       </section>
 
       <CollapsibleInspectionSection
@@ -662,7 +560,6 @@ export default function TrafficPage() {
         expandedActionLabel="Hide samples"
         isExpanded={
           !samplesCollapsed ||
-          !!selectedSample ||
           filteredTrafficSamples.length === 0 ||
           trafficSamplesQuery.isLoading ||
           trafficSamplesQuery.isError
@@ -705,7 +602,10 @@ export default function TrafficPage() {
                 <tr
                   key={item.id}
                   className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
-                  onClick={() => setSampleDrawerParam(item)}
+                  onClick={() => {
+                    setSelectedSample(item);
+                    setSampleDrawerOpen(true);
+                  }}
                 >
                   <td className="px-4 py-3 text-zinc-300">
                     <div>{formatDate(item.sampled_at)}</div>
@@ -743,13 +643,16 @@ export default function TrafficPage() {
               ))}
             </tbody>
           </table>
-
-          <TrafficSampleDetailDrawer
-            sample={selectedSample}
-            open={!!selectedSample}
-            onClose={clearSampleDrawerParam}
-          />
         </DataTableCard>
+
+        <TrafficSampleDetailDrawer
+          sample={selectedSample}
+          open={sampleDrawerOpen && !!selectedSample}
+          onClose={() => {
+            setSampleDrawerOpen(false);
+            setSelectedSample(null);
+          }}
+        />
       </CollapsibleInspectionSection>
     </div>
   );
