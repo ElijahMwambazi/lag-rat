@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QueryState from "../components/QueryState";
 import {
@@ -15,13 +15,12 @@ import OutageDetailDrawer from "../components/OutageDetailDrawer";
 import DataTableCard from "../components/DataTableCard";
 import CollapsibleInspectionSection from "../components/CollapsibleInspectionSection";
 import PageFilterBar from "../components/PageFilterBar";
+import InspectionHighlightCard from "../components/InspectionHighlightCard";
 import {
   buildAlertHeadline,
   buildAlertSubtext,
   formatAlertEventTransition,
-  formatIncidentState,
   formatIncidentType,
-  summarizeOutageCause,
 } from "../utils/incidentText";
 
 type StatusFilter = "all" | "active" | "resolved";
@@ -828,41 +827,38 @@ export default function ReportsPage() {
                 />
               ) : (
                 topIncidentTargets.map((item: IncidentTargetSummaryItem) => (
-                  <div
+                  <InspectionHighlightCard
                     key={`${item.incident_type}-${item.target}`}
-                    className={inspectionCardClass}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-zinc-100">
-                          {item.target}
-                        </p>
-                        <p className="mt-1 text-[11px] text-zinc-500">
-                          {formatIncidentType(item.incident_type)}
-                        </p>
-                      </div>
-
-                      {item.active_count > 0 ? (
-                        <span className={dangerBadgeClass}>
-                          {item.active_count} active
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span className={mutedBadgeClass}>
-                        {item.count} incidents
-                      </span>
-                      <span className={warmBadgeClass}>
-                        {formatDurationCompact(item.total_downtime_seconds)}{" "}
-                        downtime
-                      </span>
-                    </div>
-
-                    <p className="mt-3 text-[11px] text-zinc-500">
-                      Latest incident {formatDate(item.latest_started_at)}
-                    </p>
-                  </div>
+                    className="border-zinc-800 bg-zinc-950/60"
+                    title={item.target}
+                    subtitle={formatIncidentType(item.incident_type)}
+                    statusLabel={
+                      item.active_count > 0
+                        ? `${item.active_count} active`
+                        : undefined
+                    }
+                    statusBadgeClassName={dangerBadgeClass}
+                    primaryLabel="Incidents"
+                    primaryValue={`${item.count} incidents`}
+                    metrics={[
+                      {
+                        label: "Downtime",
+                        value: `${formatDurationCompact(
+                          item.total_downtime_seconds,
+                        )} downtime`,
+                      },
+                      {
+                        label: "Latest",
+                        value: formatDate(item.latest_started_at),
+                      },
+                    ]}
+                    footerLabel="Status"
+                    footerValue={
+                      item.active_count > 0
+                        ? "Currently active"
+                        : "No active incidents"
+                    }
+                  />
                 ))
               )}
             </div>
