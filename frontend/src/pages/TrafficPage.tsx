@@ -6,7 +6,12 @@ import StatCard from "../components/StatCard";
 import PageFilterBar from "../components/PageFilterBar";
 import CollapsibleInspectionSection from "../components/CollapsibleInspectionSection";
 import TrafficSampleDetailDrawer from "../components/TrafficSampleDetailDrawer";
-import { api, type TrafficSample } from "../services/api";
+import TrafficTalkerDetailDrawer from "../components/TrafficTalkerDetailDrawer";
+import {
+  api,
+  type TrafficSample,
+  type TrafficTopTalkerItem,
+} from "../services/api";
 
 const WINDOWS = [
   { label: "15m", minutes: 15 },
@@ -81,6 +86,50 @@ function getViewingLabel(selectedInterface: string) {
   return selectedInterface || "All interfaces";
 }
 
+function getTopTalkerTone(item: TrafficTopTalkerItem) {
+  if (item.delta_bytes_total >= 100 * 1024 * 1024) {
+    return "critical";
+  }
+
+  if (item.delta_bytes_total >= 10 * 1024 * 1024) {
+    return "warning";
+  }
+
+  if (item.delta_bytes_total === 0) {
+    return "stale";
+  }
+
+  return "healthy";
+}
+
+function getTopTalkerBadgeClasses(tone: string) {
+  switch (tone) {
+    case "critical":
+      return "border-red-800 bg-red-950 text-red-300";
+    case "warning":
+      return "border-amber-800 bg-amber-950 text-amber-300";
+    case "stale":
+      return "border-zinc-700 bg-zinc-900 text-zinc-300";
+    case "healthy":
+    default:
+      return "border-emerald-800 bg-emerald-950 text-emerald-300";
+  }
+}
+
+function getTopTalkerStatusLabel(item: TrafficTopTalkerItem) {
+  switch (getTopTalkerTone(item)) {
+    case "critical":
+      return "Heavy mover";
+    case "warning":
+      return "Active mover";
+    case "stale":
+      return "No movement";
+    case "healthy":
+    default:
+      return "Moderate movement";
+  }
+}
+
 export default function TrafficPage() {
   const [windowMinutes, setWindowMinutes] = useState(60);
   const [selectedInterface, setSelectedInterface] = useState("");
@@ -88,6 +137,9 @@ export default function TrafficPage() {
     null,
   );
   const [sampleDrawerOpen, setSampleDrawerOpen] = useState(false);
+  const [selectedTalker, setSelectedTalker] =
+    useState<TrafficTopTalkerItem | null>(null);
+  const [talkerDrawerOpen, setTalkerDrawerOpen] = useState(false);
   const [samplesCollapsed, setSamplesCollapsed] = useState(true);
 
   const trafficSummaryQuery = useQuery({
@@ -109,9 +161,7 @@ export default function TrafficPage() {
   });
 
   const trafficSamples: TrafficSample[] = trafficSamplesQuery.data ?? [];
-
   const summary = trafficSummaryQuery.data;
-
   const topTalkers = topTalkersQuery.data?.items ?? [];
 
   const interfaceOptions = useMemo(() => {
@@ -159,6 +209,7 @@ export default function TrafficPage() {
   );
 
   const latestSample = filteredTrafficSamples[0] ?? null;
+  const topTalker = filteredTopTalkers[0] ?? null;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -307,12 +358,19 @@ export default function TrafficPage() {
                 {filteredTopTalkers.length} item
                 {filteredTopTalkers.length === 1 ? "" : "s"}
               </span>
+
               <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
                 {formatBytes(totalDeltaBytes)} moved
               </span>
+
+              {topTalker ? (
+                <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  Top mover · {topTalker.interface_name}
+                </span>
+              ) : null}
             </div>
           }
-          helperText="This ranked view shows traffic movement across interface-level counters for the selected scope."
+          helperText="This ranked view shows traffic movement across interface-level counters for the selected scope. Select a row to inspect movement details."
           isLoading={topTalkersQuery.isLoading}
           isError={topTalkersQuery.isError}
           errorMessage={
@@ -323,7 +381,7 @@ export default function TrafficPage() {
           emptyTitle="Top talkers"
           emptyMessage="No ranked traffic was available for this window."
           hasData={filteredTopTalkers.length > 0}
-          tableMinWidthClassName="min-w-[980px]"
+          tableMinWidthClassName="min-w-[1160px]"
           variant="flush"
           hideHeader
         >
@@ -336,16 +394,30 @@ export default function TrafficPage() {
                 <th className="px-4 py-3 text-left font-medium">Sent</th>
                 <th className="px-4 py-3 text-left font-medium">Total moved</th>
                 <th className="px-4 py-3 text-left font-medium">Last seen</th>
+                <th className="px-4 py-3 text-left font-medium">Details</th>
               </tr>
             </thead>
             <tbody>
               {filteredTopTalkers.map((item) => (
                 <tr
                   key={`${item.interface_name}-${item.entity_key}`}
-                  className="border-t border-zinc-800"
+                  className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
+                  onClick={() => {
+                    setSelectedTalker(item);
+                    setTalkerDrawerOpen(true);
+                  }}
                 >
                   <td className="px-4 py-3 text-zinc-100">
-                    {formatInterfaceName(item.interface_name)}
+                    <div>{formatInterfaceName(item.interface_name)}</div>
+                    <div className="mt-1">
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[11px] ${getTopTalkerBadgeClasses(
+                          getTopTalkerTone(item),
+                        )}`}
+                      >
+                        {getTopTalkerStatusLabel(item)}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
                     <div>{item.entity_key}</div>
@@ -368,10 +440,25 @@ export default function TrafficPage() {
                       {formatSampleAge(item.latest_sampled_at)}
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                      View details
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+
+          <TrafficTalkerDetailDrawer
+            talker={selectedTalker}
+            windowMinutes={windowMinutes}
+            open={talkerDrawerOpen && !!selectedTalker}
+            onClose={() => {
+              setTalkerDrawerOpen(false);
+              setSelectedTalker(null);
+            }}
+          />
         </DataTableCard>
       </section>
 
