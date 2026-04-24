@@ -442,7 +442,7 @@ export default function TrafficPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
                     <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                      View details
+                      Inspect
                     </span>
                   </td>
                 </tr>
@@ -565,7 +565,7 @@ export default function TrafficPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
                     <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                      View sample
+                      Inspect
                     </span>
                   </td>
                 </tr>

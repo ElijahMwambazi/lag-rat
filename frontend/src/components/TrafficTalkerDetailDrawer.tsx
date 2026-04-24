@@ -177,10 +177,6 @@ export default function TrafficTalkerDetailDrawer({
               </span>
 
               <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
-                {talker.entity_type}
-              </span>
-
-              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
                 {formatWindowLabel(windowMinutes)}
               </span>
             </div>
@@ -188,37 +184,6 @@ export default function TrafficTalkerDetailDrawer({
             <p className="text-sm text-zinc-400">
               {getTalkerNarrative(talker, windowMinutes)}
             </p>
-          </div>
-        </DrawerDetailSection>
-
-        <DrawerDetailSection label="Movement summary">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Received
-              </div>
-              <div className="mt-1 text-sm text-zinc-100">
-                {formatBytes(talker.delta_bytes_rx)}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Sent
-              </div>
-              <div className="mt-1 text-sm text-zinc-100">
-                {formatBytes(talker.delta_bytes_tx)}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Total moved
-              </div>
-              <div className="mt-1 text-sm text-zinc-100">
-                {formatBytes(talker.delta_bytes_total)}
-              </div>
-            </div>
           </div>
         </DrawerDetailSection>
 
@@ -270,6 +235,37 @@ export default function TrafficTalkerDetailDrawer({
             Copy entity key
           </button>
         </div>
+
+        <DrawerDetailSection label="Movement summary">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">
+                Total moved
+              </div>
+              <div className="mt-1 text-sm text-zinc-100">
+                {formatBytes(talker.delta_bytes_total)}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">
+                Received
+              </div>
+              <div className="mt-1 text-sm text-zinc-100">
+                {formatBytes(talker.delta_bytes_rx)}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">
+                Sent
+              </div>
+              <div className="mt-1 text-sm text-zinc-100">
+                {formatBytes(talker.delta_bytes_tx)}
+              </div>
+            </div>
+          </div>
+        </DrawerDetailSection>
 
         <DrawerDetailSection label="Counters">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

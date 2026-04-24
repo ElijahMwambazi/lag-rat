@@ -68,13 +68,8 @@ function getTrafficSampleStatusTone(sample: TrafficSample) {
   const total = (sample.bytes_rx ?? 0) + (sample.bytes_tx ?? 0);
 
   if (total === 0) return "stale";
-  if (total >= 100 * 1024 * 1024) {
-    return "critical";
-  }
-  if (total >= 10 * 1024 * 1024) {
-    return "warning";
-  }
-
+  if (total >= 100 * 1024 * 1024) return "critical";
+  if (total >= 10 * 1024 * 1024) return "warning";
   return "healthy";
 }
 
@@ -111,14 +106,14 @@ function getTrafficSampleNarrative(sample: TrafficSample) {
 
   switch (getTrafficSampleStatusTone(sample)) {
     case "critical":
-      return `This sample shows high byte movement (${formatBytes(total)}) and may represent one of the busiest recent traffic observations.`;
+      return `This capture shows high traffic activity (${formatBytes(total)}) across received and sent counters.`;
     case "warning":
-      return `This sample shows notable activity (${formatBytes(total)}) in the selected capture window.`;
+      return `This capture shows notable traffic activity (${formatBytes(total)}) for the selected scope.`;
     case "stale":
-      return "This sample shows no byte movement across received and sent counters.";
+      return "This capture shows no byte movement across received and sent counters.";
     case "healthy":
     default:
-      return `This sample shows moderate traffic activity (${formatBytes(total)}).`;
+      return `This capture shows moderate traffic activity (${formatBytes(total)}).`;
   }
 }
 
@@ -133,7 +128,7 @@ export default function TrafficSampleDetailDrawer({
     try {
       await navigator.clipboard.writeText(value);
     } catch {
-      // ignore clipboard failures for now
+      // ignore clipboard failures
     }
   }
 
@@ -141,13 +136,15 @@ export default function TrafficSampleDetailDrawer({
     return null;
   }
 
+  const totalTraffic = (sample.bytes_rx ?? 0) + (sample.bytes_tx ?? 0);
+
   return (
     <SideDrawer
       open={open}
       title={getTrafficSampleDisplayTitle(sample)}
-      subtitle={`${formatDate(
+      subtitle={`${formatDate(sample.sampled_at)} · ${formatSampleAge(
         sample.sampled_at,
-      )} · ${formatSampleAge(sample.sampled_at)}`}
+      )}`}
       onClose={onClose}
     >
       <div className="space-y-6">
@@ -208,8 +205,35 @@ export default function TrafficSampleDetailDrawer({
           </div>
         </DrawerDetailSection>
 
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => copyText(sample.interface_name)}
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+          >
+            Copy interface
+          </button>
+
+          <button
+            type="button"
+            onClick={() => copyText(sample.entity_key)}
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+          >
+            Copy entity key
+          </button>
+        </div>
+
         <DrawerDetailSection label="Sample">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">
+                Total traffic
+              </div>
+              <div className="mt-1 text-sm text-zinc-100">
+                {formatBytes(totalTraffic)}
+              </div>
+            </div>
+
             <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
               <div className="text-xs uppercase tracking-wide text-zinc-500">
                 Received
@@ -247,24 +271,6 @@ export default function TrafficSampleDetailDrawer({
             </div>
           </div>
         </DrawerDetailSection>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => copyText(sample.interface_name)}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
-          >
-            Copy interface
-          </button>
-
-          <button
-            type="button"
-            onClick={() => copyText(sample.entity_key)}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
-          >
-            Copy entity key
-          </button>
-        </div>
 
         <DrawerDetailSection label="Identifiers">
           <div className="grid grid-cols-1 gap-3">
