@@ -543,6 +543,7 @@ export default function TrafficPage() {
         expandedActionLabel="Hide samples"
         isExpanded={
           !samplesCollapsed ||
+          !!selectedSample ||
           filteredTrafficSamples.length === 0 ||
           trafficSamplesQuery.isLoading ||
           trafficSamplesQuery.isError

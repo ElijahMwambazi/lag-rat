@@ -1,10 +1,16 @@
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import TrafficPage from "../pages/TrafficPage";
 import { api } from "../services/api";
 import { renderWithQueryClient } from "./render";
 import userEvent from "@testing-library/user-event";
+
+function LocationSearchProbe() {
+  const location = useLocation();
+
+  return <div data-testid="location-search">{location.search}</div>;
+}
 
 vi.mock("../services/api", () => ({
   api: {
@@ -360,7 +366,17 @@ describe("TrafficPage", () => {
   it("opens a top talker detail drawer when a ranked row is clicked", async () => {
     const user = userEvent.setup();
 
-    renderWithQueryClient(<TrafficPage />);
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
+        <TrafficPage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText("Top talkers")).toBeInTheDocument();
 
@@ -399,7 +415,17 @@ describe("TrafficPage", () => {
   it("closes the top talker detail drawer", async () => {
     const user = userEvent.setup();
 
-    renderWithQueryClient(<TrafficPage />);
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
+        <TrafficPage />
+      </MemoryRouter>,
+    );
 
     const topTalkersHeading = await screen.findByText("Top talkers");
     const topTalkersSection = topTalkersHeading.closest("section");
@@ -424,7 +450,17 @@ describe("TrafficPage", () => {
   it("opens the correct top talker drawer after interface filtering", async () => {
     const user = userEvent.setup();
 
-    renderWithQueryClient(<TrafficPage />);
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
+        <TrafficPage />
+      </MemoryRouter>,
+    );
 
     const interfaceSelect = await screen.findByRole("combobox", {
       name: "Traffic interface",
@@ -452,5 +488,228 @@ describe("TrafficPage", () => {
     expect(screen.getAllByText("8.6 MB").length).toBeGreaterThan(0);
 
     expect(screen.queryByText("Top talker · docker0")).not.toBeInTheDocument();
+  });
+
+  it("opens a top talker drawer from query params", async () => {
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={[
+          "/traffic?trafficTalkerInterface=eth0&trafficTalkerKey=eth0",
+        ]}
+      >
+        <TrafficPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Top talker · eth0")).toBeInTheDocument();
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "trafficTalkerInterface=eth0",
+    );
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "trafficTalkerKey=eth0",
+    );
+  });
+
+  it("opens a traffic sample drawer from query params", async () => {
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic?trafficSampleId=1"]}
+      >
+        <TrafficPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Traffic sample · eth0"),
+    ).toBeInTheDocument();
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "trafficSampleId=1",
+    );
+  });
+
+  it("clears top talker query params when the drawer closes", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={[
+          "/traffic?trafficTalkerInterface=eth0&trafficTalkerKey=eth0",
+        ]}
+      >
+        <TrafficPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Top talker · eth0")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /close/i,
+      }),
+    );
+
+    expect(screen.queryByText("Top talker · eth0")).not.toBeInTheDocument();
+
+    expect(screen.getByTestId("location-search")).not.toHaveTextContent(
+      "trafficTalkerInterface",
+    );
+
+    expect(screen.getByTestId("location-search")).not.toHaveTextContent(
+      "trafficTalkerKey",
+    );
+  });
+
+  it("clears sample query params when the drawer closes", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic?trafficSampleId=1"]}
+      >
+        <TrafficPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Traffic sample · eth0"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /close/i,
+      }),
+    );
+
+    expect(screen.queryByText("Traffic sample · eth0")).not.toBeInTheDocument();
+
+    expect(screen.getByTestId("location-search")).not.toHaveTextContent(
+      "trafficSampleId",
+    );
+  });
+
+  it("opening a top talker clears any sample query param", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic?trafficSampleId=1"]}
+      >
+        <TrafficPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Traffic sample · eth0"),
+    ).toBeInTheDocument();
+
+    const topTalkersHeading = screen.getByText("Top talkers");
+    const topTalkersSection = topTalkersHeading.closest("section");
+
+    const eth0Cell = within(topTalkersSection as HTMLElement).getAllByText(
+      "eth0",
+    )[0];
+
+    await user.click(eth0Cell);
+
+    expect(await screen.findByText("Top talker · eth0")).toBeInTheDocument();
+
+    expect(screen.getByTestId("location-search")).not.toHaveTextContent(
+      "trafficSampleId",
+    );
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "trafficTalkerInterface=eth0",
+    );
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "trafficTalkerKey=eth0",
+    );
+  });
+
+  it("opening a sample clears any top talker query params", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={[
+          "/traffic?trafficTalkerInterface=eth0&trafficTalkerKey=eth0",
+        ]}
+      >
+        <TrafficPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Top talker · eth0")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByText("Inspect", {
+        selector: "span",
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Expand table",
+      }),
+    );
+
+    const sampleRows = screen
+      .getAllByText("Recent traffic samples")[0]
+      .closest("section");
+
+    const sampleEth0Cell = within(sampleRows as HTMLElement).getAllByText(
+      "eth0",
+    )[0];
+
+    await user.click(sampleEth0Cell);
+
+    expect(
+      await screen.findByText("Traffic sample · eth0"),
+    ).toBeInTheDocument();
+
+    expect(screen.getByTestId("location-search")).not.toHaveTextContent(
+      "trafficTalkerInterface",
+    );
+
+    expect(screen.getByTestId("location-search")).not.toHaveTextContent(
+      "trafficTalkerKey",
+    );
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "trafficSampleId=1",
+    );
   });
 });
