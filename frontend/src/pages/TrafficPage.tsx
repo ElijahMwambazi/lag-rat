@@ -207,8 +207,12 @@ export default function TrafficPage() {
     [filteredTopTalkers],
   );
 
+  const topTalkerHighlights = useMemo(
+    () => filteredTopTalkers.slice(0, 3),
+    [filteredTopTalkers],
+  );
+
   const latestSample = filteredTrafficSamples[0] ?? null;
-  const topTalker = filteredTopTalkers[0] ?? null;
 
   const selectedSampleId = searchParams.get(TRAFFIC_SAMPLE_PARAM);
   const selectedTalkerInterface = searchParams.get(
@@ -416,6 +420,117 @@ export default function TrafficPage() {
           </p>
         </div>
 
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-medium text-zinc-200">
+                Top talker highlights
+              </h4>
+              <p className="mt-1 text-xs text-zinc-500">
+                Quick inspection cards for the busiest visible interfaces.
+              </p>
+            </div>
+          </div>
+
+          {topTalkersQuery.isLoading ? (
+            <div className="grid gap-3 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4"
+                >
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-4 w-24 rounded bg-zinc-800" />
+                    <div className="h-7 w-28 rounded bg-zinc-800" />
+                    <div className="h-3 w-32 rounded bg-zinc-800" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="h-14 rounded bg-zinc-800" />
+                      <div className="h-14 rounded bg-zinc-800" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {!topTalkersQuery.isLoading && topTalkerHighlights.length > 0 ? (
+            <div className="grid gap-3 lg:grid-cols-3">
+              {topTalkerHighlights.map((item) => (
+                <button
+                  key={`highlight-${item.interface_name}-${item.entity_key}`}
+                  type="button"
+                  aria-label={`Inspect top talker ${item.interface_name}`}
+                  onClick={() => setTalkerDrawerParams(item)}
+                  className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-left transition hover:border-zinc-700 hover:bg-zinc-900"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-medium text-zinc-100">
+                        {formatInterfaceName(item.interface_name)}
+                      </div>
+                      <div className="mt-1 text-xs text-zinc-500">
+                        {item.entity_type}
+                      </div>
+                    </div>
+
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-xs ${getTopTalkerBadgeClasses(
+                        getTopTalkerTone(item),
+                      )}`}
+                    >
+                      {getTopTalkerStatusLabel(item)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">
+                      Total moved
+                    </div>
+                    <div className="mt-1 text-2xl font-semibold text-zinc-100">
+                      {formatBytes(item.delta_bytes_total)}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
+                      <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                        Received
+                      </div>
+                      <div className="mt-1 text-sm text-zinc-100">
+                        {formatBytes(item.delta_bytes_rx)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
+                      <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                        Sent
+                      </div>
+                      <div className="mt-1 text-sm text-zinc-100">
+                        {formatBytes(item.delta_bytes_tx)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                        Last seen
+                      </div>
+                      <div className="mt-1 truncate text-sm text-zinc-300">
+                        {formatSampleAge(item.latest_sampled_at)}
+                      </div>
+                    </div>
+
+                    <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                      Inspect
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
         <DataTableCard
           title="Top talkers"
           description="Ranked by byte movement between the earliest and latest samples in the selected window."
@@ -567,7 +682,6 @@ export default function TrafficPage() {
           hasData={filteredTrafficSamples.length > 0}
           tableMinWidthClassName="min-w-[1160px]"
           variant="flush"
-          hideHeader
         >
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">

@@ -134,7 +134,7 @@ describe("TrafficPage", () => {
 
     expect(await screen.findAllByText("docker0")).not.toHaveLength(0);
 
-    expect(await screen.findAllByText("eth0")).toHaveLength(3);
+    expect(await screen.findAllByText("eth0")).toHaveLength(4);
 
     expect(
       await screen.findByText(
@@ -144,7 +144,7 @@ describe("TrafficPage", () => {
 
     expect(await screen.findAllByText("docker0")).not.toHaveLength(0);
 
-    expect(await screen.findAllByText("eth0")).toHaveLength(3);
+    expect(await screen.findAllByText("eth0")).toHaveLength(4);
   });
 
   it("filters top talkers and recent samples by selected interface", async () => {
@@ -270,7 +270,7 @@ describe("TrafficPage", () => {
       }),
     ).toBeInTheDocument();
 
-    expect(screen.getAllByText("eth0")).toHaveLength(3);
+    expect(screen.getAllByText("eth0")).toHaveLength(4);
   });
 
   it("keeps matching rows visible when the selected interface exists", async () => {
@@ -490,6 +490,157 @@ describe("TrafficPage", () => {
     expect(screen.queryByText("Top talker · docker0")).not.toBeInTheDocument();
   });
 
+  it("renders a top talker highlight strip and opens the drawer from a highlight card", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.getTrafficSummary).mockResolvedValue({
+      window_minutes: 60,
+      total_bytes_rx: 50_000_000,
+      total_bytes_tx: 60_000_000,
+      total_bytes: 110_000_000,
+      interface_count: 4,
+      top_talker: {
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: null,
+        mac_address: null,
+        latest_bytes_rx: 18_000_000,
+        latest_bytes_tx: 22_000_000,
+        earliest_bytes_rx: 8_000_000,
+        earliest_bytes_tx: 12_000_000,
+        delta_bytes_rx: 10_000_000,
+        delta_bytes_tx: 10_000_000,
+        delta_bytes_total: 20_000_000,
+        latest_sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(api.getTrafficTopTalkers).mockResolvedValue({
+      window_minutes: 60,
+      items: [
+        {
+          interface_name: "eth0",
+          entity_type: "interface",
+          entity_key: "eth0",
+          device_ip_address: null,
+          mac_address: null,
+          latest_bytes_rx: 18_000_000,
+          latest_bytes_tx: 22_000_000,
+          earliest_bytes_rx: 8_000_000,
+          earliest_bytes_tx: 12_000_000,
+          delta_bytes_rx: 10_000_000,
+          delta_bytes_tx: 10_000_000,
+          delta_bytes_total: 20_000_000,
+          latest_sampled_at: new Date().toISOString(),
+        },
+        {
+          interface_name: "wlan0",
+          entity_type: "interface",
+          entity_key: "wlan0",
+          device_ip_address: null,
+          mac_address: null,
+          latest_bytes_rx: 14_000_000,
+          latest_bytes_tx: 16_000_000,
+          earliest_bytes_rx: 7_000_000,
+          earliest_bytes_tx: 9_000_000,
+          delta_bytes_rx: 7_000_000,
+          delta_bytes_tx: 7_000_000,
+          delta_bytes_total: 14_000_000,
+          latest_sampled_at: new Date().toISOString(),
+        },
+        {
+          interface_name: "pppoe0",
+          entity_type: "interface",
+          entity_key: "pppoe0",
+          device_ip_address: null,
+          mac_address: null,
+          latest_bytes_rx: 9_000_000,
+          latest_bytes_tx: 11_000_000,
+          earliest_bytes_rx: 4_000_000,
+          earliest_bytes_tx: 5_000_000,
+          delta_bytes_rx: 5_000_000,
+          delta_bytes_tx: 6_000_000,
+          delta_bytes_total: 11_000_000,
+          latest_sampled_at: new Date().toISOString(),
+        },
+        {
+          interface_name: "docker0",
+          entity_type: "interface",
+          entity_key: "docker0",
+          device_ip_address: null,
+          mac_address: null,
+          latest_bytes_rx: 8_000_000,
+          latest_bytes_tx: 8_000_000,
+          earliest_bytes_rx: 8_000_000,
+          earliest_bytes_tx: 8_000_000,
+          delta_bytes_rx: 0,
+          delta_bytes_tx: 0,
+          delta_bytes_total: 0,
+          latest_sampled_at: new Date().toISOString(),
+        },
+      ],
+    });
+
+    vi.mocked(api.getTrafficSamples).mockResolvedValue([
+      {
+        id: 1,
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: null,
+        mac_address: null,
+        bytes_rx: 18_000_000,
+        bytes_tx: 22_000_000,
+        packets_rx: 3000,
+        packets_tx: 3500,
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Top talker highlights"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Inspect top talker eth0",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Inspect top talker wlan0",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Inspect top talker pppoe0",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Inspect top talker eth0",
+      }),
+    );
+
+    expect(await screen.findByText("Top talker · eth0")).toBeInTheDocument();
+  });
+
   it("opens a top talker drawer from query params", async () => {
     renderWithQueryClient(
       <MemoryRouter
@@ -673,12 +824,6 @@ describe("TrafficPage", () => {
     );
 
     expect(await screen.findByText("Top talker · eth0")).toBeInTheDocument();
-
-    await user.click(
-      screen.getByText("Inspect", {
-        selector: "span",
-      }),
-    );
 
     await user.click(
       screen.getByRole("button", {
