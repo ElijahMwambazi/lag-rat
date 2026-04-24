@@ -420,14 +420,15 @@ export default function TrafficPage() {
           </p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-sm font-medium text-zinc-200">
                 Top talker highlights
               </h4>
               <p className="mt-1 text-xs text-zinc-500">
-                Quick inspection cards for the busiest visible interfaces.
+                Quick cards for the busiest visible interfaces. Select a card to
+                open movement details.
               </p>
             </div>
           </div>
@@ -461,7 +462,7 @@ export default function TrafficPage() {
                   type="button"
                   aria-label={`Inspect top talker ${item.interface_name}`}
                   onClick={() => setTalkerDrawerParams(item)}
-                  className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-left transition hover:border-zinc-700 hover:bg-zinc-900"
+                  className="group rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-left transition hover:border-zinc-700 hover:bg-zinc-900"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
@@ -469,7 +470,7 @@ export default function TrafficPage() {
                         {formatInterfaceName(item.interface_name)}
                       </div>
                       <div className="mt-1 text-xs text-zinc-500">
-                        {item.entity_type}
+                        {item.entity_type} · {item.entity_key}
                       </div>
                     </div>
 
@@ -511,7 +512,7 @@ export default function TrafficPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between gap-3">
+                  <div className="mt-4 flex items-end justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-[11px] uppercase tracking-wide text-zinc-500">
                         Last seen
@@ -521,9 +522,9 @@ export default function TrafficPage() {
                       </div>
                     </div>
 
-                    <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                      Inspect
-                    </span>
+                    <div className="text-xs text-zinc-500 transition group-hover:text-zinc-400">
+                      Opens details
+                    </div>
                   </div>
                 </button>
               ))}
@@ -537,6 +538,9 @@ export default function TrafficPage() {
           rightSlot={
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                Ranked table
+              </span>
+              <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
                 {filteredTopTalkers.length} item
                 {filteredTopTalkers.length === 1 ? "" : "s"}
               </span>
@@ -545,7 +549,7 @@ export default function TrafficPage() {
               </span>
             </div>
           }
-          helperText="This ranked view shows traffic movement across interface-level counters for the selected scope. Select a row to inspect movement details."
+          helperText="Full ranked view for the selected scope. Use this table to compare all visible interfaces and open detailed movement history."
           isLoading={topTalkersQuery.isLoading}
           isError={topTalkersQuery.isError}
           errorMessage={
@@ -669,7 +673,7 @@ export default function TrafficPage() {
           title="Recent traffic samples"
           description="Latest raw counter observations for the selected interface scope."
           rightSlot={null}
-          helperText="These are raw interface-level samples used to build the ranked traffic view above."
+          helperText="Raw interface-level captures that feed the ranked traffic view above."
           isLoading={trafficSamplesQuery.isLoading}
           isError={trafficSamplesQuery.isError}
           errorMessage={
