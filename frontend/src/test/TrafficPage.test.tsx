@@ -118,27 +118,27 @@ describe("TrafficPage", () => {
 
     expect(await screen.findByText("Traffic")).toBeInTheDocument();
 
-    expect(await screen.findByText("Traffic summary")).toBeInTheDocument();
+    expect(await screen.findByText("Traffic overview")).toBeInTheDocument();
 
     expect(
       await screen.findByText(
-        "Interfaces ranked by traffic delta over the selected window.",
+        "Latest raw counter samples captured for the selected interface scope.",
       ),
     ).toBeInTheDocument();
 
     expect(await screen.findAllByText("docker0")).not.toHaveLength(0);
 
-    expect(await screen.findAllByText("eth0")).toHaveLength(5);
+    expect(await screen.findAllByText("eth0")).toHaveLength(3);
 
     expect(
       await screen.findByText(
-        "Most recent interface counter samples captured in the selected window.",
+        "Latest raw counter samples captured for the selected interface scope.",
       ),
     ).toBeInTheDocument();
 
     expect(await screen.findAllByText("docker0")).not.toHaveLength(0);
 
-    expect(await screen.findAllByText("eth0")).toHaveLength(5);
+    expect(await screen.findAllByText("eth0")).toHaveLength(3);
   });
 
   it("filters top talkers and recent samples by selected interface", async () => {
@@ -254,7 +254,7 @@ describe("TrafficPage", () => {
 
     await user.selectOptions(interfaceSelect, "eth0");
 
-    expect(screen.getByText("Interface · eth0")).toBeInTheDocument();
+    expect(screen.getAllByText("Viewing · eth0").length).toBeGreaterThan(0);
 
     expect(screen.getByDisplayValue("eth0")).toBeInTheDocument();
 
@@ -264,7 +264,7 @@ describe("TrafficPage", () => {
       }),
     ).toBeInTheDocument();
 
-    expect(screen.getAllByText("eth0")).toHaveLength(5);
+    expect(screen.getAllByText("eth0")).toHaveLength(3);
   });
 
   it("keeps matching rows visible when the selected interface exists", async () => {
@@ -352,7 +352,7 @@ describe("TrafficPage", () => {
 
     await user.selectOptions(interfaceSelect, "eth0");
 
-    expect(screen.getByText("Interface · eth0")).toBeInTheDocument();
+    expect(screen.getAllByText("Viewing · eth0").length).toBeGreaterThan(0);
 
     expect(screen.getAllByText("eth0")).not.toHaveLength(0);
   });

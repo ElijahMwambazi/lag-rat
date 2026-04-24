@@ -4,7 +4,21 @@ import DataTableCard from "../components/DataTableCard";
 import QueryState from "../components/QueryState";
 import StatCard from "../components/StatCard";
 import PageFilterBar from "../components/PageFilterBar";
+import CollapsibleInspectionSection from "../components/CollapsibleInspectionSection";
+import TrafficSampleDetailDrawer from "../components/TrafficSampleDetailDrawer";
 import { api, type TrafficSample } from "../services/api";
+
+const WINDOWS = [
+  { label: "15m", minutes: 15 },
+  { label: "1h", minutes: 60 },
+  { label: "6h", minutes: 360 },
+  { label: "24h", minutes: 1440 },
+];
+
+function formatWindowLabel(minutes: number) {
+  const match = WINDOWS.find((option) => option.minutes === minutes);
+  return match?.label ?? `${minutes}m`;
+}
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -63,10 +77,18 @@ function formatSampleAge(value?: string | null) {
   return `${diffDays} days ago`;
 }
 
+function getViewingLabel(selectedInterface: string) {
+  return selectedInterface || "All interfaces";
+}
+
 export default function TrafficPage() {
   const [windowMinutes, setWindowMinutes] = useState(60);
-
   const [selectedInterface, setSelectedInterface] = useState("");
+  const [selectedSample, setSelectedSample] = useState<TrafficSample | null>(
+    null,
+  );
+  const [sampleDrawerOpen, setSampleDrawerOpen] = useState(false);
+  const [samplesCollapsed, setSamplesCollapsed] = useState(true);
 
   const trafficSummaryQuery = useQuery({
     queryKey: ["traffic-summary", windowMinutes],
@@ -136,6 +158,8 @@ export default function TrafficPage() {
     [filteredTopTalkers],
   );
 
+  const latestSample = filteredTrafficSamples[0] ?? null;
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <PageFilterBar
@@ -172,13 +196,16 @@ export default function TrafficPage() {
         }
       >
         <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-          Summary window · {windowMinutes}m
+          Window · Last {formatWindowLabel(windowMinutes)}
         </span>
 
         <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-          {selectedInterface
-            ? `Interface · ${selectedInterface}`
-            : "Interface · All interfaces"}
+          Viewing · {getViewingLabel(selectedInterface)}
+        </span>
+
+        <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+          {interfaceOptions.length} interface
+          {interfaceOptions.length === 1 ? "" : "s"} visible
         </span>
       </PageFilterBar>
 
@@ -196,9 +223,9 @@ export default function TrafficPage() {
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-medium">Traffic summary</h3>
+          <h3 className="text-lg font-medium">Traffic overview</h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Recent interface traffic across the current dashboard window.
+            Recent traffic activity across the selected operational window.
           </p>
         </div>
 
@@ -217,12 +244,12 @@ export default function TrafficPage() {
                 ? `${summary.interface_count} interface${
                     summary.interface_count === 1 ? "" : "s"
                   } observed`
-                : "Waiting for traffic summary"
+                : "Waiting for traffic overview"
             }
           />
 
           <StatCard
-            label="RX total"
+            label="Received"
             value={
               summary
                 ? formatBytes(summary.total_bytes_rx)
@@ -230,11 +257,11 @@ export default function TrafficPage() {
                   ? "Loading"
                   : "—"
             }
-            hint="Received bytes in selected window"
+            hint="Across visible interfaces"
           />
 
           <StatCard
-            label="TX total"
+            label="Sent"
             value={
               summary
                 ? formatBytes(summary.total_bytes_tx)
@@ -242,11 +269,11 @@ export default function TrafficPage() {
                   ? "Loading"
                   : "—"
             }
-            hint="Transmitted bytes in selected window"
+            hint="Across visible interfaces"
           />
 
           <StatCard
-            label="Top talker"
+            label="Top mover"
             value={
               summary?.top_talker
                 ? formatInterfaceName(summary.top_talker.interface_name)
@@ -267,13 +294,13 @@ export default function TrafficPage() {
         <div>
           <h3 className="text-lg font-medium">Top talkers</h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Interfaces ranked by traffic delta over the selected window.
+            Interfaces with the most byte movement in the selected window.
           </p>
         </div>
 
         <DataTableCard
           title="Top talkers"
-          description="Ranked by total byte movement across the selected window."
+          description="Ranked by byte movement between the earliest and latest samples in the selected window."
           rightSlot={
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
@@ -281,11 +308,11 @@ export default function TrafficPage() {
                 {filteredTopTalkers.length === 1 ? "" : "s"}
               </span>
               <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                {formatBytes(totalDeltaBytes)} total delta
+                {formatBytes(totalDeltaBytes)} moved
               </span>
             </div>
           }
-          helperText="This first version uses interface-level counters, so virtual interfaces may appear until filtering rules are added."
+          helperText="This ranked view shows traffic movement across interface-level counters for the selected scope."
           isLoading={topTalkersQuery.isLoading}
           isError={topTalkersQuery.isError}
           errorMessage={
@@ -294,7 +321,7 @@ export default function TrafficPage() {
               : "Top talkers could not be loaded."
           }
           emptyTitle="Top talkers"
-          emptyMessage="No traffic samples were available for this window."
+          emptyMessage="No ranked traffic was available for this window."
           hasData={filteredTopTalkers.length > 0}
           tableMinWidthClassName="min-w-[980px]"
           variant="flush"
@@ -304,13 +331,11 @@ export default function TrafficPage() {
             <thead className="bg-zinc-800/50 text-zinc-300">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Interface</th>
-                <th className="px-4 py-3 text-left font-medium">Entity</th>
-                <th className="px-4 py-3 text-left font-medium">RX delta</th>
-                <th className="px-4 py-3 text-left font-medium">TX delta</th>
-                <th className="px-4 py-3 text-left font-medium">Total delta</th>
-                <th className="px-4 py-3 text-left font-medium">
-                  Latest sample
-                </th>
+                <th className="px-4 py-3 text-left font-medium">Scope</th>
+                <th className="px-4 py-3 text-left font-medium">Received</th>
+                <th className="px-4 py-3 text-left font-medium">Sent</th>
+                <th className="px-4 py-3 text-left font-medium">Total moved</th>
+                <th className="px-4 py-3 text-left font-medium">Last seen</th>
               </tr>
             </thead>
             <tbody>
@@ -338,7 +363,10 @@ export default function TrafficPage() {
                     {formatBytes(item.delta_bytes_total)}
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
-                    {formatDate(item.latest_sampled_at)}
+                    <div>{formatDate(item.latest_sampled_at)}</div>
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {formatSampleAge(item.latest_sampled_at)}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -347,27 +375,44 @@ export default function TrafficPage() {
         </DataTableCard>
       </section>
 
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-lg font-medium">Recent traffic samples</h3>
-          <p className="mt-1 text-sm text-zinc-400">
-            Most recent interface counter samples captured in the selected
-            window.
-          </p>
-        </div>
+      <CollapsibleInspectionSection
+        title="Recent traffic samples"
+        description="Latest raw counter samples captured for the selected interface scope."
+        badges={
+          <>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+              Viewing · {getViewingLabel(selectedInterface)}
+            </span>
 
+            <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+              {filteredTrafficSamples.length} sample
+              {filteredTrafficSamples.length === 1 ? "" : "s"}
+            </span>
+
+            {latestSample ? (
+              <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                Latest sample · {formatSampleAge(latestSample.sampled_at)}
+              </span>
+            ) : null}
+          </>
+        }
+        collapsedSummary="Recent traffic samples are collapsed by default. Expand the table to inspect raw counters and open row-level detail."
+        collapsedDetail="Expand this section to inspect raw traffic counters and open the sample detail drawer."
+        collapsedActionLabel="Expand table"
+        expandedActionLabel="Hide samples"
+        isExpanded={
+          !samplesCollapsed ||
+          filteredTrafficSamples.length === 0 ||
+          trafficSamplesQuery.isLoading ||
+          trafficSamplesQuery.isError
+        }
+        onToggle={() => setSamplesCollapsed((current) => !current)}
+      >
         <DataTableCard
           title="Recent traffic samples"
-          description="Latest raw traffic counter observations for the selected window."
-          rightSlot={
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                {filteredTrafficSamples.length} sample
-                {filteredTrafficSamples.length === 1 ? "" : "s"}
-              </span>
-            </div>
-          }
-          helperText="These are raw interface-level samples. Deltas and rankings are shown in the top-talkers table above."
+          description="Latest raw counter observations for the selected interface scope."
+          rightSlot={null}
+          helperText="These are raw interface-level samples used to build the ranked traffic view above."
           isLoading={trafficSamplesQuery.isLoading}
           isError={trafficSamplesQuery.isError}
           errorMessage={
@@ -378,24 +423,32 @@ export default function TrafficPage() {
           emptyTitle="Recent traffic samples"
           emptyMessage="No traffic samples were available for this window."
           hasData={filteredTrafficSamples.length > 0}
-          tableMinWidthClassName="min-w-[1080px]"
+          tableMinWidthClassName="min-w-[1160px]"
           variant="flush"
         >
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Time</th>
+                <th className="px-4 py-3 text-left font-medium">Captured</th>
                 <th className="px-4 py-3 text-left font-medium">Interface</th>
-                <th className="px-4 py-3 text-left font-medium">Entity</th>
-                <th className="px-4 py-3 text-left font-medium">RX bytes</th>
-                <th className="px-4 py-3 text-left font-medium">TX bytes</th>
+                <th className="px-4 py-3 text-left font-medium">Scope</th>
+                <th className="px-4 py-3 text-left font-medium">Received</th>
+                <th className="px-4 py-3 text-left font-medium">Sent</th>
                 <th className="px-4 py-3 text-left font-medium">RX packets</th>
                 <th className="px-4 py-3 text-left font-medium">TX packets</th>
+                <th className="px-4 py-3 text-left font-medium">Details</th>
               </tr>
             </thead>
             <tbody>
               {filteredTrafficSamples.map((item) => (
-                <tr key={item.id} className="border-t border-zinc-800">
+                <tr
+                  key={item.id}
+                  className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
+                  onClick={() => {
+                    setSelectedSample(item);
+                    setSampleDrawerOpen(true);
+                  }}
+                >
                   <td className="px-4 py-3 text-zinc-300">
                     <div>{formatDate(item.sampled_at)}</div>
                     <div className="mt-1 text-xs text-zinc-500">
@@ -423,12 +476,26 @@ export default function TrafficPage() {
                   <td className="px-4 py-3 text-zinc-300">
                     {item.packets_tx ?? "—"}
                   </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                      View sample
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </DataTableCard>
-      </section>
+
+        <TrafficSampleDetailDrawer
+          sample={selectedSample}
+          open={sampleDrawerOpen && !!selectedSample}
+          onClose={() => {
+            setSampleDrawerOpen(false);
+            setSelectedSample(null);
+          }}
+        />
+      </CollapsibleInspectionSection>
     </div>
   );
 }
