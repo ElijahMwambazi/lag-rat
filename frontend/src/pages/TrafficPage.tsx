@@ -485,16 +485,16 @@ export default function TrafficPage() {
               ))}
             </tbody>
           </table>
-        </DataTableCard>
 
-        <TrafficSampleDetailDrawer
-          sample={selectedSample}
-          open={sampleDrawerOpen && !!selectedSample}
-          onClose={() => {
-            setSampleDrawerOpen(false);
-            setSelectedSample(null);
-          }}
-        />
+          <TrafficSampleDetailDrawer
+            sample={selectedSample}
+            open={sampleDrawerOpen && !!selectedSample}
+            onClose={() => {
+              setSampleDrawerOpen(false);
+              setSelectedSample(null);
+            }}
+          />
+        </DataTableCard>
       </CollapsibleInspectionSection>
     </div>
   );

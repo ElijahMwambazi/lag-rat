@@ -1,15 +1,6 @@
-import {
-  Fragment,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ChartCard from "../components/ChartCard";
 import QueryState from "../components/QueryState";
 import StateCard from "../components/StateCard";
@@ -35,11 +26,7 @@ type WindowOption = {
   minutes: number;
 };
 
-type RoomHealthTone =
-  | "healthy"
-  | "warning"
-  | "critical"
-  | "stale";
+type RoomHealthTone = "healthy" | "warning" | "critical" | "stale";
 
 const WINDOWS: WindowOption[] = [
   { label: "15m", minutes: 15 },
@@ -50,23 +37,18 @@ const WINDOWS: WindowOption[] = [
 ];
 
 function formatWindowLabel(minutes: number) {
-  const match = WINDOWS.find(
-    (option) => option.minutes === minutes,
-  );
+  const match = WINDOWS.find((option) => option.minutes === minutes);
   return match?.label ?? `${minutes}m`;
 }
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? "—"
-    : parsed.toLocaleString();
+  return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleString();
 }
 
 function formatRssi(value?: number | null) {
-  if (value === null || value === undefined)
-    return "—";
+  if (value === null || value === undefined) return "—";
   return `${value} dBm`;
 }
 
@@ -77,24 +59,18 @@ function formatSampleAge(value?: string | null) {
   if (Number.isNaN(parsed.getTime())) return "—";
 
   const diffMs = Date.now() - parsed.getTime();
-  const diffMinutes = Math.max(
-    0,
-    Math.floor(diffMs / 60000),
-  );
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
 
   if (diffMinutes < 1) return "Just now";
   if (diffMinutes === 1) return "1 minute ago";
-  if (diffMinutes < 60)
-    return `${diffMinutes} minutes ago`;
+  if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
 
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours === 1) return "1 hour ago";
   return `${diffHours} hours ago`;
 }
 
-function getRoomStatusDescription(
-  tone: RoomHealthTone,
-) {
+function getRoomStatusDescription(tone: RoomHealthTone) {
   switch (tone) {
     case "healthy":
       return "No active Wi-Fi alerts for this room.";
@@ -107,9 +83,7 @@ function getRoomStatusDescription(
   }
 }
 
-function getRoomStatusBadgeClasses(
-  tone: RoomHealthTone,
-) {
+function getRoomStatusBadgeClasses(tone: RoomHealthTone) {
   switch (tone) {
     case "healthy":
       return "border-emerald-900 bg-emerald-950/40 text-emerald-300";
@@ -122,11 +96,7 @@ function getRoomStatusBadgeClasses(
   }
 }
 
-function SelectionBadge({
-  active,
-}: {
-  active: boolean;
-}) {
+function SelectionBadge({ active }: { active: boolean }) {
   return (
     <span
       className={[
@@ -159,20 +129,14 @@ function getRoomHealthStatus(
   if (
     roomAlerts.some(
       (alert) =>
-        alert.alert_type ===
-          "wifi_samples_stale" &&
+        alert.alert_type === "wifi_samples_stale" &&
         alert.severity === "critical",
     )
   ) {
     return { label: "Stale", tone: "critical" };
   }
 
-  if (
-    roomAlerts.some(
-      (alert) =>
-        alert.alert_type === "wifi_samples_stale",
-    )
-  ) {
+  if (roomAlerts.some((alert) => alert.alert_type === "wifi_samples_stale")) {
     return { label: "Stale", tone: "stale" };
   }
 
@@ -189,12 +153,7 @@ function getRoomHealthStatus(
     };
   }
 
-  if (
-    roomAlerts.some(
-      (alert) =>
-        alert.alert_type === "wifi_signal_weak",
-    )
-  ) {
+  if (roomAlerts.some((alert) => alert.alert_type === "wifi_signal_weak")) {
     return { label: "Weak", tone: "warning" };
   }
 
@@ -214,17 +173,11 @@ function getViewingLabel(locationLabel: string) {
   return locationLabel || "All locations";
 }
 
-function getRecentSamplesTitle(
-  locationLabel: string,
-) {
-  return locationLabel
-    ? `Recent samples · ${locationLabel}`
-    : "Recent samples";
+function getRecentSamplesTitle(locationLabel: string) {
+  return locationLabel ? `Recent samples · ${locationLabel}` : "Recent samples";
 }
 
-function getWifiSampleDisplayTitle(
-  sample: WifiSample | null,
-) {
+function getWifiSampleDisplayTitle(sample: WifiSample | null) {
   if (!sample) return "Wi-Fi sample";
 
   return sample.location_label
@@ -232,13 +185,8 @@ function getWifiSampleDisplayTitle(
     : "Wi-Fi sample";
 }
 
-function getWifiSampleStatusTone(
-  sample: WifiSample,
-): RoomHealthTone {
-  if (
-    sample.rssi_dbm === null ||
-    sample.rssi_dbm === undefined
-  ) {
+function getWifiSampleStatusTone(sample: WifiSample): RoomHealthTone {
+  if (sample.rssi_dbm === null || sample.rssi_dbm === undefined) {
     return "stale";
   }
 
@@ -253,9 +201,7 @@ function getWifiSampleStatusTone(
   return "healthy";
 }
 
-function getWifiSampleStatusLabel(
-  sample: WifiSample,
-) {
+function getWifiSampleStatusLabel(sample: WifiSample) {
   const tone = getWifiSampleStatusTone(sample);
 
   switch (tone) {
@@ -271,9 +217,7 @@ function getWifiSampleStatusLabel(
   }
 }
 
-function getWifiSampleNarrative(
-  sample: WifiSample,
-) {
+function getWifiSampleNarrative(sample: WifiSample) {
   const tone = getWifiSampleStatusTone(sample);
 
   switch (tone) {
@@ -289,9 +233,7 @@ function getWifiSampleNarrative(
   }
 }
 
-function formatTimelineEventTitle(
-  eventType: string,
-) {
+function formatTimelineEventTitle(eventType: string) {
   switch (eventType) {
     case "opened":
       return "Opened";
@@ -321,10 +263,7 @@ function formatTimelineEventDetail(event: {
     return `${event.previous_value} → ${event.new_value}`;
   }
 
-  if (
-    event.event_type === "opened" &&
-    event.new_value
-  ) {
+  if (event.event_type === "opened" && event.new_value) {
     return `Severity set to ${event.new_value}`;
   }
 
@@ -333,8 +272,7 @@ function formatTimelineEventDetail(event: {
   }
 
   if (event.new_value) return event.new_value;
-  if (event.previous_value)
-    return event.previous_value;
+  if (event.previous_value) return event.previous_value;
 
   return null;
 }
@@ -357,122 +295,84 @@ function WifiMetricCard({
       <div className="text-xs uppercase tracking-wide text-zinc-500">
         {label}
       </div>
-      <div className="mt-3 text-2xl font-semibold">
-        {value}
-      </div>
-      <p className="mt-3 text-sm text-zinc-400">
-        {hint}
-      </p>
+      <div className="mt-3 text-2xl font-semibold">{value}</div>
+      <p className="mt-3 text-sm text-zinc-400">{hint}</p>
     </div>
   );
 }
 
 export default function WifiPage() {
-  const [searchParams, setSearchParams] =
-    useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const initialMinutesParam = Number(
-    searchParams.get("minutes") ?? "60",
-  );
+  const initialMinutesParam = Number(searchParams.get("minutes") ?? "60");
 
   const initialWindowMinutes = WINDOWS.some(
-    (option) =>
-      option.minutes === initialMinutesParam,
+    (option) => option.minutes === initialMinutesParam,
   )
     ? initialMinutesParam
     : 60;
 
-  const initialLocationLabel =
-    searchParams.get("location") ?? "";
-  const initialAlertIdParam = Number(
-    searchParams.get("alert") ?? "",
-  );
-  const initialAlertId = Number.isFinite(
-    initialAlertIdParam,
-  )
+  const initialLocationLabel = searchParams.get("location") ?? "";
+  const initialAlertIdParam = Number(searchParams.get("alert") ?? "");
+  const initialAlertId = Number.isFinite(initialAlertIdParam)
     ? initialAlertIdParam
     : null;
 
-  const [windowMinutes, setWindowMinutes] =
-    useState(initialWindowMinutes);
-  const [locationLabel, setLocationLabel] =
-    useState(initialLocationLabel);
-  const [alertDrawerOpen, setAlertDrawerOpen] =
-    useState(false);
-  const [drawerAlertId, setDrawerAlertId] =
-    useState<number | null>(initialAlertId);
-  const [selectedSample, setSelectedSample] =
-    useState<WifiSample | null>(null);
-  const [sampleDrawerOpen, setSampleDrawerOpen] =
-    useState(false);
-  const [samplesCollapsed, setSamplesCollapsed] =
-    useState(true);
+  const [windowMinutes, setWindowMinutes] = useState(initialWindowMinutes);
+  const [locationLabel, setLocationLabel] = useState(initialLocationLabel);
+  const [alertDrawerOpen, setAlertDrawerOpen] = useState(false);
+  const [drawerAlertId, setDrawerAlertId] = useState<number | null>(
+    initialAlertId,
+  );
+  const [selectedSample, setSelectedSample] = useState<WifiSample | null>(null);
+  const [sampleDrawerOpen, setSampleDrawerOpen] = useState(false);
+  const [samplesCollapsed, setSamplesCollapsed] = useState(true);
 
   const queryClient = useQueryClient();
 
-  const locationsQuery =
-    useQuery<WifiLocationsResponse>({
-      queryKey: ["wifi-locations"],
-      queryFn: api.getWifiLocations,
-      refetchInterval: 30000,
-    });
+  const locationsQuery = useQuery<WifiLocationsResponse>({
+    queryKey: ["wifi-locations"],
+    queryFn: api.getWifiLocations,
+    refetchInterval: 30000,
+  });
 
-  const summaryQuery =
-    useQuery<WifiSummaryResponse>({
-      queryKey: [
-        "wifi-summary",
-        windowMinutes,
-        locationLabel,
-      ],
-      queryFn: () =>
-        api.getWifiSummary({
-          minutes: windowMinutes,
-          location_label:
-            locationLabel || undefined,
-        }),
-      refetchInterval: 30000,
-    });
+  const summaryQuery = useQuery<WifiSummaryResponse>({
+    queryKey: ["wifi-summary", windowMinutes, locationLabel],
+    queryFn: () =>
+      api.getWifiSummary({
+        minutes: windowMinutes,
+        location_label: locationLabel || undefined,
+      }),
+    refetchInterval: 30000,
+  });
 
   const samplesQuery = useQuery<WifiSample[]>({
-    queryKey: [
-      "wifi-samples",
-      windowMinutes,
-      locationLabel,
-    ],
+    queryKey: ["wifi-samples", windowMinutes, locationLabel],
     queryFn: () =>
       api.getWifiSamples({
         minutes: windowMinutes,
-        location_label:
-          locationLabel || undefined,
+        location_label: locationLabel || undefined,
         limit: 200,
       }),
     refetchInterval: 30000,
   });
 
-  const latestSample =
-    summaryQuery.data?.latest_sample ?? null;
+  const latestSample = summaryQuery.data?.latest_sample ?? null;
 
-  const locationOptions: string[] =
-    locationsQuery.data?.items ?? [];
+  const locationOptions: string[] = locationsQuery.data?.items ?? [];
 
-  const locationSummariesQuery =
-    useQuery<WifiLocationSummariesResponse>({
-      queryKey: [
-        "wifi-location-summaries",
-        windowMinutes,
-      ],
-      queryFn: () =>
-        api.getWifiLocationSummaries({
-          minutes: windowMinutes,
-        }),
-      refetchInterval: 30000,
-    });
+  const locationSummariesQuery = useQuery<WifiLocationSummariesResponse>({
+    queryKey: ["wifi-location-summaries", windowMinutes],
+    queryFn: () =>
+      api.getWifiLocationSummaries({
+        minutes: windowMinutes,
+      }),
+    refetchInterval: 30000,
+  });
 
-  const roomComparisonItems =
-    locationSummariesQuery.data?.items ?? [];
+  const roomComparisonItems = locationSummariesQuery.data?.items ?? [];
 
-  const wifiSamples: WifiSample[] =
-    samplesQuery.data ?? [];
+  const wifiSamples: WifiSample[] = samplesQuery.data ?? [];
 
   const wifiAlertsQuery = useQuery<Alert[]>({
     queryKey: ["alerts", "active", "wifi"],
@@ -486,8 +386,7 @@ export default function WifiPage() {
     retry: false,
   });
 
-  const activeWifiAlerts =
-    wifiAlertsQuery.data ?? [];
+  const activeWifiAlerts = wifiAlertsQuery.data ?? [];
 
   const selectedRoomAlerts = locationLabel
     ? activeWifiAlerts
@@ -505,69 +404,47 @@ export default function WifiPage() {
           } as const;
 
           const severityDiff =
-            (severityRank[
-              b.severity as keyof typeof severityRank
-            ] ?? 0) -
-            (severityRank[
-              a.severity as keyof typeof severityRank
-            ] ?? 0);
+            (severityRank[b.severity as keyof typeof severityRank] ?? 0) -
+            (severityRank[a.severity as keyof typeof severityRank] ?? 0);
 
           if (severityDiff !== 0) {
             return severityDiff;
           }
 
           return (
-            new Date(b.created_at).getTime() -
-            new Date(a.created_at).getTime()
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           );
         })
     : [];
 
-  const selectedRoomPrimaryAlert =
-    selectedRoomAlerts[0] ?? null;
+  const selectedRoomPrimaryAlert = selectedRoomAlerts[0] ?? null;
 
   const selectedRoomStatus = locationLabel
-    ? getRoomHealthStatus(
-        activeWifiAlerts,
-        locationLabel,
-      )
+    ? getRoomHealthStatus(activeWifiAlerts, locationLabel)
     : null;
 
-  const selectedRoomHistoryQuery = useQuery<
-    AlertHistoryItem[]
-  >({
-    queryKey: [
-      "alert-history",
-      selectedRoomPrimaryAlert?.id,
-    ],
-    queryFn: () =>
-      api.getAlertHistory(
-        selectedRoomPrimaryAlert!.id,
-      ),
+  const selectedRoomHistoryQuery = useQuery<AlertHistoryItem[]>({
+    queryKey: ["alert-history", selectedRoomPrimaryAlert?.id],
+    queryFn: () => api.getAlertHistory(selectedRoomPrimaryAlert!.id),
     enabled: !!selectedRoomPrimaryAlert,
     refetchInterval: 30000,
     retry: false,
   });
 
-  const acknowledgeWifiAlertMutation =
-    useMutation({
-      mutationFn: (id: number) =>
-        api.acknowledgeAlert(id),
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: ["alerts"],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["alerts", "active", "wifi"],
-        });
-        queryClient.invalidateQueries({
-          queryKey: [
-            "alert-history",
-            selectedRoomPrimaryAlert?.id,
-          ],
-        });
-      },
-    });
+  const acknowledgeWifiAlertMutation = useMutation({
+    mutationFn: (id: number) => api.acknowledgeAlert(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["alerts"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["alerts", "active", "wifi"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["alert-history", selectedRoomPrimaryAlert?.id],
+      });
+    },
+  });
 
   const canAcknowledgeSelectedRoomAlert =
     !!selectedRoomPrimaryAlert &&
@@ -577,61 +454,38 @@ export default function WifiPage() {
   const selectedRoomAlertAcknowledged =
     !!selectedRoomPrimaryAlert?.acknowledged_at;
 
-  const selectedRoomResolvedAlertsQuery =
-    useQuery<Alert[]>({
-      queryKey: [
-        "alerts",
-        "resolved",
-        "wifi",
-        locationLabel,
-      ],
-      queryFn: () =>
-        api.getAlerts({
-          status: "resolved",
-          entity_type: "wifi",
-          limit: 50,
-        }),
-      enabled: !!locationLabel,
-      refetchInterval: 30000,
-      retry: false,
-    });
+  const selectedRoomResolvedAlertsQuery = useQuery<Alert[]>({
+    queryKey: ["alerts", "resolved", "wifi", locationLabel],
+    queryFn: () =>
+      api.getAlerts({
+        status: "resolved",
+        entity_type: "wifi",
+        limit: 50,
+      }),
+    enabled: !!locationLabel,
+    refetchInterval: 30000,
+    retry: false,
+  });
 
   const selectedRoomResolvedAlertsAll = (
     selectedRoomResolvedAlertsQuery.data ?? []
   )
-    .filter(
-      (alert) =>
-        alert.entity_key === locationLabel,
-    )
+    .filter((alert) => alert.entity_key === locationLabel)
     .sort(
       (a, b) =>
-        new Date(
-          b.resolved_at ?? b.created_at,
-        ).getTime() -
-        new Date(
-          a.resolved_at ?? a.created_at,
-        ).getTime(),
+        new Date(b.resolved_at ?? b.created_at).getTime() -
+        new Date(a.resolved_at ?? a.created_at).getTime(),
     );
 
-  const selectedRoomResolvedAlerts =
-    selectedRoomResolvedAlertsAll.slice(0, 3);
+  const selectedRoomResolvedAlerts = selectedRoomResolvedAlertsAll.slice(0, 3);
 
-  const [
-    recoveryDrawerAlert,
-    setRecoveryDrawerAlert,
-  ] = useState<Alert | null>(null);
+  const [recoveryDrawerAlert, setRecoveryDrawerAlert] = useState<Alert | null>(
+    null,
+  );
 
-  const recoveryAlertHistoryQuery = useQuery<
-    AlertHistoryItem[]
-  >({
-    queryKey: [
-      "alert-history",
-      recoveryDrawerAlert?.id,
-    ],
-    queryFn: () =>
-      api.getAlertHistory(
-        recoveryDrawerAlert!.id,
-      ),
+  const recoveryAlertHistoryQuery = useQuery<AlertHistoryItem[]>({
+    queryKey: ["alert-history", recoveryDrawerAlert?.id],
+    queryFn: () => api.getAlertHistory(recoveryDrawerAlert!.id),
     enabled: !!recoveryDrawerAlert,
     refetchInterval: 30000,
     retry: false,
@@ -648,9 +502,7 @@ export default function WifiPage() {
     () =>
       wifiSamples
         .filter(
-          (sample) =>
-            sample.rssi_dbm !== null &&
-            sample.rssi_dbm !== undefined,
+          (sample) => sample.rssi_dbm !== null && sample.rssi_dbm !== undefined,
         )
         .map((sample) => ({
           timestamp: sample.sampled_at,
@@ -684,10 +536,7 @@ export default function WifiPage() {
   useEffect(() => {
     if (!drawerAlertId) return;
 
-    if (
-      selectedRoomPrimaryAlert?.id ===
-      drawerAlertId
-    ) {
+    if (selectedRoomPrimaryAlert?.id === drawerAlertId) {
       setRecoveryDrawerAlert(null);
       setAlertDrawerOpen(true);
       return;
@@ -706,11 +555,7 @@ export default function WifiPage() {
 
     setAlertDrawerOpen(false);
     setRecoveryDrawerAlert(null);
-  }, [
-    drawerAlertId,
-    selectedRoomPrimaryAlert,
-    selectedRoomResolvedAlertsAll,
-  ]);
+  }, [drawerAlertId, selectedRoomPrimaryAlert, selectedRoomResolvedAlertsAll]);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -722,9 +567,7 @@ export default function WifiPage() {
             <select
               value={windowMinutes}
               onChange={(e) => {
-                const nextMinutes = Number(
-                  e.target.value,
-                );
+                const nextMinutes = Number(e.target.value);
 
                 setWindowMinutes(nextMinutes);
                 setDrawerAlertId(null);
@@ -742,16 +585,13 @@ export default function WifiPage() {
               <option value={15}>Last 15m</option>
               <option value={60}>Last 1h</option>
               <option value={360}>Last 6h</option>
-              <option value={1440}>
-                Last 24h
-              </option>
+              <option value={1440}>Last 24h</option>
             </select>
 
             <select
               value={locationLabel}
               onChange={(e) => {
-                const nextLocation =
-                  e.target.value;
+                const nextLocation = e.target.value;
                 setLocationLabel(nextLocation);
                 setDrawerAlertId(null);
                 setAlertDrawerOpen(false);
@@ -765,9 +605,7 @@ export default function WifiPage() {
               }}
               className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 sm:w-auto"
             >
-              <option value="">
-                All locations
-              </option>
+              <option value="">All locations</option>
               {locationOptions.map((item) => (
                 <option key={item} value={item}>
                   {item}
@@ -815,20 +653,16 @@ export default function WifiPage() {
       <section className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-lg font-medium">
-              Room comparison
-            </h3>
+            <h3 className="text-lg font-medium">Room comparison</h3>
             <p className="mt-1 text-sm text-zinc-400">
-              Compare the latest sampled Wi-Fi
-              state by location and jump directly
-              into a room.
+              Compare the latest sampled Wi-Fi state by location and jump
+              directly into a room.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
-              Viewing:{" "}
-              {getViewingLabel(locationLabel)}
+              Viewing: {getViewingLabel(locationLabel)}
             </span>
 
             {locationLabel ? (
@@ -854,8 +688,7 @@ export default function WifiPage() {
           </div>
         </div>
 
-        {(locationsQuery.isLoading ||
-          locationSummariesQuery.isLoading) &&
+        {(locationsQuery.isLoading || locationSummariesQuery.isLoading) &&
         locationOptions.length === 0 ? (
           <QueryState
             title="Room comparison"
@@ -866,10 +699,8 @@ export default function WifiPage() {
             title="Room comparison"
             tone="error"
             message={
-              locationSummariesQuery.error instanceof
-              Error
-                ? locationSummariesQuery.error
-                    .message
+              locationSummariesQuery.error instanceof Error
+                ? locationSummariesQuery.error.message
                 : "Room summaries could not be loaded."
             }
           />
@@ -895,9 +726,7 @@ export default function WifiPage() {
                   alertId: null,
                 });
               }}
-              className={getRoomCardClasses(
-                locationLabel === "",
-              )}
+              className={getRoomCardClasses(locationLabel === "")}
             >
               <div className="flex min-h-[88px] items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 pr-2">
@@ -905,8 +734,7 @@ export default function WifiPage() {
                     All locations
                   </div>
                   <p className="mt-1 min-h-[36px] text-xs leading-5 text-zinc-500">
-                    Combined Wi-Fi view across
-                    recorded rooms
+                    Combined Wi-Fi view across recorded rooms
                   </p>
                 </div>
 
@@ -914,26 +742,20 @@ export default function WifiPage() {
                   <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
                     {locationOptions.length} rooms
                   </span>
-                  <SelectionBadge
-                    active={locationLabel === ""}
-                  />
+                  <SelectionBadge active={locationLabel === ""} />
                 </div>
               </div>
             </button>
 
             {roomComparisonItems.map((item) => {
-              const location =
-                item.location_label;
-              const latest =
-                item.latest_sample ?? null;
-              const isActive =
-                locationLabel === location;
+              const location = item.location_label;
+              const latest = item.latest_sample ?? null;
+              const isActive = locationLabel === location;
 
-              const roomHealth =
-                getRoomHealthStatus(
-                  activeWifiAlerts,
-                  location,
-                );
+              const roomHealth = getRoomHealthStatus(
+                activeWifiAlerts,
+                location,
+              );
 
               return (
                 <button
@@ -951,9 +773,7 @@ export default function WifiPage() {
                       alertId: null,
                     });
                   }}
-                  className={getRoomCardClasses(
-                    isActive,
-                  )}
+                  className={getRoomCardClasses(isActive)}
                 >
                   <div className="flex min-h-[88px] items-start justify-between gap-3">
                     <div className="min-w-0 flex-1 pr-2">
@@ -961,8 +781,7 @@ export default function WifiPage() {
                         {location}
                       </div>
                       <p className="mt-1 text-xs text-zinc-500">
-                        {latest?.ssid ??
-                          "SSID unavailable"}
+                        {latest?.ssid ?? "SSID unavailable"}
                       </p>
                     </div>
 
@@ -983,26 +802,18 @@ export default function WifiPage() {
                       <span
                         className={[
                           "rounded-full border px-2 py-0.5 text-[11px]",
-                          getRoomStatusBadgeClasses(
-                            roomHealth.tone,
-                          ),
+                          getRoomStatusBadgeClasses(roomHealth.tone),
                         ].join(" ")}
                       >
                         {roomHealth.label}
                       </span>
 
-                      <SelectionBadge
-                        active={isActive}
-                      />
+                      <SelectionBadge active={isActive} />
                     </div>
                   </div>
 
                   <div className="mt-4 text-xl font-semibold text-zinc-100">
-                    {latest
-                      ? formatRssi(
-                          latest.rssi_dbm,
-                        )
-                      : "—"}
+                    {latest ? formatRssi(latest.rssi_dbm) : "—"}
                   </div>
 
                   <p className="mt-2 min-h-[36px] text-xs leading-5 text-zinc-500">
@@ -1023,17 +834,13 @@ export default function WifiPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-4xl">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-medium">
-                    Selected room status
-                  </h3>
+                  <h3 className="text-lg font-medium">Selected room status</h3>
 
                   {selectedRoomStatus ? (
                     <span
                       className={[
                         "rounded-full border px-3 py-1 text-xs",
-                        getRoomStatusBadgeClasses(
-                          selectedRoomStatus.tone,
-                        ),
+                        getRoomStatusBadgeClasses(selectedRoomStatus.tone),
                       ].join(" ")}
                     >
                       {selectedRoomStatus.label}
@@ -1047,16 +854,12 @@ export default function WifiPage() {
                   ) : null}
 
                   <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                    Last{" "}
-                    {formatWindowLabel(
-                      windowMinutes,
-                    )}
+                    Last {formatWindowLabel(windowMinutes)}
                   </span>
                 </div>
 
                 <p className="mt-1 text-sm text-zinc-400">
-                  Current health interpretation
-                  for {locationLabel}.
+                  Current health interpretation for {locationLabel}.
                 </p>
 
                 <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
@@ -1071,18 +874,14 @@ export default function WifiPage() {
 
                   <p className="mt-3 text-sm text-zinc-400">
                     {selectedRoomStatus
-                      ? getRoomStatusDescription(
-                          selectedRoomStatus.tone,
-                        )
+                      ? getRoomStatusDescription(selectedRoomStatus.tone)
                       : "No current room status available."}
                   </p>
 
                   {acknowledgeWifiAlertMutation.isError ? (
                     <div className="mt-3 rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">
-                      {acknowledgeWifiAlertMutation.error instanceof
-                      Error
-                        ? acknowledgeWifiAlertMutation
-                            .error.message
+                      {acknowledgeWifiAlertMutation.error instanceof Error
+                        ? acknowledgeWifiAlertMutation.error.message
                         : "Could not acknowledge alert."}
                     </div>
                   ) : null}
@@ -1094,9 +893,7 @@ export default function WifiPage() {
                   {canAcknowledgeSelectedRoomAlert ? (
                     <button
                       type="button"
-                      disabled={
-                        acknowledgeWifiAlertMutation.isPending
-                      }
+                      disabled={acknowledgeWifiAlertMutation.isPending}
                       onClick={() =>
                         acknowledgeWifiAlertMutation.mutate(
                           selectedRoomPrimaryAlert.id,
@@ -1114,18 +911,13 @@ export default function WifiPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setRecoveryDrawerAlert(
-                          null,
-                        );
-                        setDrawerAlertId(
-                          selectedRoomPrimaryAlert.id,
-                        );
+                        setRecoveryDrawerAlert(null);
+                        setDrawerAlertId(selectedRoomPrimaryAlert.id);
                         setAlertDrawerOpen(true);
                         updateSearchParams({
                           minutes: windowMinutes,
                           location: locationLabel,
-                          alertId:
-                            selectedRoomPrimaryAlert.id,
+                          alertId: selectedRoomPrimaryAlert.id,
                         });
                       }}
                       className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
@@ -1140,25 +932,20 @@ export default function WifiPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <DrawerDetailSection label="Sample age">
                 <div className="text-sm font-medium text-zinc-100">
-                  {formatSampleAge(
-                    latestSample?.sampled_at,
-                  )}
+                  {formatSampleAge(latestSample?.sampled_at)}
                 </div>
               </DrawerDetailSection>
 
               <DrawerDetailSection label="Latest signal">
                 <div className="text-sm font-medium text-zinc-100">
-                  {formatRssi(
-                    latestSample?.rssi_dbm,
-                  )}
+                  {formatRssi(latestSample?.rssi_dbm)}
                 </div>
               </DrawerDetailSection>
 
               <DrawerDetailSection label="Link details">
                 <div className="text-sm font-medium text-zinc-100">
                   {latestSample?.band ?? "—"}
-                  {latestSample?.frequency_mhz !=
-                  null
+                  {latestSample?.frequency_mhz != null
                     ? ` · ${latestSample.frequency_mhz} MHz`
                     : ""}
                 </div>
@@ -1166,8 +953,7 @@ export default function WifiPage() {
 
               <DrawerDetailSection label="Samples in window">
                 <div className="text-sm font-medium text-zinc-100">
-                  {summaryQuery.data
-                    ?.sample_count ?? 0}
+                  {summaryQuery.data?.sample_count ?? 0}
                 </div>
               </DrawerDetailSection>
             </div>
@@ -1181,18 +967,14 @@ export default function WifiPage() {
                     Room incident timeline
                   </h3>
                   <p className="mt-1 text-sm text-zinc-400">
-                    Recent Wi-Fi incident events
-                    for {locationLabel}.
+                    Recent Wi-Fi incident events for {locationLabel}.
                   </p>
                 </div>
 
                 {selectedRoomPrimaryAlert ? (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                      Alert #
-                      {
-                        selectedRoomPrimaryAlert.id
-                      }
+                      Alert #{selectedRoomPrimaryAlert.id}
                     </span>
 
                     {selectedRoomAlertAcknowledged ? (
@@ -1207,22 +989,19 @@ export default function WifiPage() {
               {!selectedRoomPrimaryAlert ? (
                 <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
                   <div className="text-sm text-zinc-400">
-                    No active Wi-Fi incident
-                    timeline for this room.
+                    No active Wi-Fi incident timeline for this room.
                   </div>
                 </div>
               ) : selectedRoomHistoryQuery.isLoading ? (
                 <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
                   <div className="text-sm text-zinc-400">
-                    Loading room incident
-                    history...
+                    Loading room incident history...
                   </div>
                 </div>
               ) : selectedRoomHistoryQuery.isError ? (
                 <div className="mt-4 rounded-2xl border border-red-900 bg-red-950/40 p-4 text-red-200">
                   <div className="text-sm">
-                    Could not load room incident
-                    history.
+                    Could not load room incident history.
                   </div>
                 </div>
               ) : (
@@ -1231,12 +1010,8 @@ export default function WifiPage() {
                     ?.slice()
                     .sort(
                       (a, b) =>
-                        new Date(
-                          b.created_at,
-                        ).getTime() -
-                        new Date(
-                          a.created_at,
-                        ).getTime(),
+                        new Date(b.created_at).getTime() -
+                        new Date(a.created_at).getTime(),
                     )
                     .slice(0, 6)
                     .map((event) => (
@@ -1246,34 +1021,23 @@ export default function WifiPage() {
                       >
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div className="text-sm font-medium text-zinc-100">
-                            {formatTimelineEventTitle(
-                              event.event_type,
-                            )}
+                            {formatTimelineEventTitle(event.event_type)}
                           </div>
                           <div className="text-xs text-zinc-500">
-                            {formatDate(
-                              event.created_at,
-                            )}
+                            {formatDate(event.created_at)}
                           </div>
                         </div>
 
-                        {formatTimelineEventDetail(
-                          event,
-                        ) ? (
+                        {formatTimelineEventDetail(event) ? (
                           <div className="mt-2 text-sm text-zinc-300">
-                            {formatTimelineEventDetail(
-                              event,
-                            )}
+                            {formatTimelineEventDetail(event)}
                           </div>
                         ) : null}
 
-                        {event.event_type ===
-                          "message_changed" &&
+                        {event.event_type === "message_changed" &&
                         selectedRoomPrimaryAlert?.message ? (
                           <div className="mt-2 text-sm text-zinc-400">
-                            {
-                              selectedRoomPrimaryAlert.message
-                            }
+                            {selectedRoomPrimaryAlert.message}
                           </div>
                         ) : null}
                       </div>
@@ -1285,20 +1049,14 @@ export default function WifiPage() {
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="text-lg font-medium">
-                    Recent recoveries
-                  </h3>
+                  <h3 className="text-lg font-medium">Recent recoveries</h3>
                   <p className="mt-1 text-sm text-zinc-400">
-                    Recently resolved Wi-Fi
-                    incidents for {locationLabel}.
+                    Recently resolved Wi-Fi incidents for {locationLabel}.
                   </p>
                 </div>
 
                 <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                  {
-                    selectedRoomResolvedAlerts.length
-                  }{" "}
-                  recent
+                  {selectedRoomResolvedAlerts.length} recent
                 </span>
               </div>
 
@@ -1311,77 +1069,59 @@ export default function WifiPage() {
               ) : selectedRoomResolvedAlertsQuery.isError ? (
                 <div className="mt-4 rounded-2xl border border-red-900 bg-red-950/40 p-4 text-red-200">
                   <div className="text-sm">
-                    Could not load recent
-                    recoveries.
+                    Could not load recent recoveries.
                   </div>
                 </div>
-              ) : selectedRoomResolvedAlerts.length ===
-                0 ? (
+              ) : selectedRoomResolvedAlerts.length === 0 ? (
                 <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
                   <div className="text-sm text-zinc-400">
-                    No recent recoveries for this
-                    room.
+                    No recent recoveries for this room.
                   </div>
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">
-                  {selectedRoomResolvedAlerts.map(
-                    (alert) => (
-                      <button
-                        key={alert.id}
-                        type="button"
-                        onClick={() => {
-                          setRecoveryDrawerAlert(
-                            alert,
-                          );
-                          setDrawerAlertId(
-                            alert.id,
-                          );
-                          setAlertDrawerOpen(
-                            false,
-                          );
-                          updateSearchParams({
-                            minutes:
-                              windowMinutes,
-                            location:
-                              locationLabel,
-                            alertId: alert.id,
-                          });
-                        }}
-                        className="w-full rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4 text-left transition-colors hover:bg-zinc-900/80"
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                                Resolved
-                              </span>
-                              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-                                {getRecoverySeverityLabel(
-                                  alert,
-                                )}
-                              </span>
-                            </div>
-
-                            <div className="mt-3 text-sm font-medium text-zinc-100">
-                              {alert.message}
-                            </div>
-
-                            <p className="mt-2 text-xs text-zinc-500">
-                              Resolved{" "}
-                              {formatDate(
-                                alert.resolved_at,
-                              )}
-                            </p>
+                  {selectedRoomResolvedAlerts.map((alert) => (
+                    <button
+                      key={alert.id}
+                      type="button"
+                      onClick={() => {
+                        setRecoveryDrawerAlert(alert);
+                        setDrawerAlertId(alert.id);
+                        setAlertDrawerOpen(false);
+                        updateSearchParams({
+                          minutes: windowMinutes,
+                          location: locationLabel,
+                          alertId: alert.id,
+                        });
+                      }}
+                      className="w-full rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4 text-left transition-colors hover:bg-zinc-900/80"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                              Resolved
+                            </span>
+                            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
+                              {getRecoverySeverityLabel(alert)}
+                            </span>
                           </div>
 
-                          <span className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200">
-                            View alert details
-                          </span>
+                          <div className="mt-3 text-sm font-medium text-zinc-100">
+                            {alert.message}
+                          </div>
+
+                          <p className="mt-2 text-xs text-zinc-500">
+                            Resolved {formatDate(alert.resolved_at)}
+                          </p>
                         </div>
-                      </button>
-                    ),
-                  )}
+
+                        <span className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200">
+                          View alert details
+                        </span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </section>
@@ -1391,18 +1131,15 @@ export default function WifiPage() {
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-medium">
-            Performance snapshot
-          </h3>
+          <h3 className="text-lg font-medium">Performance snapshot</h3>
           <p className="mt-1 text-sm text-zinc-400">
-            Latest observed signal quality and
-            radio details for the selected window.
+            Latest observed signal quality and radio details for the selected
+            window.
           </p>
         </div>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {summaryQuery.isLoading &&
-          !summaryQuery.data ? (
+          {summaryQuery.isLoading && !summaryQuery.data ? (
             <>
               <StateCard
                 title="Latest signal"
@@ -1412,17 +1149,10 @@ export default function WifiPage() {
                 title="Average RSSI"
                 message="Loading Wi-Fi summary..."
               />
-              <StateCard
-                title="Samples"
-                message="Loading Wi-Fi summary..."
-              />
-              <StateCard
-                title="Band"
-                message="Loading Wi-Fi summary..."
-              />
+              <StateCard title="Samples" message="Loading Wi-Fi summary..." />
+              <StateCard title="Band" message="Loading Wi-Fi summary..." />
             </>
-          ) : !summaryQuery.data ||
-            !latestSample ? (
+          ) : !summaryQuery.data || !latestSample ? (
             <>
               <StateCard
                 title="Latest signal"
@@ -1449,46 +1179,35 @@ export default function WifiPage() {
             <>
               <WifiMetricCard
                 label="Latest signal"
-                value={formatRssi(
-                  latestSample.rssi_dbm,
-                )}
+                value={formatRssi(latestSample.rssi_dbm)}
                 hint={`${latestSample.location_label} · ${
-                  latestSample.ssid ??
-                  "Unknown SSID"
+                  latestSample.ssid ?? "Unknown SSID"
                 }`}
               />
 
               <WifiMetricCard
                 label="Average RSSI"
                 value={
-                  summaryQuery.data
-                    .avg_rssi_dbm != null
+                  summaryQuery.data.avg_rssi_dbm != null
                     ? `${summaryQuery.data.avg_rssi_dbm.toFixed(1)} dBm`
                     : "—"
                 }
                 hint={`Min ${formatRssi(
                   summaryQuery.data.min_rssi_dbm,
-                )} · Max ${formatRssi(
-                  summaryQuery.data.max_rssi_dbm,
-                )}`}
+                )} · Max ${formatRssi(summaryQuery.data.max_rssi_dbm)}`}
               />
 
               <WifiMetricCard
                 label="Samples"
-                value={String(
-                  summaryQuery.data.sample_count,
-                )}
-                hint={`Sampled through ${formatDate(
-                  latestSample.sampled_at,
-                )}`}
+                value={String(summaryQuery.data.sample_count)}
+                hint={`Sampled through ${formatDate(latestSample.sampled_at)}`}
               />
 
               <WifiMetricCard
                 label="Band"
                 value={latestSample.band ?? "—"}
                 hint={
-                  latestSample.frequency_mhz !=
-                  null
+                  latestSample.frequency_mhz != null
                     ? `${latestSample.frequency_mhz} MHz`
                     : "Frequency unavailable"
                 }
@@ -1508,16 +1227,12 @@ export default function WifiPage() {
             ? samplesQuery.error.message
             : "Wi-Fi signal history request failed."
         }
-        valueFormatter={(value) =>
-          `${value.toFixed(0)} dBm`
-        }
+        valueFormatter={(value) => `${value.toFixed(0)} dBm`}
         valueLabel="Signal"
       />
 
       <CollapsibleInspectionSection
-        title={getRecentSamplesTitle(
-          locationLabel,
-        )}
+        title={getRecentSamplesTitle(locationLabel)}
         description="Most recent Wi-Fi observations for the selected window."
         badges={
           <>
@@ -1533,9 +1248,7 @@ export default function WifiPage() {
 
             <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
               {wifiSamples.length} sample
-              {wifiSamples.length === 1
-                ? ""
-                : "s"}
+              {wifiSamples.length === 1 ? "" : "s"}
             </span>
           </>
         }
@@ -1549,16 +1262,10 @@ export default function WifiPage() {
           samplesQuery.isLoading ||
           samplesQuery.isError
         }
-        onToggle={() =>
-          setSamplesCollapsed(
-            (current) => !current,
-          )
-        }
+        onToggle={() => setSamplesCollapsed((current) => !current)}
       >
         <DataTableCard
-          title={getRecentSamplesTitle(
-            locationLabel,
-          )}
+          title={getRecentSamplesTitle(locationLabel)}
           description="Most recent Wi-Fi observations for the selected window."
           rightSlot={null}
           helperText="Swipe horizontally to inspect recent sample metadata across locations, SSIDs, signal levels, and radio bands."
@@ -1579,24 +1286,12 @@ export default function WifiPage() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">
-                  Time
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  Location
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  SSID
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  Signal
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  Band
-                </th>
-                <th className="px-4 py-3 text-left font-medium">
-                  Details
-                </th>
+                <th className="px-4 py-3 text-left font-medium">Time</th>
+                <th className="px-4 py-3 text-left font-medium">Location</th>
+                <th className="px-4 py-3 text-left font-medium">SSID</th>
+                <th className="px-4 py-3 text-left font-medium">Signal</th>
+                <th className="px-4 py-3 text-left font-medium">Band</th>
+                <th className="px-4 py-3 text-left font-medium">Details</th>
               </tr>
             </thead>
             <tbody>
@@ -1610,15 +1305,9 @@ export default function WifiPage() {
                   }}
                 >
                   <td className="px-4 py-3 text-zinc-300">
-                    <div>
-                      {formatDate(
-                        sample.sampled_at,
-                      )}
-                    </div>
+                    <div>{formatDate(sample.sampled_at)}</div>
                     <div className="mt-1 text-xs text-zinc-500">
-                      {formatSampleAge(
-                        sample.sampled_at,
-                      )}
+                      {formatSampleAge(sample.sampled_at)}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-zinc-100">
@@ -1642,18 +1331,16 @@ export default function WifiPage() {
               ))}
             </tbody>
           </table>
-        </DataTableCard>
 
-        <WifiSampleDetailDrawer
-          sample={selectedSample}
-          open={
-            sampleDrawerOpen && !!selectedSample
-          }
-          onClose={() => {
-            setSampleDrawerOpen(false);
-            setSelectedSample(null);
-          }}
-        />
+          <WifiSampleDetailDrawer
+            sample={selectedSample}
+            open={sampleDrawerOpen && !!selectedSample}
+            onClose={() => {
+              setSampleDrawerOpen(false);
+              setSelectedSample(null);
+            }}
+          />
+        </DataTableCard>
       </CollapsibleInspectionSection>
 
       <AlertDetailDrawer
@@ -1668,30 +1355,18 @@ export default function WifiPage() {
             alertId: null,
           });
         }}
-        history={
-          selectedRoomHistoryQuery.data ?? []
-        }
-        historyLoading={
-          selectedRoomHistoryQuery.isLoading
-        }
-        historyError={
-          selectedRoomHistoryQuery.isError
-        }
-        acknowledgePending={
-          acknowledgeWifiAlertMutation.isPending
-        }
+        history={selectedRoomHistoryQuery.data ?? []}
+        historyLoading={selectedRoomHistoryQuery.isLoading}
+        historyError={selectedRoomHistoryQuery.isError}
+        acknowledgePending={acknowledgeWifiAlertMutation.isPending}
         acknowledgeErrorMessage={
           acknowledgeWifiAlertMutation.isError
-            ? acknowledgeWifiAlertMutation.error instanceof
-              Error
-              ? acknowledgeWifiAlertMutation.error
-                  .message
+            ? acknowledgeWifiAlertMutation.error instanceof Error
+              ? acknowledgeWifiAlertMutation.error.message
               : "Could not acknowledge alert."
             : null
         }
-        onAcknowledge={(id) =>
-          acknowledgeWifiAlertMutation.mutate(id)
-        }
+        onAcknowledge={(id) => acknowledgeWifiAlertMutation.mutate(id)}
       />
 
       <AlertDetailDrawer
@@ -1706,15 +1381,9 @@ export default function WifiPage() {
             alertId: null,
           });
         }}
-        history={
-          recoveryAlertHistoryQuery.data ?? []
-        }
-        historyLoading={
-          recoveryAlertHistoryQuery.isLoading
-        }
-        historyError={
-          recoveryAlertHistoryQuery.isError
-        }
+        history={recoveryAlertHistoryQuery.data ?? []}
+        historyLoading={recoveryAlertHistoryQuery.isLoading}
+        historyError={recoveryAlertHistoryQuery.isError}
         acknowledgePending={false}
         acknowledgeErrorMessage={null}
         onAcknowledge={() => {}}

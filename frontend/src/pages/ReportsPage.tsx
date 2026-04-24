@@ -1,8 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QueryState from "../components/QueryState";
 import {
@@ -29,12 +25,7 @@ import {
 } from "../utils/incidentText";
 
 type StatusFilter = "all" | "active" | "resolved";
-type TypeFilter =
-  | "all"
-  | "internet_http"
-  | "internet_tcp"
-  | "dns"
-  | "router";
+type TypeFilter = "all" | "internet_http" | "internet_tcp" | "dns" | "router";
 
 type SortKey =
   | "started_desc"
@@ -43,8 +34,7 @@ type SortKey =
   | "duration_asc";
 
 function formatDuration(seconds?: number | null) {
-  if (seconds === null || seconds === undefined)
-    return "—";
+  if (seconds === null || seconds === undefined) return "—";
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) {
     return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
@@ -85,9 +75,7 @@ function formatAlertEventType(eventType: string) {
   }
 }
 
-function formatDeviceEventType(
-  eventType: string,
-) {
+function formatDeviceEventType(eventType: string) {
   switch (eventType) {
     case "first_seen":
       return "First seen";
@@ -113,18 +101,12 @@ function formatTransition(
   newValue?: string | null,
 ) {
   if (!previousValue && !newValue) return null;
-  if (!previousValue && newValue)
-    return `Set to ${newValue}`;
-  if (previousValue && !newValue)
-    return `Removed: ${previousValue}`;
+  if (!previousValue && newValue) return `Set to ${newValue}`;
+  if (previousValue && !newValue) return `Removed: ${previousValue}`;
   return `${previousValue} → ${newValue}`;
 }
 
-function pluralize(
-  value: number,
-  singular: string,
-  plural = `${singular}s`,
-) {
+function pluralize(value: number, singular: string, plural = `${singular}s`) {
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
@@ -145,9 +127,7 @@ function buildReportNarrative(params: {
   } | null;
 }) {
   const windowLabel =
-    params.windowHours === 24
-      ? "last 24 hours"
-      : "last 7 days";
+    params.windowHours === 24 ? "last 24 hours" : "last 7 days";
 
   const parts: string[] = [];
 
@@ -176,10 +156,8 @@ function buildReportNarrative(params: {
 
   if (
     params.activeAlertCount !== undefined &&
-    params.activeCriticalAlertCount !==
-      undefined &&
-    params.activeUnacknowledgedAlertCount !==
-      undefined
+    params.activeCriticalAlertCount !== undefined &&
+    params.activeUnacknowledgedAlertCount !== undefined
   ) {
     parts.push(
       `There are currently ${pluralize(params.activeAlertCount, "active alert")}, including ${pluralize(
@@ -192,9 +170,7 @@ function buildReportNarrative(params: {
     );
   }
 
-  if (
-    params.deviceHistoryEventCount !== undefined
-  ) {
+  if (params.deviceHistoryEventCount !== undefined) {
     parts.push(
       `${pluralize(params.deviceHistoryEventCount, "device change")} were recorded.`,
     );
@@ -206,8 +182,7 @@ function buildReportNarrative(params: {
         params.topIncidentTarget.count,
         "incident",
       )} and ${formatDurationCompact(
-        params.topIncidentTarget
-          .total_downtime_seconds,
+        params.topIncidentTarget.total_downtime_seconds,
       )} downtime.`,
     );
   }
@@ -216,21 +191,12 @@ function buildReportNarrative(params: {
 }
 
 function escapeCsv(value: unknown) {
-  const text =
-    value === null || value === undefined
-      ? ""
-      : String(value);
+  const text = value === null || value === undefined ? "" : String(value);
   const escaped = text.replace(/"/g, '""');
-  return /[",\n]/.test(escaped)
-    ? `"${escaped}"`
-    : escaped;
+  return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
 }
 
-function downloadFile(
-  filename: string,
-  content: string,
-  mimeType: string,
-) {
+function downloadFile(filename: string, content: string, mimeType: string) {
   const blob = new Blob([content], {
     type: mimeType,
   });
@@ -244,69 +210,42 @@ function downloadFile(
   URL.revokeObjectURL(url);
 }
 
-function formatWindowLabel(
-  windowHours: 24 | 168,
-) {
+function formatWindowLabel(windowHours: 24 | 168) {
   return windowHours === 24 ? "24h" : "7d";
 }
 
-function formatReportsWindowLabel(
-  windowHours: 24 | 168,
-) {
+function formatReportsWindowLabel(windowHours: 24 | 168) {
   return `Last ${windowHours === 24 ? "24h" : "7d"}`;
 }
 
-function outageStartsWithinWindow(
-  startedAt: string,
-  windowHours: 24 | 168,
-) {
+function outageStartsWithinWindow(startedAt: string, windowHours: 24 | 168) {
   const started = new Date(startedAt);
-  if (Number.isNaN(started.getTime()))
-    return false;
+  if (Number.isNaN(started.getTime())) return false;
 
-  const windowStart =
-    Date.now() - windowHours * 60 * 60 * 1000;
+  const windowStart = Date.now() - windowHours * 60 * 60 * 1000;
 
   return started.getTime() >= windowStart;
 }
 
 export default function ReportsPage() {
-  const [selectedOutage, setSelectedOutage] =
-    useState<Outage | null>(null);
-  const [outageDrawerOpen, setOutageDrawerOpen] =
-    useState(false);
-  const [windowHours, setWindowHours] = useState<
-    24 | 168
-  >(24);
+  const [selectedOutage, setSelectedOutage] = useState<Outage | null>(null);
+  const [outageDrawerOpen, setOutageDrawerOpen] = useState(false);
+  const [windowHours, setWindowHours] = useState<24 | 168>(24);
 
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>("all");
-  const [typeFilter, setTypeFilter] =
-    useState<TypeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortKey>(
-    "started_desc",
-  );
+  const [sortBy, setSortBy] = useState<SortKey>("started_desc");
 
-  const [
-    isExportingSnapshot,
-    setIsExportingSnapshot,
-  ] = useState(false);
+  const [isExportingSnapshot, setIsExportingSnapshot] = useState(false);
 
-  const [
-    showTopIncidentTargets,
-    setShowTopIncidentTargets,
-  ] = useState(true);
+  const [showTopIncidentTargets, setShowTopIncidentTargets] = useState(true);
 
-  const [
-    showOutageExplorer,
-    setShowOutageExplorer,
-  ] = useState(false);
+  const [showOutageExplorer, setShowOutageExplorer] = useState(false);
 
   const reportsSummaryQuery = useQuery({
     queryKey: ["reports-summary", windowHours],
-    queryFn: () =>
-      api.getReportsSummary(windowHours),
+    queryFn: () => api.getReportsSummary(windowHours),
     refetchInterval: 60000,
   });
 
@@ -314,53 +253,34 @@ export default function ReportsPage() {
 
   const reportTrendsQuery = useQuery({
     queryKey: ["reports-trends", windowHours],
-    queryFn: () =>
-      api.getReportTrends(windowHours),
+    queryFn: () => api.getReportTrends(windowHours),
     refetchInterval: 60000,
   });
 
-  const reportTrends =
-    reportTrendsQuery.data ?? [];
+  const reportTrends = reportTrendsQuery.data ?? [];
 
   const recentAlertEventsQuery = useQuery({
-    queryKey: [
-      "reports-alert-events",
-      windowHours,
-    ],
-    queryFn: () =>
-      api.getRecentReportAlertEvents(windowHours),
+    queryKey: ["reports-alert-events", windowHours],
+    queryFn: () => api.getRecentReportAlertEvents(windowHours),
     refetchInterval: 60000,
   });
 
   const recentDeviceEventsQuery = useQuery({
-    queryKey: [
-      "reports-device-events",
-      windowHours,
-    ],
-    queryFn: () =>
-      api.getRecentReportDeviceEvents(
-        windowHours,
-      ),
+    queryKey: ["reports-device-events", windowHours],
+    queryFn: () => api.getRecentReportDeviceEvents(windowHours),
     refetchInterval: 60000,
   });
 
-  const recentAlertEvents =
-    recentAlertEventsQuery.data ?? [];
-  const recentDeviceEvents =
-    recentDeviceEventsQuery.data ?? [];
+  const recentAlertEvents = recentAlertEventsQuery.data ?? [];
+  const recentDeviceEvents = recentDeviceEventsQuery.data ?? [];
 
   const topIncidentTargetsQuery = useQuery({
-    queryKey: [
-      "reports-top-incident-targets",
-      windowHours,
-    ],
-    queryFn: () =>
-      api.getTopIncidentTargets(windowHours),
+    queryKey: ["reports-top-incident-targets", windowHours],
+    queryFn: () => api.getTopIncidentTargets(windowHours),
     refetchInterval: 60000,
   });
 
-  const topIncidentTargets =
-    topIncidentTargetsQuery.data ?? [];
+  const topIncidentTargets = topIncidentTargetsQuery.data ?? [];
 
   const outagesQuery = useQuery({
     queryKey: [
@@ -373,14 +293,8 @@ export default function ReportsPage() {
     ],
     queryFn: () =>
       api.getOutages({
-        status:
-          statusFilter === "all"
-            ? undefined
-            : statusFilter,
-        outage_type:
-          typeFilter === "all"
-            ? undefined
-            : typeFilter,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        outage_type: typeFilter === "all" ? undefined : typeFilter,
         search: search.trim() || undefined,
         limit: 200,
       }),
@@ -392,10 +306,7 @@ export default function ReportsPage() {
   const windowedOutages = useMemo(
     () =>
       outages.filter((outage) =>
-        outageStartsWithinWindow(
-          outage.started_at,
-          windowHours,
-        ),
+        outageStartsWithinWindow(outage.started_at, windowHours),
       ),
     [outages, windowHours],
   );
@@ -404,60 +315,46 @@ export default function ReportsPage() {
     return [...windowedOutages].sort((a, b) => {
       if (sortBy === "started_asc") {
         return (
-          new Date(a.started_at).getTime() -
-          new Date(b.started_at).getTime()
+          new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
         );
       }
 
       if (sortBy === "duration_desc") {
-        return (
-          (b.duration_seconds ?? -1) -
-          (a.duration_seconds ?? -1)
-        );
+        return (b.duration_seconds ?? -1) - (a.duration_seconds ?? -1);
       }
 
       if (sortBy === "duration_asc") {
         return (
-          (a.duration_seconds ??
-            Number.MAX_SAFE_INTEGER) -
-          (b.duration_seconds ??
-            Number.MAX_SAFE_INTEGER)
+          (a.duration_seconds ?? Number.MAX_SAFE_INTEGER) -
+          (b.duration_seconds ?? Number.MAX_SAFE_INTEGER)
         );
       }
 
       return (
-        new Date(b.started_at).getTime() -
-        new Date(a.started_at).getTime()
+        new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
       );
     });
   }, [windowedOutages, sortBy]);
 
-  const topIncidentTarget =
-    topIncidentTargets[0] ?? null;
+  const topIncidentTarget = topIncidentTargets[0] ?? null;
 
   const reportNarrative = reportsSummary
     ? buildReportNarrative({
         windowHours,
         uptimePct: reportsSummary.uptime_pct,
         outageCount: reportsSummary.outage_count,
-        totalDowntimeSeconds:
-          reportsSummary.total_downtime_seconds,
-        dnsFailureCount:
-          reportsSummary.dns_failure_count,
-        activeAlertCount:
-          reportsSummary.active_alert_count,
-        activeCriticalAlertCount:
-          reportsSummary.active_critical_alert_count,
+        totalDowntimeSeconds: reportsSummary.total_downtime_seconds,
+        dnsFailureCount: reportsSummary.dns_failure_count,
+        activeAlertCount: reportsSummary.active_alert_count,
+        activeCriticalAlertCount: reportsSummary.active_critical_alert_count,
         activeUnacknowledgedAlertCount:
           reportsSummary.active_unacknowledged_alert_count,
-        deviceHistoryEventCount:
-          reportsSummary.device_history_event_count,
+        deviceHistoryEventCount: reportsSummary.device_history_event_count,
         topIncidentTarget: topIncidentTarget
           ? {
               target: topIncidentTarget.target,
               count: topIncidentTarget.count,
-              total_downtime_seconds:
-                topIncidentTarget.total_downtime_seconds,
+              total_downtime_seconds: topIncidentTarget.total_downtime_seconds,
             }
           : null,
       })
@@ -482,24 +379,19 @@ export default function ReportsPage() {
   const dangerBadgeClass =
     "rounded-full border border-red-800 bg-red-950 px-2 py-0.5 text-[11px] text-red-300";
 
-  const alertEventsPanelClass =
-    inspectionPanelBodyClass;
+  const alertEventsPanelClass = inspectionPanelBodyClass;
 
-  const deviceEventsPanelClass =
-    inspectionPanelBodyClass;
+  const deviceEventsPanelClass = inspectionPanelBodyClass;
 
-  const topIncidentTargetsPanelClass =
-    showTopIncidentTargets
-      ? inspectionPanelBodyClass
-      : "";
+  const topIncidentTargetsPanelClass = showTopIncidentTargets
+    ? inspectionPanelBodyClass
+    : "";
 
   async function copySummaryToClipboard() {
     if (!reportNarrative) return;
 
     try {
-      await navigator.clipboard.writeText(
-        reportNarrative,
-      );
+      await navigator.clipboard.writeText(reportNarrative);
     } catch {
       // ignore clipboard failures
     }
@@ -509,13 +401,10 @@ export default function ReportsPage() {
     try {
       setIsExportingSnapshot(true);
 
-      const snapshot =
-        await api.getReportsSnapshot(windowHours);
+      const snapshot = await api.getReportsSnapshot(windowHours);
 
       downloadFile(
-        `lag-rat-report-${formatWindowLabel(
-          windowHours,
-        )}.json`,
+        `lag-rat-report-${formatWindowLabel(windowHours)}.json`,
         JSON.stringify(snapshot, null, 2),
         "application/json",
       );
@@ -529,58 +418,29 @@ export default function ReportsPage() {
 
     sections.push("section,key,value");
     sections.push(
-      ["summary", "window_hours", windowHours]
+      ["summary", "window_hours", windowHours].map(escapeCsv).join(","),
+    );
+    sections.push(
+      ["summary", "generated_at", new Date().toISOString()]
         .map(escapeCsv)
         .join(","),
     );
     sections.push(
-      [
-        "summary",
-        "generated_at",
-        new Date().toISOString(),
-      ]
-        .map(escapeCsv)
-        .join(","),
-    );
-    sections.push(
-      [
-        "summary",
-        "narrative",
-        reportNarrative ?? "",
-      ]
-        .map(escapeCsv)
-        .join(","),
+      ["summary", "narrative", reportNarrative ?? ""].map(escapeCsv).join(","),
     );
 
     if (reportsSummary) {
-      const summaryRows: Array<
-        [string, unknown]
-      > = [
+      const summaryRows: Array<[string, unknown]> = [
         ["uptime_pct", reportsSummary.uptime_pct],
-        [
-          "avg_latency_ms",
-          reportsSummary.avg_latency_ms,
-        ],
-        [
-          "outage_count",
-          reportsSummary.outage_count,
-        ],
-        [
-          "total_downtime_seconds",
-          reportsSummary.total_downtime_seconds,
-        ],
-        [
-          "dns_failure_count",
-          reportsSummary.dns_failure_count,
-        ],
+        ["avg_latency_ms", reportsSummary.avg_latency_ms],
+        ["outage_count", reportsSummary.outage_count],
+        ["total_downtime_seconds", reportsSummary.total_downtime_seconds],
+        ["dns_failure_count", reportsSummary.dns_failure_count],
         [
           "device_history_event_count",
           reportsSummary.device_history_event_count,
         ],
-        [
-          "active_alert_count",
-          reportsSummary.active_alert_count,
-        ],
+        ["active_alert_count", reportsSummary.active_alert_count],
         [
           "active_critical_alert_count",
           reportsSummary.active_critical_alert_count,
@@ -592,11 +452,7 @@ export default function ReportsPage() {
       ];
 
       for (const [key, value] of summaryRows) {
-        sections.push(
-          ["summary", key, value]
-            .map(escapeCsv)
-            .join(","),
-        );
+        sections.push(["summary", key, value].map(escapeCsv).join(","));
       }
     }
 
@@ -727,9 +583,7 @@ export default function ReportsPage() {
     }
 
     downloadFile(
-      `lag-rat-report-${formatWindowLabel(
-        windowHours,
-      )}.csv`,
+      `lag-rat-report-${formatWindowLabel(windowHours)}.csv`,
       sections.join("\n"),
       "text/csv;charset=utf-8",
     );
@@ -745,11 +599,7 @@ export default function ReportsPage() {
             <select
               value={windowHours}
               onChange={(e) =>
-                setWindowHours(
-                  Number(e.target.value) as
-                    | 24
-                    | 168,
-                )
+                setWindowHours(Number(e.target.value) as 24 | 168)
               }
               className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 sm:w-auto"
             >
@@ -763,9 +613,7 @@ export default function ReportsPage() {
               disabled={isExportingSnapshot}
               className="w-full rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
-              {isExportingSnapshot
-                ? "Exporting..."
-                : "Export JSON"}
+              {isExportingSnapshot ? "Exporting..." : "Export JSON"}
             </button>
 
             <button
@@ -794,8 +642,7 @@ export default function ReportsPage() {
           title="Reports summary request failed"
           tone="error"
           message={
-            reportsSummaryQuery.error instanceof
-            Error
+            reportsSummaryQuery.error instanceof Error
               ? reportsSummaryQuery.error.message
               : "The reports summary endpoint failed."
           }
@@ -823,9 +670,7 @@ export default function ReportsPage() {
           label="Outages"
           value={
             reportsSummary
-              ? String(
-                  reportsSummary.outage_count,
-                )
+              ? String(reportsSummary.outage_count)
               : reportsSummaryQuery.isLoading
                 ? "Loading"
                 : "—"
@@ -841,9 +686,7 @@ export default function ReportsPage() {
           label="DNS failures"
           value={
             reportsSummary
-              ? String(
-                  reportsSummary.dns_failure_count,
-                )
+              ? String(reportsSummary.dns_failure_count)
               : reportsSummaryQuery.isLoading
                 ? "Loading"
                 : "—"
@@ -859,17 +702,13 @@ export default function ReportsPage() {
           label="Device changes"
           value={
             reportsSummary
-              ? String(
-                  reportsSummary.device_history_event_count,
-                )
+              ? String(reportsSummary.device_history_event_count)
               : reportsSummaryQuery.isLoading
                 ? "Loading"
                 : "—"
           }
           hint={
-            reportsSummary
-              ? `Recorded changes`
-              : "Waiting for report summary"
+            reportsSummary ? `Recorded changes` : "Waiting for report summary"
           }
         />
 
@@ -877,9 +716,7 @@ export default function ReportsPage() {
           label="Active alerts"
           value={
             reportsSummary
-              ? String(
-                  reportsSummary.active_alert_count,
-                )
+              ? String(reportsSummary.active_alert_count)
               : reportsSummaryQuery.isLoading
                 ? "Loading"
                 : "—"
@@ -918,19 +755,14 @@ export default function ReportsPage() {
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-medium">
-              Window summary
-            </h3>
+            <h3 className="text-lg font-medium">Window summary</h3>
             <p className="mt-1 text-xs text-zinc-500">
-              Operational summary for the selected
-              reporting window.
+              Operational summary for the selected reporting window.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-300">
-              {formatReportsWindowLabel(
-                windowHours,
-              )}
+              {formatReportsWindowLabel(windowHours)}
             </span>
 
             <button
@@ -946,13 +778,10 @@ export default function ReportsPage() {
 
         <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
           {reportsSummaryQuery.isLoading ? (
-            <p className="text-sm text-zinc-400">
-              Building summary...
-            </p>
+            <p className="text-sm text-zinc-400">Building summary...</p>
           ) : reportsSummaryQuery.isError ? (
             <p className="text-sm text-red-400">
-              Could not build the report summary
-              block.
+              Could not build the report summary block.
             </p>
           ) : reportNarrative ? (
             <p className="whitespace-pre-wrap break-words text-sm leading-7 text-zinc-200">
@@ -960,8 +789,7 @@ export default function ReportsPage() {
             </p>
           ) : (
             <p className="text-sm text-zinc-400">
-              No summary is available for this
-              reporting window yet.
+              No summary is available for this reporting window yet.
             </p>
           )}
         </div>
@@ -971,25 +799,16 @@ export default function ReportsPage() {
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-lg font-medium">
-                Top incident targets
-              </h3>
+              <h3 className="text-lg font-medium">Top incident targets</h3>
               <p className="mt-1 text-xs text-zinc-500">
-                {formatReportsWindowLabel(
-                  windowHours,
-                )}{" "}
-                · {topIncidentTargets.length}{" "}
-                targets
+                {formatReportsWindowLabel(windowHours)} ·{" "}
+                {topIncidentTargets.length} targets
               </p>
             </div>
           </div>
 
           {showTopIncidentTargets ? (
-            <div
-              className={
-                topIncidentTargetsPanelClass
-              }
-            >
+            <div className={topIncidentTargetsPanelClass}>
               {topIncidentTargetsQuery.isLoading ? (
                 <StateCard
                   title="Top incident targets"
@@ -1001,83 +820,55 @@ export default function ReportsPage() {
                   tone="error"
                   message="Could not load targets."
                 />
-              ) : topIncidentTargets.length ===
-                0 ? (
+              ) : topIncidentTargets.length === 0 ? (
                 <StateCard
                   title="Top incident targets"
                   tone="warning"
                   message="No incident targets were recorded in this window."
                 />
               ) : (
-                topIncidentTargets.map(
-                  (
-                    item: IncidentTargetSummaryItem,
-                  ) => (
-                    <div
-                      key={`${item.incident_type}-${item.target}`}
-                      className={
-                        inspectionCardClass
-                      }
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-zinc-100">
-                            {item.target}
-                          </p>
-                          <p className="mt-1 text-[11px] text-zinc-500">
-                            {formatIncidentType(
-                              item.incident_type,
-                            )}
-                          </p>
-                        </div>
-
-                        {item.active_count > 0 ? (
-                          <span
-                            className={
-                              dangerBadgeClass
-                            }
-                          >
-                            {item.active_count}{" "}
-                            active
-                          </span>
-                        ) : null}
+                topIncidentTargets.map((item: IncidentTargetSummaryItem) => (
+                  <div
+                    key={`${item.incident_type}-${item.target}`}
+                    className={inspectionCardClass}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-zinc-100">
+                          {item.target}
+                        </p>
+                        <p className="mt-1 text-[11px] text-zinc-500">
+                          {formatIncidentType(item.incident_type)}
+                        </p>
                       </div>
 
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span
-                          className={
-                            mutedBadgeClass
-                          }
-                        >
-                          {item.count} incidents
+                      {item.active_count > 0 ? (
+                        <span className={dangerBadgeClass}>
+                          {item.active_count} active
                         </span>
-                        <span
-                          className={
-                            warmBadgeClass
-                          }
-                        >
-                          {formatDurationCompact(
-                            item.total_downtime_seconds,
-                          )}{" "}
-                          downtime
-                        </span>
-                      </div>
-
-                      <p className="mt-3 text-[11px] text-zinc-500">
-                        Latest incident{" "}
-                        {formatDate(
-                          item.latest_started_at,
-                        )}
-                      </p>
+                      ) : null}
                     </div>
-                  ),
-                )
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className={mutedBadgeClass}>
+                        {item.count} incidents
+                      </span>
+                      <span className={warmBadgeClass}>
+                        {formatDurationCompact(item.total_downtime_seconds)}{" "}
+                        downtime
+                      </span>
+                    </div>
+
+                    <p className="mt-3 text-[11px] text-zinc-500">
+                      Latest incident {formatDate(item.latest_started_at)}
+                    </p>
+                  </div>
+                ))
               )}
             </div>
           ) : (
             <p className="mt-4 text-sm text-zinc-400">
-              Incident target ranking is
-              collapsed.
+              Incident target ranking is collapsed.
             </p>
           )}
         </div>
@@ -1085,15 +876,10 @@ export default function ReportsPage() {
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">
           <div>
             <div>
-              <h3 className="text-lg font-medium">
-                Recent alert events
-              </h3>
+              <h3 className="text-lg font-medium">Recent alert events</h3>
               <p className="mt-1 text-xs text-zinc-500">
-                {formatReportsWindowLabel(
-                  windowHours,
-                )}{" "}
-                · {recentAlertEvents.length}{" "}
-                events
+                {formatReportsWindowLabel(windowHours)} ·{" "}
+                {recentAlertEvents.length} events
               </p>
             </div>
           </div>
@@ -1117,73 +903,54 @@ export default function ReportsPage() {
                 message="No recent alert events were recorded in this window."
               />
             ) : (
-              recentAlertEvents.map(
-                (item: RecentAlertEventItem) => (
-                  <div
-                    key={`${item.alert_id}-${item.created_at}-${item.event_type}`}
-                    className={
-                      inspectionCardClass
-                    }
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-zinc-100">
-                          {formatAlertEventType(
-                            item.event_type,
-                          )}
-                        </p>
-                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-zinc-300">
-                          {buildAlertHeadline({
-                            entityType:
-                              item.entity_type,
-                            entityKey:
-                              item.entity_key,
+              recentAlertEvents.map((item: RecentAlertEventItem) => (
+                <div
+                  key={`${item.alert_id}-${item.created_at}-${item.event_type}`}
+                  className={inspectionCardClass}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-100">
+                        {formatAlertEventType(item.event_type)}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-sm leading-6 text-zinc-300">
+                        {buildAlertHeadline({
+                          entityType: item.entity_type,
+                          entityKey: item.entity_key,
+                          message: item.message,
+                        })}
+                      </p>
+                      <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
+                        {
+                          buildAlertSubtext({
+                            entityType: item.entity_type,
+                            entityKey: item.entity_key,
                             message: item.message,
-                          })}
-                        </p>
-                        <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
-                          {
-                            buildAlertSubtext({
-                              entityType:
-                                item.entity_type,
-                              entityKey:
-                                item.entity_key,
-                              message:
-                                item.message,
-                            }).targetLabel
-                          }
-                        </p>
-                      </div>
-
-                      <span className="shrink-0 text-xs text-zinc-400">
-                        {formatDate(
-                          item.created_at,
-                        )}
-                      </span>
+                          }).targetLabel
+                        }
+                      </p>
                     </div>
 
-                    {formatAlertEventTransition({
-                      eventType: item.event_type,
-                      previousValue:
-                        item.previous_value,
-                      newValue: item.new_value,
-                    }) ? (
-                      <p className="mt-2 text-[11px] text-zinc-500">
-                        {formatAlertEventTransition(
-                          {
-                            eventType:
-                              item.event_type,
-                            previousValue:
-                              item.previous_value,
-                            newValue:
-                              item.new_value,
-                          },
-                        )}
-                      </p>
-                    ) : null}
+                    <span className="shrink-0 text-xs text-zinc-400">
+                      {formatDate(item.created_at)}
+                    </span>
                   </div>
-                ),
-              )
+
+                  {formatAlertEventTransition({
+                    eventType: item.event_type,
+                    previousValue: item.previous_value,
+                    newValue: item.new_value,
+                  }) ? (
+                    <p className="mt-2 text-[11px] text-zinc-500">
+                      {formatAlertEventTransition({
+                        eventType: item.event_type,
+                        previousValue: item.previous_value,
+                        newValue: item.new_value,
+                      })}
+                    </p>
+                  ) : null}
+                </div>
+              ))
             )}
           </div>
         </div>
@@ -1191,15 +958,10 @@ export default function ReportsPage() {
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">
           <div>
             <div>
-              <h3 className="text-lg font-medium">
-                Recent device changes
-              </h3>
+              <h3 className="text-lg font-medium">Recent device changes</h3>
               <p className="mt-1 text-xs text-zinc-500">
-                {formatReportsWindowLabel(
-                  windowHours,
-                )}{" "}
-                · {recentDeviceEvents.length}{" "}
-                events
+                {formatReportsWindowLabel(windowHours)} ·{" "}
+                {recentDeviceEvents.length} events
               </p>
             </div>
           </div>
@@ -1216,55 +978,40 @@ export default function ReportsPage() {
                 tone="error"
                 message="Could not load recent device activity."
               />
-            ) : recentDeviceEvents.length ===
-              0 ? (
+            ) : recentDeviceEvents.length === 0 ? (
               <StateCard
                 title="Recent device changes"
                 tone="warning"
                 message="No recent device events in this window."
               />
             ) : (
-              recentDeviceEvents.map(
-                (item: RecentDeviceEventItem) => (
-                  <div
-                    key={`${item.device_ip_address}-${item.created_at}-${item.event_type}`}
-                    className={
-                      inspectionCardClass
-                    }
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-zinc-100">
-                          {formatDeviceEventType(
-                            item.event_type,
-                          )}
-                        </p>
-                        <p className="mt-1 text-sm text-zinc-300">
-                          {item.device_ip_address}
-                        </p>
-                      </div>
-
-                      <span className="shrink-0 text-xs text-zinc-400">
-                        {formatDate(
-                          item.created_at,
-                        )}
-                      </span>
+              recentDeviceEvents.map((item: RecentDeviceEventItem) => (
+                <div
+                  key={`${item.device_ip_address}-${item.created_at}-${item.event_type}`}
+                  className={inspectionCardClass}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-100">
+                        {formatDeviceEventType(item.event_type)}
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-300">
+                        {item.device_ip_address}
+                      </p>
                     </div>
 
-                    {formatTransition(
-                      item.previous_value,
-                      item.new_value,
-                    ) ? (
-                      <p className="mt-2 whitespace-pre-wrap break-words text-[11px] text-zinc-500">
-                        {formatTransition(
-                          item.previous_value,
-                          item.new_value,
-                        )}
-                      </p>
-                    ) : null}
+                    <span className="shrink-0 text-xs text-zinc-400">
+                      {formatDate(item.created_at)}
+                    </span>
                   </div>
-                ),
-              )
+
+                  {formatTransition(item.previous_value, item.new_value) ? (
+                    <p className="mt-2 whitespace-pre-wrap break-words text-[11px] text-zinc-500">
+                      {formatTransition(item.previous_value, item.new_value)}
+                    </p>
+                  ) : null}
+                </div>
+              ))
             )}
           </div>
         </div>
@@ -1277,14 +1024,10 @@ export default function ReportsPage() {
           <>
             <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
               {visibleOutages.length} record
-              {visibleOutages.length === 1
-                ? ""
-                : "s"}
+              {visibleOutages.length === 1 ? "" : "s"}
             </span>
             <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300">
-              {formatReportsWindowLabel(
-                windowHours,
-              )}
+              {formatReportsWindowLabel(windowHours)}
             </span>
           </>
         }
@@ -1293,11 +1036,7 @@ export default function ReportsPage() {
         collapsedActionLabel="Show explorer"
         expandedActionLabel="Hide explorer"
         isExpanded={showOutageExplorer}
-        onToggle={() =>
-          setShowOutageExplorer(
-            (current) => !current,
-          )
-        }
+        onToggle={() => setShowOutageExplorer((current) => !current)}
       >
         <>
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
@@ -1306,8 +1045,7 @@ export default function ReportsPage() {
                 Explorer controls
               </h4>
               <p className="text-sm leading-6 text-zinc-400">
-                Filter outage records by target,
-                incident type, state, and sort
+                Filter outage records by target, incident type, state, and sort
                 order.
               </p>
             </div>
@@ -1315,79 +1053,44 @@ export default function ReportsPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,180px))]">
               <input
                 value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
-                }
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search target, type, status, error..."
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 sm:col-span-2 xl:col-span-1"
               />
 
               <select
                 value={typeFilter}
-                onChange={(e) =>
-                  setTypeFilter(
-                    e.target.value as TypeFilter,
-                  )
-                }
+                onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
               >
-                <option value="all">
-                  All types
-                </option>
-                <option value="internet_http">
-                  internet_http
-                </option>
-                <option value="internet_tcp">
-                  internet_tcp
-                </option>
+                <option value="all">All types</option>
+                <option value="internet_http">internet_http</option>
+                <option value="internet_tcp">internet_tcp</option>
                 <option value="dns">dns</option>
-                <option value="router">
-                  router
-                </option>
+                <option value="router">router</option>
               </select>
 
               <select
                 value={statusFilter}
                 onChange={(e) =>
-                  setStatusFilter(
-                    e.target
-                      .value as StatusFilter,
-                  )
+                  setStatusFilter(e.target.value as StatusFilter)
                 }
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
               >
-                <option value="all">
-                  All statuses
-                </option>
-                <option value="active">
-                  Active
-                </option>
-                <option value="resolved">
-                  Resolved
-                </option>
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="resolved">Resolved</option>
               </select>
 
               <select
                 value={sortBy}
-                onChange={(e) =>
-                  setSortBy(
-                    e.target.value as SortKey,
-                  )
-                }
+                onChange={(e) => setSortBy(e.target.value as SortKey)}
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100"
               >
-                <option value="started_desc">
-                  Newest first
-                </option>
-                <option value="started_asc">
-                  Oldest first
-                </option>
-                <option value="duration_desc">
-                  Longest duration
-                </option>
-                <option value="duration_asc">
-                  Shortest duration
-                </option>
+                <option value="started_desc">Newest first</option>
+                <option value="started_asc">Oldest first</option>
+                <option value="duration_desc">Longest duration</option>
+                <option value="duration_asc">Shortest duration</option>
               </select>
             </div>
           </div>
@@ -1399,14 +1102,10 @@ export default function ReportsPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
                   {visibleOutages.length} record
-                  {visibleOutages.length === 1
-                    ? ""
-                    : "s"}
+                  {visibleOutages.length === 1 ? "" : "s"}
                 </span>
                 <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                  {formatReportsWindowLabel(
-                    windowHours,
-                  )}
+                  {formatReportsWindowLabel(windowHours)}
                 </span>
               </div>
             }
@@ -1427,24 +1126,12 @@ export default function ReportsPage() {
             <table className="w-full text-sm">
               <thead className="bg-zinc-800/50 text-zinc-300">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium">
-                    Started
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium">
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium">
-                    Target
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium">
-                    Duration
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium">
-                    Cause
-                  </th>
+                  <th className="px-4 py-3 text-left font-medium">Started</th>
+                  <th className="px-4 py-3 text-left font-medium">Type</th>
+                  <th className="px-4 py-3 text-left font-medium">Target</th>
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-left font-medium">Duration</th>
+                  <th className="px-4 py-3 text-left font-medium">Cause</th>
                 </tr>
               </thead>
               <tbody>
@@ -1458,25 +1145,15 @@ export default function ReportsPage() {
                     className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
                   >
                     <td className="px-4 py-3 text-zinc-300">
-                      {formatDate(
-                        outage.started_at,
-                      )}
+                      {formatDate(outage.started_at)}
                     </td>
                     <td className="px-4 py-3 text-zinc-100">
-                      {formatIncidentType(
-                        outage.outage_type,
-                      )}
+                      {formatIncidentType(outage.outage_type)}
                     </td>
+                    <td className="px-4 py-3 text-zinc-300">{outage.target}</td>
+                    <td className="px-4 py-3 text-zinc-300">{outage.status}</td>
                     <td className="px-4 py-3 text-zinc-300">
-                      {outage.target}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-300">
-                      {outage.status}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-300">
-                      {formatDuration(
-                        outage.duration_seconds,
-                      )}
+                      {formatDuration(outage.duration_seconds)}
                     </td>
                     <td className="px-4 py-3 text-zinc-300">
                       {outage.start_error ?? "—"}
@@ -1485,18 +1162,17 @@ export default function ReportsPage() {
                 ))}
               </tbody>
             </table>
+
+            <OutageDetailDrawer
+              outage={selectedOutage}
+              open={outageDrawerOpen && !!selectedOutage}
+              onClose={() => {
+                setOutageDrawerOpen(false);
+                setSelectedOutage(null);
+              }}
+            />
           </DataTableCard>
         </>
-        <OutageDetailDrawer
-          outage={selectedOutage}
-          open={
-            outageDrawerOpen && !!selectedOutage
-          }
-          onClose={() => {
-            setOutageDrawerOpen(false);
-            setSelectedOutage(null);
-          }}
-        />
       </CollapsibleInspectionSection>
     </div>
   );
