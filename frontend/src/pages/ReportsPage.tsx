@@ -16,6 +16,9 @@ import DataTableCard from "../components/DataTableCard";
 import CollapsibleInspectionSection from "../components/CollapsibleInspectionSection";
 import PageFilterBar from "../components/PageFilterBar";
 import InspectionHighlightCard from "../components/InspectionHighlightCard";
+import InvestigationDrawer, {
+  type InvestigationSubject,
+} from "../components/InvestigationDrawer";
 import {
   buildAlertHeadline,
   buildAlertSubtext,
@@ -237,10 +240,11 @@ export default function ReportsPage() {
   const [sortBy, setSortBy] = useState<SortKey>("started_desc");
 
   const [isExportingSnapshot, setIsExportingSnapshot] = useState(false);
-
   const [showTopIncidentTargets, setShowTopIncidentTargets] = useState(true);
-
   const [showOutageExplorer, setShowOutageExplorer] = useState(false);
+
+  const [investigationSubject, setInvestigationSubject] =
+    useState<InvestigationSubject | null>(null);
 
   const reportsSummaryQuery = useQuery({
     queryKey: ["reports-summary", windowHours],
@@ -365,6 +369,14 @@ export default function ReportsPage() {
     setTypeFilter(item.incident_type as TypeFilter);
     setStatusFilter(item.active_count > 0 ? "active" : "resolved");
     setSortBy("started_desc");
+  }
+
+  function openIncidentTargetInvestigation(item: IncidentTargetSummaryItem) {
+    setInvestigationSubject({
+      kind: "incident-target",
+      target: item,
+      windowHours,
+    });
   }
 
   const activeCount = outages.filter(
@@ -837,8 +849,8 @@ export default function ReportsPage() {
                 topIncidentTargets.map((item: IncidentTargetSummaryItem) => (
                   <InspectionHighlightCard
                     key={`${item.incident_type}-${item.target}`}
-                    onClick={() => openIncidentTargetInExplorer(item)}
-                    ariaLabel={`Inspect incident target ${item.target}`}
+                    onClick={() => openIncidentTargetInvestigation(item)}
+                    ariaLabel={`Investigate incident target ${item.target}`}
                     className="border-zinc-800 bg-zinc-950/60 hover:bg-zinc-900/80"
                     title={item.target}
                     subtitle={formatIncidentType(item.incident_type)}
@@ -868,7 +880,7 @@ export default function ReportsPage() {
                         ? "Currently active"
                         : "No active incidents"
                     }
-                    actionHint="Open explorer"
+                    actionHint="Investigate"
                   />
                 ))
               )}
@@ -878,6 +890,19 @@ export default function ReportsPage() {
               Incident target ranking is collapsed.
             </p>
           )}
+
+          <InvestigationDrawer
+            open={!!investigationSubject}
+            subject={investigationSubject}
+            onClose={() => setInvestigationSubject(null)}
+            onOpenOutageExplorer={() => {
+              if (investigationSubject?.kind === "incident-target") {
+                openIncidentTargetInExplorer(investigationSubject.target);
+              }
+
+              setInvestigationSubject(null);
+            }}
+          />
         </div>
 
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3.5">

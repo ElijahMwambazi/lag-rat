@@ -293,7 +293,19 @@ it("opens outage explorer filters from a top incident target card", async () => 
 
   await user.click(
     await screen.findByRole("button", {
-      name: "Inspect incident target https://example.com",
+      name: "Investigate incident target https://example.com",
+    }),
+  );
+
+  expect(
+    await screen.findByRole("heading", {
+      name: "Investigate https://example.com",
+    }),
+  ).toBeInTheDocument();
+
+  await user.click(
+    await screen.findByRole("button", {
+      name: "Open matching outages",
     }),
   );
 

@@ -9,6 +9,9 @@ import StatCard from "../components/StatCard";
 import StatusBadge from "../components/StatusBadge";
 import PageFilterBar from "../components/PageFilterBar";
 import InspectionHighlightCard from "../components/InspectionHighlightCard";
+import InvestigationDrawer, {
+  type InvestigationSubject,
+} from "../components/InvestigationDrawer";
 import { api } from "../services/api";
 import {
   buildAlertHeadline,
@@ -232,6 +235,8 @@ export default function OverviewPage() {
   const [selectedOverviewAlertId, setSelectedOverviewAlertId] = useState<
     number | null
   >(null);
+  const [investigationSubject, setInvestigationSubject] =
+    useState<InvestigationSubject | null>(null);
 
   const issues = [];
   if (overview && !overview.router.is_healthy) {
@@ -436,6 +441,20 @@ export default function OverviewPage() {
                   Open alert details
                 </button>
               ) : null}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInvestigationSubject({
+                    kind: "alert",
+                    alert: topCriticalAlert,
+                    windowHours: 24,
+                  });
+                }}
+                className="rounded-lg border border-red-800 bg-red-950 px-3 py-2 text-sm text-red-200 hover:bg-red-900"
+              >
+                Investigate incident
+              </button>
             </div>
           </div>
 
@@ -905,6 +924,12 @@ export default function OverviewPage() {
 
         <DebugPanel endpoints={endpoints} />
       </section>
+
+      <InvestigationDrawer
+        open={!!investigationSubject}
+        subject={investigationSubject}
+        onClose={() => setInvestigationSubject(null)}
+      />
     </div>
   );
 }
