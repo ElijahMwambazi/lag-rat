@@ -18,6 +18,9 @@ type Props = {
   actionHint?: string;
   onClick?: () => void;
   ariaLabel?: string;
+  secondaryActionLabel?: string;
+  secondaryActionAriaLabel?: string;
+  onSecondaryAction?: () => void;
   className?: string;
   children?: ReactNode;
 };
@@ -35,6 +38,9 @@ export default function InspectionHighlightCard({
   actionHint,
   onClick,
   ariaLabel,
+  secondaryActionLabel,
+  secondaryActionAriaLabel,
+  onSecondaryAction,
   className = "",
   children,
 }: Props) {
@@ -114,6 +120,34 @@ export default function InspectionHighlightCard({
       ) : null}
     </>
   );
+
+  if (onClick && onSecondaryAction) {
+    return (
+      <div
+        className={`rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 transition hover:border-zinc-700 hover:bg-zinc-900 ${className}`.trim()}
+      >
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          onClick={onClick}
+          className="group block w-full text-left"
+        >
+          {content}
+        </button>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-800 pt-4">
+          <button
+            type="button"
+            aria-label={secondaryActionAriaLabel ?? secondaryActionLabel}
+            onClick={onSecondaryAction}
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800"
+          >
+            {secondaryActionLabel}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (onClick) {
     return (

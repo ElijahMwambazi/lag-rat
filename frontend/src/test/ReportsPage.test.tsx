@@ -91,6 +91,18 @@ function seedReportsSuccessState() {
     outages: [],
   } as never);
 
+  vi.mocked(api.getDevices).mockResolvedValue([]);
+
+  vi.mocked(api.getTrafficTopTalkers).mockResolvedValue({
+    window_minutes: 60,
+    items: [],
+  });
+
+  vi.mocked(api.getWifiLocationSummaries).mockResolvedValue({
+    window_minutes: 60,
+    items: [],
+  });
+
   vi.mocked(api.getRecentReportAlertEvents).mockResolvedValue([
     {
       alert_id: 1,
@@ -169,6 +181,9 @@ vi.mock("../services/api", () => ({
     getTopIncidentTargets: vi.fn(),
     getOutages: vi.fn(),
     getReportsSnapshot: vi.fn(),
+    getDevices: vi.fn(),
+    getTrafficTopTalkers: vi.fn(),
+    getWifiLocationSummaries: vi.fn(),
   },
 }));
 
@@ -285,7 +300,7 @@ it("renders top incident targets as a fixed inspection panel", async () => {
   expect(screen.getByText("2 incidents")).toBeInTheDocument();
 });
 
-it("opens outage explorer filters from a top incident target card", async () => {
+it("opens outage explorer filters from a top incident target investigation", async () => {
   const user = userEvent.setup();
   seedReportsSuccessState();
 

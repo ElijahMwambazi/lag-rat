@@ -850,7 +850,12 @@ export default function ReportsPage() {
                   <InspectionHighlightCard
                     key={`${item.incident_type}-${item.target}`}
                     onClick={() => openIncidentTargetInvestigation(item)}
-                    ariaLabel={`Investigate incident target ${item.target}`}
+                    ariaLabel={`Open incident target ${item.target}`}
+                    secondaryActionLabel="Investigate"
+                    secondaryActionAriaLabel={`Investigate incident target ${item.target}`}
+                    onSecondaryAction={() =>
+                      openIncidentTargetInvestigation(item)
+                    }
                     className="border-zinc-800 bg-zinc-950/60 hover:bg-zinc-900/80"
                     title={item.target}
                     subtitle={formatIncidentType(item.incident_type)}
