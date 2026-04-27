@@ -15,7 +15,7 @@ use crate::{
         IncidentTargetSummaryItem, KnownDeviceView, MetricsSummaryResponse, OutageReportItem,
         RecentAlertEventItem, RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse,
         ReportTrendPoint, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint, TrafficSample,
-        TrafficSummaryResponse, TrafficTopTalkersResponse, WifiSample,
+        TrafficSummaryResponse, TrafficTopTalkerItem, TrafficTopTalkersResponse, WifiSample,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -60,6 +60,39 @@ pub struct HistoryQuery {
 #[derive(Deserialize)]
 pub struct ReportsSummaryQuery {
     pub hours: Option<u32>,
+}
+
+#[derive(Deserialize)]
+pub struct InvestigationQuery {
+    pub incident_type: String,
+    pub target: String,
+    pub hours: Option<u32>,
+}
+
+#[derive(serde::Serialize)]
+pub struct InvestigationSubject {
+    pub kind: String,
+    pub incident_type: String,
+    pub target: String,
+    pub window_hours: u32,
+}
+
+#[derive(serde::Serialize)]
+pub struct InvestigationSummary {
+    pub primary_signal: String,
+    pub next_check: String,
+    pub supporting_context: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct InvestigationResponse {
+    pub subject: InvestigationSubject,
+    pub related_outages: Vec<OutageReportItem>,
+    pub recent_alert_events: Vec<RecentAlertEventItem>,
+    pub likely_devices: Vec<EnrichedDevice>,
+    pub traffic_context: Option<TrafficTopTalkerItem>,
+    pub wifi_context: Option<WifiLocationSummaryItem>,
+    pub summary: InvestigationSummary,
 }
 
 #[derive(Deserialize)]
@@ -149,6 +182,7 @@ pub fn router(state: AppState) -> Router {
             "/api/reports/incidents/top",
             get(get_top_report_incident_targets),
         )
+        .route("/api/investigations", get(get_investigation))
         .route("/api/wifi/samples", get(get_wifi_samples))
         .route("/api/wifi/latest", get(get_latest_wifi_sample))
         .route("/api/wifi/summary", get(get_wifi_summary))
@@ -442,6 +476,158 @@ async fn get_reports_snapshot(
         recent_alert_events,
         recent_device_events,
         outages,
+    }))
+}
+
+async fn get_investigation(
+    State(state): State<AppState>,
+    Query(query): Query<InvestigationQuery>,
+) -> Result<Json<InvestigationResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let incident_type = query.incident_type.trim().to_string();
+    let target = query.target.trim().to_string();
+    let hours = query.hours.unwrap_or(24).clamp(1, 24 * 7) as i64;
+
+    if incident_type.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "incident_type is required" })),
+        ));
+    }
+
+    if target.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "target is required" })),
+        ));
+    }
+
+    let window_start = Utc::now() - chrono::Duration::hours(hours);
+
+    let related_outages = db::list_outages_filtered(
+        &state.db,
+        None,
+        Some(incident_type.as_str()),
+        Some(target.as_str()),
+        200,
+    )
+    .await
+    .map_err(internal_error)?
+    .into_iter()
+    .filter(|outage| outage.started_at >= window_start)
+    .map(|outage| {
+        let duration_seconds = outage
+            .ended_at
+            .map(|ended_at| (ended_at - outage.started_at).num_seconds());
+
+        OutageReportItem {
+            id: outage.id,
+            outage_type: outage.outage_type,
+            target: outage.target,
+            started_at: outage.started_at,
+            ended_at: outage.ended_at,
+            is_active: outage.is_active,
+            start_error: outage.start_error,
+            end_note: outage.end_note,
+            duration_seconds,
+            status: if outage.is_active {
+                "active".to_string()
+            } else {
+                "resolved".to_string()
+            },
+        }
+    })
+    .collect::<Vec<_>>();
+
+    let recent_alert_events = db::recent_alert_events(&state.db, hours, 50)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .filter(|event| {
+            event.entity_key == target
+                || event.entity_type == incident_type
+                || includes_ignore_case(&event.message, &target)
+        })
+        .take(10)
+        .collect::<Vec<_>>();
+
+    let likely_devices = devices::list_enriched(&state)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .filter(|device| device_matches_target(device, &target))
+        .take(10)
+        .collect::<Vec<_>>();
+
+    let traffic_items = db::traffic_top_talkers(&state.db, 60, 10)
+        .await
+        .map_err(internal_error)?;
+
+    let traffic_context = traffic_items
+        .into_iter()
+        .find(|item| traffic_talker_matches_target(item, &target));
+
+    let wifi_context = db::wifi_location_summaries(&state.db, 60)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(
+            |(
+                location_label,
+                latest_sample,
+                sample_count,
+                avg_rssi_dbm,
+                min_rssi_dbm,
+                max_rssi_dbm,
+            )| WifiLocationSummaryItem {
+                location_label,
+                sample_count,
+                avg_rssi_dbm,
+                min_rssi_dbm,
+                max_rssi_dbm,
+                latest_sample,
+            },
+        )
+        .filter(|item| {
+            item.latest_sample
+                .as_ref()
+                .and_then(|sample| sample.rssi_dbm)
+                .is_some()
+        })
+        .min_by_key(|item| {
+            item.latest_sample
+                .as_ref()
+                .and_then(|sample| sample.rssi_dbm)
+                .unwrap_or(0)
+        });
+
+    let active_outage_count = related_outages
+        .iter()
+        .filter(|outage| outage.is_active)
+        .count();
+
+    let summary = build_investigation_summary(
+        &incident_type,
+        active_outage_count,
+        related_outages.len(),
+        recent_alert_events.len(),
+        likely_devices.len(),
+        traffic_context.is_some(),
+        wifi_context.is_some(),
+    );
+
+    Ok(Json(InvestigationResponse {
+        subject: InvestigationSubject {
+            kind: "incident_target".to_string(),
+            incident_type,
+            target,
+            window_hours: hours as u32,
+        },
+        related_outages,
+        recent_alert_events,
+        likely_devices,
+        traffic_context,
+        wifi_context,
+        summary,
     }))
 }
 
@@ -804,6 +990,114 @@ fn format_duration_compact(seconds: i64) -> String {
         format!("{}m", seconds / 60)
     } else {
         format!("{}h {}m", seconds / 3600, (seconds % 3600) / 60)
+    }
+}
+
+fn includes_ignore_case(value: &str, needle: &str) -> bool {
+    value.to_lowercase().contains(&needle.to_lowercase())
+}
+
+fn option_includes_ignore_case(value: Option<&str>, needle: &str) -> bool {
+    value
+        .map(|value| includes_ignore_case(value, needle))
+        .unwrap_or(false)
+}
+
+fn device_matches_target(device: &EnrichedDevice, target: &str) -> bool {
+    includes_ignore_case(&device.ip_address, target)
+        || option_includes_ignore_case(device.mac_address.as_deref(), target)
+        || option_includes_ignore_case(device.hostname.as_deref(), target)
+        || includes_ignore_case(&device.display_name, target)
+        || option_includes_ignore_case(device.label.as_deref(), target)
+}
+
+fn traffic_talker_matches_target(item: &TrafficTopTalkerItem, target: &str) -> bool {
+    includes_ignore_case(&item.entity_key, target)
+        || option_includes_ignore_case(item.device_ip_address.as_deref(), target)
+        || option_includes_ignore_case(item.mac_address.as_deref(), target)
+        || includes_ignore_case(&item.interface_name, target)
+}
+
+fn format_incident_type(value: &str) -> String {
+    match value {
+        "internet_http" => "Web connectivity".to_string(),
+        "internet_tcp" => "TCP connectivity".to_string(),
+        "dns" => "DNS".to_string(),
+        "router" => "Router".to_string(),
+        "internet" => "Internet".to_string(),
+        other => other.replace('_', " "),
+    }
+}
+
+fn build_investigation_summary(
+    incident_type: &str,
+    active_outage_count: usize,
+    related_outage_count: usize,
+    related_alert_event_count: usize,
+    likely_device_count: usize,
+    has_traffic_context: bool,
+    has_wifi_context: bool,
+) -> InvestigationSummary {
+    let formatted_type = format_incident_type(incident_type);
+
+    let primary_signal = if active_outage_count > 0 {
+        format!("{formatted_type} still has active outage evidence in this window.")
+    } else if related_outage_count > 0 {
+        format!("{formatted_type} has recovered outage evidence in this window.")
+    } else {
+        format!("{formatted_type} has no matching outage record in this window.")
+    };
+
+    let next_check = match incident_type {
+        "router" => {
+            "Check the router path first: power, cabling, router admin reachability, and local gateway status."
+        }
+        "dns" => {
+            "Check DNS next: compare resolver behavior, lookup timing, and whether internet TCP/HTTP stayed healthy."
+        }
+        "internet_http" | "internet_tcp" | "internet" => {
+            "Check the internet path first: router uplink, ISP behavior, and whether DNS or device-specific Wi-Fi also degraded."
+        }
+        _ if likely_device_count > 0 => {
+            "Check the matched device first, then compare it against wider network signals."
+        }
+        _ if has_wifi_context => {
+            "Check Wi-Fi context next, especially if the affected device is in the weakest room or band."
+        }
+        _ => {
+            "Review the related outages and alert events before changing device-specific settings."
+        }
+    }
+    .to_string();
+
+    let supporting_context = format!(
+        "{} related outage{} · {} alert event{} · {} device candidate{} · {} · {}",
+        related_outage_count,
+        if related_outage_count == 1 { "" } else { "s" },
+        related_alert_event_count,
+        if related_alert_event_count == 1 {
+            ""
+        } else {
+            "s"
+        },
+        likely_device_count,
+        if likely_device_count == 1 { "" } else { "s" },
+        if has_traffic_context {
+            "traffic context available"
+        } else {
+            "no direct traffic match"
+        },
+        if has_wifi_context {
+            "Wi-Fi context available"
+        } else {
+            "no Wi-Fi room signal context"
+        },
+    );
+
+    InvestigationSummary {
+        primary_signal,
+        next_check,
+        supporting_context,
     }
 }
 
