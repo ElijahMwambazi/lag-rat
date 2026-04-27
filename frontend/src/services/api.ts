@@ -300,18 +300,35 @@ export type TrafficSample = {
   sampled_at: string;
 };
 
+export type InvestigationSubjectResponse = {
+  kind: "incident_target";
+  incident_type: string;
+  target: string;
+  window_hours: number;
+};
+
+export type InvestigationSummary = {
+  primary_signal: string;
+  next_check: string;
+  supporting_context: string;
+};
+
+export type InvestigationResponse = {
+  subject: InvestigationSubjectResponse;
+  related_outages: Outage[];
+  recent_alert_events: RecentAlertEventItem[];
+  likely_devices: Device[];
+  traffic_context: TrafficTopTalkerItem | null;
+  wifi_context: WifiLocationSummaryItem | null;
+  summary: InvestigationSummary;
+};
+
 const API_BASE = "http://127.0.0.1:8080";
 
-async function getJson<T>(
-  path: string,
-): Promise<T> {
-  const response = await fetch(
-    `${API_BASE}${path}`,
-  );
+async function getJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`);
   if (!response.ok) {
-    throw new Error(
-      `Request failed: ${response.status}`,
-    );
+    throw new Error(`Request failed: ${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -320,21 +337,16 @@ async function postJson<TResponse, TBody>(
   path: string,
   body: TBody,
 ): Promise<TResponse> {
-  const response = await fetch(
-    `${API_BASE}${path}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify(body),
+  });
 
   if (!response.ok) {
-    throw new Error(
-      `Request failed: ${response.status}`,
-    );
+    throw new Error(`Request failed: ${response.status}`);
   }
 
   return response.json() as Promise<TResponse>;
@@ -342,9 +354,7 @@ async function postJson<TResponse, TBody>(
 
 export const api = {
   getStatusOverview: () =>
-    getJson<StatusOverviewResponse>(
-      "/api/status/overview",
-    ),
+    getJson<StatusOverviewResponse>("/api/status/overview"),
   getAlerts: (params?: {
     status?: "active" | "resolved";
     severity?: string;
@@ -354,75 +364,41 @@ export const api = {
   }) => {
     const query = new URLSearchParams();
 
-    if (params?.status)
-      query.set("status", params.status);
-    if (params?.severity)
-      query.set("severity", params.severity);
-    if (params?.entity_type)
-      query.set(
-        "entity_type",
-        params.entity_type,
-      );
-    if (params?.search?.trim())
-      query.set("search", params.search.trim());
-    if (params?.limit)
-      query.set("limit", String(params.limit));
+    if (params?.status) query.set("status", params.status);
+    if (params?.severity) query.set("severity", params.severity);
+    if (params?.entity_type) query.set("entity_type", params.entity_type);
+    if (params?.search?.trim()) query.set("search", params.search.trim());
+    if (params?.limit) query.set("limit", String(params.limit));
 
     const suffix = query.toString();
-    return getJson<Alert[]>(
-      `/api/alerts${suffix ? `?${suffix}` : ""}`,
-    );
+    return getJson<Alert[]>(`/api/alerts${suffix ? `?${suffix}` : ""}`);
   },
   acknowledgeAlert: (id: number) =>
-    postJson<Alert, Record<string, never>>(
-      `/api/alerts/${id}/acknowledge`,
-      {},
-    ),
+    postJson<Alert, Record<string, never>>(`/api/alerts/${id}/acknowledge`, {}),
   getAlertHistory: async (alertId: number) => {
-    const response = await fetch(
-      `${API_BASE}/api/alerts/${alertId}/history`,
-    );
+    const response = await fetch(`${API_BASE}/api/alerts/${alertId}/history`);
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to load alert history for alert ${alertId}`,
-      );
+      throw new Error(`Failed to load alert history for alert ${alertId}`);
     }
 
     return (await response.json()) as AlertHistoryEvent[];
   },
   getHealthHistory: (minutes = 60) =>
-    getJson<TimeseriesPoint[]>(
-      `/api/health/history?minutes=${minutes}`,
-    ),
+    getJson<TimeseriesPoint[]>(`/api/health/history?minutes=${minutes}`),
   getHealthHistoryTcp: (minutes = 60) =>
-    getJson<TimeseriesPoint[]>(
-      `/api/health/history/tcp?minutes=${minutes}`,
-    ),
+    getJson<TimeseriesPoint[]>(`/api/health/history/tcp?minutes=${minutes}`),
   getDnsHistory: (minutes = 60) =>
-    getJson<TimeseriesPoint[]>(
-      `/api/dns/history?minutes=${minutes}`,
-    ),
-  getSummary: () =>
-    getJson<SummaryResponse>(
-      "/api/stats/summary",
-    ),
+    getJson<TimeseriesPoint[]>(`/api/dns/history?minutes=${minutes}`),
+  getSummary: () => getJson<SummaryResponse>("/api/stats/summary"),
   getReportsSummary: (hours = 24) =>
-    getJson<ReportSummaryResponse>(
-      `/api/reports/summary?hours=${hours}`,
-    ),
+    getJson<ReportSummaryResponse>(`/api/reports/summary?hours=${hours}`),
   getReportTrends: (hours = 24) =>
-    getJson<ReportTrendPoint[]>(
-      `/api/reports/trends?hours=${hours}`,
-    ),
+    getJson<ReportTrendPoint[]>(`/api/reports/trends?hours=${hours}`),
   getMetricsSummary: (minutes = 60) =>
-    getJson<MetricsSummaryResponse>(
-      `/api/metrics/summary?minutes=${minutes}`,
-    ),
+    getJson<MetricsSummaryResponse>(`/api/metrics/summary?minutes=${minutes}`),
   getReportsSnapshot: (hours = 24) =>
-    getJson<ReportSnapshotResponse>(
-      `/api/reports/snapshot?hours=${hours}`,
-    ),
+    getJson<ReportSnapshotResponse>(`/api/reports/snapshot?hours=${hours}`),
   getRecentReportAlertEvents: (hours = 24) =>
     getJson<RecentAlertEventItem[]>(
       `/api/reports/alerts/recent?hours=${hours}`,
@@ -435,8 +411,7 @@ export const api = {
     getJson<IncidentTargetSummaryItem[]>(
       `/api/reports/incidents/top?hours=${hours}`,
     ),
-  getDevices: () =>
-    getJson<Device[]>("/api/devices"),
+  getDevices: () => getJson<Device[]>("/api/devices"),
   getOutages: (params?: {
     status?: "active" | "resolved";
     outage_type?: string;
@@ -445,30 +420,16 @@ export const api = {
   }) => {
     const query = new URLSearchParams();
 
-    if (params?.status)
-      query.set("status", params.status);
-    if (params?.outage_type)
-      query.set(
-        "outage_type",
-        params.outage_type,
-      );
-    if (params?.search?.trim())
-      query.set("search", params.search.trim());
-    if (params?.limit)
-      query.set("limit", String(params.limit));
+    if (params?.status) query.set("status", params.status);
+    if (params?.outage_type) query.set("outage_type", params.outage_type);
+    if (params?.search?.trim()) query.set("search", params.search.trim());
+    if (params?.limit) query.set("limit", String(params.limit));
 
     const suffix = query.toString();
-    return getJson<Outage[]>(
-      `/api/outages${suffix ? `?${suffix}` : ""}`,
-    );
+    return getJson<Outage[]>(`/api/outages${suffix ? `?${suffix}` : ""}`);
   },
-  saveKnownDevice: (
-    body: SaveKnownDeviceRequest,
-  ) =>
-    postJson<KnownDevice, SaveKnownDeviceRequest>(
-      "/api/devices/known",
-      body,
-    ),
+  saveKnownDevice: (body: SaveKnownDeviceRequest) =>
+    postJson<KnownDevice, SaveKnownDeviceRequest>("/api/devices/known", body),
   getDeviceHistory: (ip: string) =>
     getJson<DeviceHistoryItem[]>(
       `/api/devices/${encodeURIComponent(ip)}/history`,
@@ -480,18 +441,10 @@ export const api = {
   }) => {
     const query = new URLSearchParams();
 
-    if (params?.minutes)
-      query.set(
-        "minutes",
-        String(params.minutes),
-      );
+    if (params?.minutes) query.set("minutes", String(params.minutes));
     if (params?.location_label?.trim())
-      query.set(
-        "location_label",
-        params.location_label.trim(),
-      );
-    if (params?.limit)
-      query.set("limit", String(params.limit));
+      query.set("location_label", params.location_label.trim());
+    if (params?.limit) query.set("limit", String(params.limit));
 
     const suffix = query.toString();
     return getJson<WifiSample[]>(
@@ -499,41 +452,26 @@ export const api = {
     );
   },
 
-  getLatestWifiSample:
-    async (): Promise<WifiSample | null> => {
-      const response = await fetch(
-        `${API_BASE}/api/wifi/latest`,
-      );
+  getLatestWifiSample: async (): Promise<WifiSample | null> => {
+    const response = await fetch(`${API_BASE}/api/wifi/latest`);
 
-      if (response.status === 404) {
-        return null;
-      }
+    if (response.status === 404) {
+      return null;
+    }
 
-      if (!response.ok) {
-        throw new Error(
-          `Request failed: ${response.status}`,
-        );
-      }
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`);
+    }
 
-      return response.json() as Promise<WifiSample>;
-    },
+    return response.json() as Promise<WifiSample>;
+  },
 
-  getWifiSummary: (params?: {
-    minutes?: number;
-    location_label?: string;
-  }) => {
+  getWifiSummary: (params?: { minutes?: number; location_label?: string }) => {
     const query = new URLSearchParams();
 
-    if (params?.minutes)
-      query.set(
-        "minutes",
-        String(params.minutes),
-      );
+    if (params?.minutes) query.set("minutes", String(params.minutes));
     if (params?.location_label?.trim())
-      query.set(
-        "location_label",
-        params.location_label.trim(),
-      );
+      query.set("location_label", params.location_label.trim());
 
     const suffix = query.toString();
     return getJson<WifiSummaryResponse>(
@@ -541,20 +479,12 @@ export const api = {
     );
   },
 
-  getWifiLocations: () =>
-    getJson<WifiLocationsResponse>(
-      "/api/wifi/locations",
-    ),
-  getWifiLocationSummaries: (params?: {
-    minutes?: number;
-  }) => {
+  getWifiLocations: () => getJson<WifiLocationsResponse>("/api/wifi/locations"),
+  getWifiLocationSummaries: (params?: { minutes?: number }) => {
     const query = new URLSearchParams();
 
     if (params?.minutes) {
-      query.set(
-        "minutes",
-        String(params.minutes),
-      );
+      query.set("minutes", String(params.minutes));
     }
 
     const suffix = query.toString();
@@ -563,14 +493,9 @@ export const api = {
     );
   },
   getTrafficSummary: (minutes = 60) =>
-    getJson<TrafficSummaryResponse>(
-      `/api/traffic/summary?minutes=${minutes}`,
-    ),
+    getJson<TrafficSummaryResponse>(`/api/traffic/summary?minutes=${minutes}`),
 
-  getTrafficTopTalkers: (
-    minutes = 60,
-    limit = 5,
-  ) =>
+  getTrafficTopTalkers: (minutes = 60, limit = 5) =>
     getJson<TrafficTopTalkersResponse>(
       `/api/traffic/top-talkers?minutes=${minutes}&limit=${limit}`,
     ),
@@ -578,4 +503,22 @@ export const api = {
     getJson<TrafficSample[]>(
       `/api/traffic/samples?minutes=${minutes}&limit=${limit}`,
     ),
+  getInvestigation: (params: {
+    incident_type: string;
+    target: string;
+    hours?: number;
+  }) => {
+    const query = new URLSearchParams();
+
+    query.set("incident_type", params.incident_type);
+    query.set("target", params.target);
+
+    if (params.hours) {
+      query.set("hours", String(params.hours));
+    }
+
+    return getJson<InvestigationResponse>(
+      `/api/investigations?${query.toString()}`,
+    );
+  },
 };

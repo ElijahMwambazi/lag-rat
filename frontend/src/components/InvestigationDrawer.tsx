@@ -1,15 +1,10 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import SideDrawer from "./SideDrawer";
 import DrawerDetailSection from "./DrawerDetailSection";
 import {
   api,
   type Alert,
-  type Device,
   type IncidentTargetSummaryItem,
-  type RecentAlertEventItem,
-  type TrafficTopTalkerItem,
-  type WifiLocationSummaryItem,
 } from "../services/api";
 import {
   buildAlertHeadline,
@@ -35,8 +30,6 @@ type InvestigationDrawerProps = {
   onClose: () => void;
   onOpenOutageExplorer?: () => void;
 };
-
-const outageTypes = new Set(["internet_http", "internet_tcp", "dns", "router"]);
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -73,18 +66,6 @@ function formatRssi(value?: number | null) {
   return `${value} dBm`;
 }
 
-function startsWithinWindow(startedAt: string, windowHours: 24 | 168) {
-  const started = new Date(startedAt);
-  if (Number.isNaN(started.getTime())) return false;
-
-  const windowStart = Date.now() - windowHours * 60 * 60 * 1000;
-  return started.getTime() >= windowStart;
-}
-
-function includesTarget(value: string | null | undefined, target: string) {
-  return value?.toLowerCase().includes(target.toLowerCase()) ?? false;
-}
-
 function getSubjectTarget(subject: InvestigationSubject) {
   return subject.kind === "alert"
     ? subject.alert.entity_key
@@ -103,122 +84,6 @@ function getSubjectWindowHours(subject: InvestigationSubject) {
     : subject.windowHours;
 }
 
-function getWeakestWifiRoom(items: WifiLocationSummaryItem[]) {
-  return [...items]
-    .filter(
-      (item) =>
-        item.latest_sample?.rssi_dbm !== null &&
-        item.latest_sample?.rssi_dbm !== undefined,
-    )
-    .sort(
-      (a, b) =>
-        (a.latest_sample?.rssi_dbm ?? 0) - (b.latest_sample?.rssi_dbm ?? 0),
-    )[0];
-}
-
-function getLikelyDevices(devices: Device[], target: string) {
-  return devices.filter(
-    (device) =>
-      includesTarget(device.ip_address, target) ||
-      includesTarget(device.mac_address, target) ||
-      includesTarget(device.hostname, target) ||
-      includesTarget(device.display_name, target) ||
-      includesTarget(device.label, target),
-  );
-}
-
-function getRelatedAlertEvents(
-  items: RecentAlertEventItem[],
-  target: string,
-  incidentType: string,
-) {
-  return items.filter(
-    (item) =>
-      item.entity_key === target ||
-      item.entity_type === incidentType ||
-      includesTarget(item.message, target),
-  );
-}
-
-function getTrafficMatch(items: TrafficTopTalkerItem[], target: string) {
-  return (
-    items.find(
-      (item) =>
-        item.device_ip_address === target ||
-        item.mac_address === target ||
-        item.entity_key === target ||
-        item.interface_name === target,
-    ) ?? null
-  );
-}
-
-function buildInvestigationGuidance({
-  incidentType,
-  activeOutageCount,
-  relatedOutageCount,
-  relatedAlertEventCount,
-  likelyDeviceCount,
-  hasMatchingTraffic,
-  hasWeakWifiContext,
-}: {
-  incidentType: string;
-  activeOutageCount: number;
-  relatedOutageCount: number;
-  relatedAlertEventCount: number;
-  likelyDeviceCount: number;
-  hasMatchingTraffic: boolean;
-  hasWeakWifiContext: boolean;
-}) {
-  const formattedType = formatIncidentType(incidentType);
-
-  const primarySignal =
-    activeOutageCount > 0
-      ? `${formattedType} still has active outage evidence in this window.`
-      : relatedOutageCount > 0
-        ? `${formattedType} has recovered outage evidence in this window.`
-        : `${formattedType} has no matching outage record in this window.`;
-
-  let nextCheck =
-    "Review the related outages and alert events before changing device-specific settings.";
-
-  if (incidentType === "router") {
-    nextCheck =
-      "Check the router path first: power, cabling, router admin reachability, and local gateway status.";
-  } else if (incidentType === "dns") {
-    nextCheck =
-      "Check DNS next: compare resolver behavior, lookup timing, and whether internet TCP/HTTP stayed healthy.";
-  } else if (
-    incidentType === "internet_http" ||
-    incidentType === "internet_tcp" ||
-    incidentType === "internet"
-  ) {
-    nextCheck =
-      "Check the internet path first: router uplink, ISP behavior, and whether DNS or device-specific Wi-Fi also degraded.";
-  } else if (likelyDeviceCount > 0) {
-    nextCheck =
-      "Check the matched device first, then compare it against wider network signals.";
-  } else if (hasWeakWifiContext) {
-    nextCheck =
-      "Check Wi-Fi context next, especially if the affected device is in the weakest room or band.";
-  }
-
-  const supportingContext = [
-    `${relatedOutageCount} related outage${relatedOutageCount === 1 ? "" : "s"}`,
-    `${relatedAlertEventCount} alert event${relatedAlertEventCount === 1 ? "" : "s"}`,
-    `${likelyDeviceCount} device candidate${likelyDeviceCount === 1 ? "" : "s"}`,
-    hasMatchingTraffic ? "matching traffic context" : "no direct traffic match",
-    hasWeakWifiContext
-      ? "Wi-Fi context available"
-      : "no Wi-Fi room signal context",
-  ].join(" · ");
-
-  return {
-    primarySignal,
-    nextCheck,
-    supportingContext,
-  };
-}
-
 export default function InvestigationDrawer({
   open,
   subject,
@@ -229,109 +94,52 @@ export default function InvestigationDrawer({
   const incidentType = subject ? getSubjectType(subject) : "";
   const windowHours = subject ? getSubjectWindowHours(subject) : 24;
 
-  const outageType = outageTypes.has(incidentType) ? incidentType : undefined;
-
-  const outagesQuery = useQuery({
-    queryKey: ["investigation", "outages", target, incidentType, windowHours],
+  const investigationQuery = useQuery({
+    queryKey: ["investigation", incidentType, target, windowHours],
     queryFn: () =>
-      api.getOutages({
-        outage_type: outageType,
-        search: target,
-        limit: 200,
-      }),
-    enabled: open && !!subject,
-  });
-
-  const alertEventsQuery = useQuery({
-    queryKey: ["investigation", "recent-alert-events", windowHours],
-    queryFn: () => api.getRecentReportAlertEvents(windowHours),
-    enabled: open && !!subject,
-  });
-
-  const devicesQuery = useQuery({
-    queryKey: ["investigation", "devices"],
-    queryFn: () => api.getDevices(),
-    enabled: open && !!subject,
-  });
-
-  const trafficQuery = useQuery({
-    queryKey: ["investigation", "traffic-top-talkers", 60],
-    queryFn: () => api.getTrafficTopTalkers(60, 5),
-    enabled: open && !!subject,
-    retry: false,
-  });
-
-  const wifiQuery = useQuery({
-    queryKey: ["investigation", "wifi-location-summaries", 60],
-    queryFn: () =>
-      api.getWifiLocationSummaries({
-        minutes: 60,
-      }),
-    enabled: open && !!subject,
-    retry: false,
-  });
-
-  const relatedOutages = useMemo(
-    () =>
-      (outagesQuery.data ?? []).filter((outage) =>
-        startsWithinWindow(outage.started_at, windowHours),
-      ),
-    [outagesQuery.data, windowHours],
-  );
-
-  const relatedAlertEvents = useMemo(
-    () =>
-      getRelatedAlertEvents(
-        alertEventsQuery.data ?? [],
+      api.getInvestigation({
+        incident_type: incidentType,
         target,
-        incidentType,
-      ).slice(0, 5),
-    [alertEventsQuery.data, target, incidentType],
-  );
-
-  const likelyDevices = useMemo(
-    () => getLikelyDevices(devicesQuery.data ?? [], target).slice(0, 5),
-    [devicesQuery.data, target],
-  );
-
-  const trafficItems = trafficQuery.data?.items ?? [];
-  const matchingTraffic = getTrafficMatch(trafficItems, target);
-  const topTraffic = matchingTraffic ?? trafficItems[0] ?? null;
-
-  const wifiItems = wifiQuery.data?.items ?? [];
-  const weakestWifiRoom = getWeakestWifiRoom(wifiItems);
-
-  const activeOutageCount = relatedOutages.filter(
-    (outage) => outage.is_active,
-  ).length;
-
-  const investigationGuidance = buildInvestigationGuidance({
-    incidentType,
-    activeOutageCount,
-    relatedOutageCount: relatedOutages.length,
-    relatedAlertEventCount: relatedAlertEvents.length,
-    likelyDeviceCount: likelyDevices.length,
-    hasMatchingTraffic: !!matchingTraffic,
-    hasWeakWifiContext: !!weakestWifiRoom,
+        hours: windowHours,
+      }),
+    enabled: open && !!subject && !!incidentType && !!target,
   });
-
-  const operatorSummary = [
-    activeOutageCount > 0
-      ? `${activeOutageCount} related outage${activeOutageCount === 1 ? "" : "s"} still active.`
-      : relatedOutages.length > 0
-        ? "Related outages exist, but none are currently active."
-        : "No matching outage records found in this window.",
-    relatedAlertEvents.length > 0
-      ? `${relatedAlertEvents.length} recent alert event${relatedAlertEvents.length === 1 ? "" : "s"} may be related.`
-      : "No recent related alert events found.",
-    likelyDevices.length > 0
-      ? `${likelyDevices.length} likely device candidate${likelyDevices.length === 1 ? "" : "s"} matched the target.`
-      : "No device candidate matched the target directly.",
-  ].join(" ");
 
   if (!subject) {
     return null;
   }
+
+  const investigation = investigationQuery.data;
+
+  const relatedOutages = investigation?.related_outages ?? [];
+  const recentAlertEvents = investigation?.recent_alert_events ?? [];
+  const likelyDevices = investigation?.likely_devices ?? [];
+  const trafficContext = investigation?.traffic_context ?? null;
+  const wifiContext = investigation?.wifi_context ?? null;
+
+  const operatorSummary = investigation
+    ? [
+        relatedOutages.some((outage) => outage.is_active)
+          ? `${relatedOutages.filter((outage) => outage.is_active).length} related outage${
+              relatedOutages.filter((outage) => outage.is_active).length === 1
+                ? ""
+                : "s"
+            } still active.`
+          : relatedOutages.length > 0
+            ? "Related outages exist, but none are currently active."
+            : "No matching outage records found in this window.",
+        recentAlertEvents.length > 0
+          ? `${recentAlertEvents.length} recent alert event${
+              recentAlertEvents.length === 1 ? "" : "s"
+            } may be related.`
+          : "No recent related alert events found.",
+        likelyDevices.length > 0
+          ? `${likelyDevices.length} likely device candidate${
+              likelyDevices.length === 1 ? "" : "s"
+            } matched the target.`
+          : "No device candidate matched the target directly.",
+      ].join(" ")
+    : "Loading investigation context...";
 
   const title =
     subject.kind === "alert"
@@ -345,7 +153,9 @@ export default function InvestigationDrawer({
           entityKey: subject.alert.entity_key,
           message: subject.alert.message,
         })
-      : `${formatIncidentType(subject.target.incident_type)} · Last ${windowHours === 24 ? "24h" : "7d"}`;
+      : `${formatIncidentType(subject.target.incident_type)} · Last ${
+          windowHours === 24 ? "24h" : "7d"
+        }`;
 
   return (
     <SideDrawer
@@ -355,36 +165,54 @@ export default function InvestigationDrawer({
       onClose={onClose}
       widthClass="max-w-2xl"
     >
-      <DrawerDetailSection label="Likely cause summary">
-        <div className="grid gap-3">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-            <div className="text-xs uppercase tracking-wide text-zinc-500">
-              Primary signal
-            </div>
-            <p className="mt-1 text-sm leading-6 text-zinc-200">
-              {investigationGuidance.primarySignal}
-            </p>
-          </div>
+      {investigationQuery.isLoading ? (
+        <DrawerDetailSection label="Investigation">
+          <p className="text-sm text-zinc-400">
+            Loading investigation context...
+          </p>
+        </DrawerDetailSection>
+      ) : null}
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-            <div className="text-xs uppercase tracking-wide text-zinc-500">
-              Most useful next check
-            </div>
-            <p className="mt-1 text-sm leading-6 text-zinc-200">
-              {investigationGuidance.nextCheck}
-            </p>
-          </div>
+      {investigationQuery.isError ? (
+        <DrawerDetailSection label="Investigation unavailable">
+          <p className="text-sm text-red-300">
+            Could not load investigation context.
+          </p>
+        </DrawerDetailSection>
+      ) : null}
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-            <div className="text-xs uppercase tracking-wide text-zinc-500">
-              Supporting context
+      {investigation ? (
+        <DrawerDetailSection label="Likely cause summary">
+          <div className="grid gap-3">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">
+                Primary signal
+              </div>
+              <p className="mt-1 text-sm leading-6 text-zinc-200">
+                {investigation.summary.primary_signal}
+              </p>
             </div>
-            <p className="mt-1 text-sm leading-6 text-zinc-200">
-              {investigationGuidance.supportingContext}
-            </p>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">
+                Most useful next check
+              </div>
+              <p className="mt-1 text-sm leading-6 text-zinc-200">
+                {investigation.summary.next_check}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">
+                Supporting context
+              </div>
+              <p className="mt-1 text-sm leading-6 text-zinc-200">
+                {investigation.summary.supporting_context}
+              </p>
+            </div>
           </div>
-        </div>
-      </DrawerDetailSection>
+        </DrawerDetailSection>
+      ) : null}
 
       <DrawerDetailSection label="Operator summary">
         <p className="text-sm leading-6 text-zinc-300">{operatorSummary}</p>
@@ -488,9 +316,9 @@ export default function InvestigationDrawer({
       )}
 
       <DrawerDetailSection label="Related outages">
-        {outagesQuery.isLoading ? (
+        {investigationQuery.isLoading ? (
           <p className="text-sm text-zinc-400">Loading related outages...</p>
-        ) : outagesQuery.isError ? (
+        ) : investigationQuery.isError ? (
           <p className="text-sm text-red-300">
             Could not load related outages.
           </p>
@@ -538,17 +366,17 @@ export default function InvestigationDrawer({
       </DrawerDetailSection>
 
       <DrawerDetailSection label="Recent alert events">
-        {alertEventsQuery.isLoading ? (
+        {investigationQuery.isLoading ? (
           <p className="text-sm text-zinc-400">Loading alert events...</p>
-        ) : alertEventsQuery.isError ? (
+        ) : investigationQuery.isError ? (
           <p className="text-sm text-red-300">Could not load alert events.</p>
-        ) : relatedAlertEvents.length === 0 ? (
+        ) : recentAlertEvents.length === 0 ? (
           <p className="text-sm text-zinc-400">
             No related alert events found in this window.
           </p>
         ) : (
           <div className="space-y-2">
-            {relatedAlertEvents.map((event) => (
+            {recentAlertEvents.map((event) => (
               <div
                 key={`${event.alert_id}-${event.event_type}-${event.created_at}`}
                 className="rounded-xl border border-zinc-800 bg-zinc-950 p-3"
@@ -569,9 +397,9 @@ export default function InvestigationDrawer({
       </DrawerDetailSection>
 
       <DrawerDetailSection label="Likely device candidates">
-        {devicesQuery.isLoading ? (
+        {investigationQuery.isLoading ? (
           <p className="text-sm text-zinc-400">Loading device candidates...</p>
-        ) : devicesQuery.isError ? (
+        ) : investigationQuery.isError ? (
           <p className="text-sm text-red-300">
             Could not load device candidates.
           </p>
@@ -605,26 +433,26 @@ export default function InvestigationDrawer({
       </DrawerDetailSection>
 
       <DrawerDetailSection label="Traffic context">
-        {trafficQuery.isLoading ? (
+        {investigationQuery.isLoading ? (
           <p className="text-sm text-zinc-400">Loading traffic context...</p>
-        ) : trafficQuery.isError ? (
+        ) : investigationQuery.isError ? (
           <p className="text-sm text-zinc-400">
             Traffic context is unavailable.
           </p>
-        ) : topTraffic ? (
+        ) : trafficContext ? (
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
             <p className="text-sm font-medium text-zinc-100">
-              {matchingTraffic ? "Matching top talker" : "Current top talker"}
+              Matching top talker
             </p>
             <p className="mt-1 text-sm text-zinc-300">
-              {topTraffic.device_ip_address ??
-                topTraffic.mac_address ??
-                topTraffic.entity_key}
+              {trafficContext.device_ip_address ??
+                trafficContext.mac_address ??
+                trafficContext.entity_key}
             </p>
             <p className="mt-2 text-xs text-zinc-500">
-              RX {formatBytes(topTraffic.delta_bytes_rx)} · TX{" "}
-              {formatBytes(topTraffic.delta_bytes_tx)} · Total{" "}
-              {formatBytes(topTraffic.delta_bytes_total)}
+              RX {formatBytes(trafficContext.delta_bytes_rx)} · TX{" "}
+              {formatBytes(trafficContext.delta_bytes_tx)} · Total{" "}
+              {formatBytes(trafficContext.delta_bytes_total)}
             </p>
           </div>
         ) : (
@@ -635,23 +463,23 @@ export default function InvestigationDrawer({
       </DrawerDetailSection>
 
       <DrawerDetailSection label="Weakest Wi-Fi context">
-        {wifiQuery.isLoading ? (
+        {investigationQuery.isLoading ? (
           <p className="text-sm text-zinc-400">Loading Wi-Fi context...</p>
-        ) : wifiQuery.isError ? (
+        ) : investigationQuery.isError ? (
           <p className="text-sm text-zinc-400">Wi-Fi context is unavailable.</p>
-        ) : weakestWifiRoom ? (
+        ) : wifiContext ? (
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
             <p className="text-sm font-medium text-zinc-100">
-              {weakestWifiRoom.location_label}
+              {wifiContext.location_label}
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               Weakest latest signal:{" "}
-              {formatRssi(weakestWifiRoom.latest_sample?.rssi_dbm)}
+              {formatRssi(wifiContext.latest_sample?.rssi_dbm)}
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              {weakestWifiRoom.latest_sample?.ssid ?? "Unknown SSID"}
-              {weakestWifiRoom.latest_sample?.band
-                ? ` · ${weakestWifiRoom.latest_sample.band}`
+              {wifiContext.latest_sample?.ssid ?? "Unknown SSID"}
+              {wifiContext.latest_sample?.band
+                ? ` · ${wifiContext.latest_sample.band}`
                 : ""}
             </p>
           </div>

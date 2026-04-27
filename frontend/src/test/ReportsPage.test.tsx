@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ReportsPage from "../pages/ReportsPage";
 import { renderWithQueryClient } from "./render";
+import { api } from "../services/api";
 
 function LocationDisplay() {
   const location = useLocation();
@@ -133,6 +134,8 @@ function seedReportsSuccessState() {
       created_at: "2026-04-11T10:00:00Z",
     },
   ]);
+
+  seedInvestigationSuccessState();
 }
 
 vi.mock("recharts", async () => {
@@ -200,10 +203,59 @@ vi.mock("../services/api", () => ({
     getDevices: vi.fn(),
     getTrafficTopTalkers: vi.fn(),
     getWifiLocationSummaries: vi.fn(),
+    getInvestigation: vi.fn(),
   },
 }));
 
-import { api } from "../services/api";
+function seedInvestigationSuccessState() {
+  vi.mocked(api.getInvestigation).mockResolvedValue({
+    subject: {
+      kind: "incident_target",
+      incident_type: "internet_http",
+      target: "https://example.com",
+      window_hours: 24,
+    },
+    related_outages: [
+      {
+        id: 1,
+        outage_type: "internet_http",
+        target: "https://example.com",
+        started_at: new Date().toISOString(),
+        ended_at: null,
+        is_active: true,
+        start_error: "error sending request",
+        end_note: null,
+        duration_seconds: 120,
+        status: "active",
+      },
+    ],
+    recent_alert_events: [
+      {
+        alert_id: 1,
+        event_type: "opened",
+        severity: "critical",
+        entity_type: "internet_http",
+        entity_key: "https://example.com",
+        alert_type: "service_health",
+        message: "internet_http check failed: timeout",
+        previous_value: null,
+        new_value: "critical",
+        created_at: "2026-04-11T10:00:00Z",
+      },
+    ],
+    likely_devices: [],
+    traffic_context: null,
+    wifi_context: null,
+    summary: {
+      primary_signal:
+        "Web connectivity still has active outage evidence in this window.",
+      next_check:
+        "Check the internet path first: router uplink, ISP behavior, and whether DNS or device-specific Wi-Fi also degraded.",
+      supporting_context:
+        "1 related outage · 1 alert event · 0 device candidates · no direct traffic match · no Wi-Fi room signal context",
+    },
+  });
+}
 
 describe("ReportsPage", () => {
   beforeEach(() => {
