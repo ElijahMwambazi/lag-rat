@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import QueryState from "../components/QueryState";
 import {
   api,
@@ -220,6 +221,12 @@ function formatReportsWindowLabel(windowHours: 24 | 168) {
   return `Last ${windowHours === 24 ? "24h" : "7d"}`;
 }
 
+function parseReportWindow(value: string | null): 24 | 168 | null {
+  if (value === "24") return 24;
+  if (value === "168") return 168;
+  return null;
+}
+
 function outageStartsWithinWindow(startedAt: string, windowHours: 24 | 168) {
   const started = new Date(startedAt);
   if (Number.isNaN(started.getTime())) return false;
@@ -230,9 +237,17 @@ function outageStartsWithinWindow(startedAt: string, windowHours: 24 | 168) {
 }
 
 export default function ReportsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const initialInvestigationWindow = parseReportWindow(
+    searchParams.get("investigateWindow"),
+  );
+
   const [selectedOutage, setSelectedOutage] = useState<Outage | null>(null);
   const [outageDrawerOpen, setOutageDrawerOpen] = useState(false);
-  const [windowHours, setWindowHours] = useState<24 | 168>(24);
+  const [windowHours, setWindowHours] = useState<24 | 168>(
+    initialInvestigationWindow ?? 24,
+  );
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
@@ -284,6 +299,12 @@ export default function ReportsPage() {
   });
 
   const topIncidentTargets = topIncidentTargetsQuery.data ?? [];
+
+  const investigationTypeParam = searchParams.get("investigateType");
+  const investigationTargetParam = searchParams.get("investigateTarget");
+  const investigationWindowParam = parseReportWindow(
+    searchParams.get("investigateWindow"),
+  );
 
   const outagesQuery = useQuery({
     queryKey: [
@@ -363,6 +384,36 @@ export default function ReportsPage() {
       })
     : null;
 
+  function updateInvestigationParams(
+    item: IncidentTargetSummaryItem,
+    nextWindowHours: 24 | 168 = windowHours,
+  ) {
+    const nextParams = new URLSearchParams(searchParams);
+
+    nextParams.set("investigateType", item.incident_type);
+    nextParams.set("investigateTarget", item.target);
+    nextParams.set("investigateWindow", String(nextWindowHours));
+
+    setSearchParams(nextParams);
+  }
+
+  function clearInvestigationParams() {
+    const nextParams = new URLSearchParams(searchParams);
+
+    nextParams.delete("investigateType");
+    nextParams.delete("investigateTarget");
+    nextParams.delete("investigateWindow");
+
+    setSearchParams(nextParams, {
+      replace: true,
+    });
+  }
+
+  function closeInvestigation() {
+    setInvestigationSubject(null);
+    clearInvestigationParams();
+  }
+
   function openIncidentTargetInExplorer(item: IncidentTargetSummaryItem) {
     setShowOutageExplorer(true);
     setSearch(item.target);
@@ -377,7 +428,69 @@ export default function ReportsPage() {
       target: item,
       windowHours,
     });
+
+    updateInvestigationParams(item);
   }
+
+  function handleWindowHoursChange(nextWindowHours: 24 | 168) {
+    setWindowHours(nextWindowHours);
+
+    if (investigationSubject?.kind === "incident-target") {
+      setInvestigationSubject({
+        ...investigationSubject,
+        windowHours: nextWindowHours,
+      });
+
+      updateInvestigationParams(investigationSubject.target, nextWindowHours);
+    }
+  }
+
+  useEffect(() => {
+    if (!investigationTypeParam || !investigationTargetParam) {
+      if (investigationSubject) {
+        setInvestigationSubject(null);
+      }
+
+      return;
+    }
+
+    const nextWindowHours = investigationWindowParam ?? windowHours;
+
+    if (investigationWindowParam && investigationWindowParam !== windowHours) {
+      setWindowHours(investigationWindowParam);
+    }
+
+    const matchingTarget = topIncidentTargets.find(
+      (item) =>
+        item.incident_type === investigationTypeParam &&
+        item.target === investigationTargetParam,
+    );
+
+    if (!matchingTarget) return;
+
+    if (
+      investigationSubject?.kind === "incident-target" &&
+      investigationSubject.target.incident_type ===
+        matchingTarget.incident_type &&
+      investigationSubject.target.target === matchingTarget.target &&
+      investigationSubject.windowHours === nextWindowHours
+    ) {
+      return;
+    }
+
+    setInvestigationSubject({
+      kind: "incident-target",
+      target: matchingTarget,
+      windowHours: nextWindowHours,
+    });
+  }, [
+    investigationTypeParam,
+    investigationTargetParam,
+    investigationWindowParam,
+    investigationSubject,
+    topIncidentTargets,
+    windowHours,
+  ]);
 
   const activeCount = outages.filter(
     (outage) => outage.status === "active",
@@ -618,7 +731,7 @@ export default function ReportsPage() {
             <select
               value={windowHours}
               onChange={(e) =>
-                setWindowHours(Number(e.target.value) as 24 | 168)
+                handleWindowHoursChange(Number(e.target.value) as 24 | 168)
               }
               className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 sm:w-auto"
             >
@@ -850,7 +963,7 @@ export default function ReportsPage() {
                   <InspectionHighlightCard
                     key={`${item.incident_type}-${item.target}`}
                     onClick={() => openIncidentTargetInvestigation(item)}
-                    ariaLabel={`Open incident target ${item.target}`}
+                    ariaLabel={`Open investigation for incident target ${item.target}`}
                     secondaryActionLabel="Investigate"
                     secondaryActionAriaLabel={`Investigate incident target ${item.target}`}
                     onSecondaryAction={() =>
@@ -899,13 +1012,13 @@ export default function ReportsPage() {
           <InvestigationDrawer
             open={!!investigationSubject}
             subject={investigationSubject}
-            onClose={() => setInvestigationSubject(null)}
+            onClose={closeInvestigation}
             onOpenOutageExplorer={() => {
               if (investigationSubject?.kind === "incident-target") {
                 openIncidentTargetInExplorer(investigationSubject.target);
               }
 
-              setInvestigationSubject(null);
+              closeInvestigation();
             }}
           />
         </div>

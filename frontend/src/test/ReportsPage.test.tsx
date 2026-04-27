@@ -1,8 +1,24 @@
 import { screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ReportsPage from "../pages/ReportsPage";
 import { renderWithQueryClient } from "./render";
+
+function LocationDisplay() {
+  const location = useLocation();
+
+  return <div data-testid="location-search">{location.search}</div>;
+}
+
+function renderReportsPage(initialEntries = ["/reports"]) {
+  return renderWithQueryClient(
+    <MemoryRouter initialEntries={initialEntries}>
+      <ReportsPage />
+      <LocationDisplay />
+    </MemoryRouter>,
+  );
+}
 
 function seedReportsSuccessState() {
   vi.mocked(api.getReportsSummary).mockResolvedValue({
@@ -204,7 +220,7 @@ describe("ReportsPage", () => {
     vi.mocked(api.getTopIncidentTargets).mockResolvedValue([]);
     vi.mocked(api.getOutages).mockResolvedValue([]);
 
-    renderWithQueryClient(<ReportsPage />);
+    renderReportsPage();
 
     expect(
       await screen.findByText("Reports summary request failed"),
@@ -231,7 +247,7 @@ describe("ReportsPage", () => {
     vi.mocked(api.getTopIncidentTargets).mockResolvedValue([]);
     vi.mocked(api.getOutages).mockResolvedValue([]);
 
-    renderWithQueryClient(<ReportsPage />);
+    renderReportsPage();
 
     expect(
       await screen.findByText(
@@ -245,7 +261,7 @@ it("refetches reports queries when the window changes to 7d", async () => {
   const user = userEvent.setup();
   seedReportsSuccessState();
 
-  renderWithQueryClient(<ReportsPage />);
+  renderReportsPage();
 
   expect(await screen.findByDisplayValue("Last 24h")).toBeInTheDocument();
 
@@ -261,7 +277,7 @@ it("refetches reports queries when the window changes to 7d", async () => {
 it("renders recent alert events as a fixed inspection panel", async () => {
   seedReportsSuccessState();
 
-  renderWithQueryClient(<ReportsPage />);
+  renderReportsPage();
 
   expect(await screen.findByText("Recent alert events")).toBeInTheDocument();
 
@@ -277,7 +293,7 @@ it("renders recent alert events as a fixed inspection panel", async () => {
 it("renders recent device changes as a fixed inspection panel", async () => {
   seedReportsSuccessState();
 
-  renderWithQueryClient(<ReportsPage />);
+  renderReportsPage();
 
   expect(await screen.findByText("Recent device changes")).toBeInTheDocument();
 
@@ -293,7 +309,7 @@ it("renders recent device changes as a fixed inspection panel", async () => {
 it("renders top incident targets as a fixed inspection panel", async () => {
   seedReportsSuccessState();
 
-  renderWithQueryClient(<ReportsPage />);
+  renderReportsPage();
 
   expect(await screen.findByText("Top incident targets")).toBeInTheDocument();
 
@@ -304,12 +320,22 @@ it("opens outage explorer filters from a top incident target investigation", asy
   const user = userEvent.setup();
   seedReportsSuccessState();
 
-  renderWithQueryClient(<ReportsPage />);
+  renderReportsPage();
 
   await user.click(
     await screen.findByRole("button", {
       name: "Investigate incident target https://example.com",
     }),
+  );
+
+  expect(screen.getByTestId("location-search")).toHaveTextContent(
+    "investigateType=internet_http",
+  );
+  expect(screen.getByTestId("location-search")).toHaveTextContent(
+    "investigateTarget=https%3A%2F%2Fexample.com",
+  );
+  expect(screen.getByTestId("location-search")).toHaveTextContent(
+    "investigateWindow=24",
   );
 
   expect(
@@ -324,6 +350,10 @@ it("opens outage explorer filters from a top incident target investigation", asy
     }),
   );
 
+  expect(screen.getByTestId("location-search")).not.toHaveTextContent(
+    "investigateTarget",
+  );
+
   expect(
     await screen.findByPlaceholderText("Search target, type, status, error..."),
   ).toHaveValue("https://example.com");
@@ -334,11 +364,27 @@ it("opens outage explorer filters from a top incident target investigation", asy
   expect(selects[2]).toHaveValue("active");
 });
 
+it("restores the investigation drawer from query params", async () => {
+  seedReportsSuccessState();
+
+  renderReportsPage([
+    "/reports?investigateType=internet_http&investigateTarget=https%3A%2F%2Fexample.com&investigateWindow=24",
+  ]);
+
+  expect(
+    await screen.findByRole("heading", {
+      name: "Investigate https://example.com",
+    }),
+  ).toBeInTheDocument();
+
+  expect(await screen.findByText("Operator summary")).toBeInTheDocument();
+});
+
 it("opens outage detail drawer when an outage row is clicked", async () => {
   const user = userEvent.setup();
   seedReportsSuccessState();
 
-  renderWithQueryClient(<ReportsPage />);
+  renderReportsPage();
 
   await user.click(
     (
@@ -389,7 +435,7 @@ it("exports JSON using the selected window", async () => {
     }) as typeof document.createElement);
 
   try {
-    renderWithQueryClient(<ReportsPage />);
+    renderReportsPage();
 
     await screen.findByText("Reports");
 
@@ -413,7 +459,7 @@ it("passes search and filter params to outages query", async () => {
   const user = userEvent.setup();
   seedReportsSuccessState();
 
-  renderWithQueryClient(<ReportsPage />);
+  renderReportsPage();
 
   await user.click(
     (
