@@ -152,6 +152,73 @@ function getTrafficMatch(items: TrafficTopTalkerItem[], target: string) {
   );
 }
 
+function buildInvestigationGuidance({
+  incidentType,
+  activeOutageCount,
+  relatedOutageCount,
+  relatedAlertEventCount,
+  likelyDeviceCount,
+  hasMatchingTraffic,
+  hasWeakWifiContext,
+}: {
+  incidentType: string;
+  activeOutageCount: number;
+  relatedOutageCount: number;
+  relatedAlertEventCount: number;
+  likelyDeviceCount: number;
+  hasMatchingTraffic: boolean;
+  hasWeakWifiContext: boolean;
+}) {
+  const formattedType = formatIncidentType(incidentType);
+
+  const primarySignal =
+    activeOutageCount > 0
+      ? `${formattedType} still has active outage evidence in this window.`
+      : relatedOutageCount > 0
+        ? `${formattedType} has recovered outage evidence in this window.`
+        : `${formattedType} has no matching outage record in this window.`;
+
+  let nextCheck =
+    "Review the related outages and alert events before changing device-specific settings.";
+
+  if (incidentType === "router") {
+    nextCheck =
+      "Check the router path first: power, cabling, router admin reachability, and local gateway status.";
+  } else if (incidentType === "dns") {
+    nextCheck =
+      "Check DNS next: compare resolver behavior, lookup timing, and whether internet TCP/HTTP stayed healthy.";
+  } else if (
+    incidentType === "internet_http" ||
+    incidentType === "internet_tcp" ||
+    incidentType === "internet"
+  ) {
+    nextCheck =
+      "Check the internet path first: router uplink, ISP behavior, and whether DNS or device-specific Wi-Fi also degraded.";
+  } else if (likelyDeviceCount > 0) {
+    nextCheck =
+      "Check the matched device first, then compare it against wider network signals.";
+  } else if (hasWeakWifiContext) {
+    nextCheck =
+      "Check Wi-Fi context next, especially if the affected device is in the weakest room or band.";
+  }
+
+  const supportingContext = [
+    `${relatedOutageCount} related outage${relatedOutageCount === 1 ? "" : "s"}`,
+    `${relatedAlertEventCount} alert event${relatedAlertEventCount === 1 ? "" : "s"}`,
+    `${likelyDeviceCount} device candidate${likelyDeviceCount === 1 ? "" : "s"}`,
+    hasMatchingTraffic ? "matching traffic context" : "no direct traffic match",
+    hasWeakWifiContext
+      ? "Wi-Fi context available"
+      : "no Wi-Fi room signal context",
+  ].join(" · ");
+
+  return {
+    primarySignal,
+    nextCheck,
+    supportingContext,
+  };
+}
+
 export default function InvestigationDrawer({
   open,
   subject,
@@ -238,6 +305,16 @@ export default function InvestigationDrawer({
     (outage) => outage.is_active,
   ).length;
 
+  const investigationGuidance = buildInvestigationGuidance({
+    incidentType,
+    activeOutageCount,
+    relatedOutageCount: relatedOutages.length,
+    relatedAlertEventCount: relatedAlertEvents.length,
+    likelyDeviceCount: likelyDevices.length,
+    hasMatchingTraffic: !!matchingTraffic,
+    hasWeakWifiContext: !!weakestWifiRoom,
+  });
+
   const operatorSummary = [
     activeOutageCount > 0
       ? `${activeOutageCount} related outage${activeOutageCount === 1 ? "" : "s"} still active.`
@@ -278,6 +355,37 @@ export default function InvestigationDrawer({
       onClose={onClose}
       widthClass="max-w-2xl"
     >
+      <DrawerDetailSection label="Likely cause summary">
+        <div className="grid gap-3">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+            <div className="text-xs uppercase tracking-wide text-zinc-500">
+              Primary signal
+            </div>
+            <p className="mt-1 text-sm leading-6 text-zinc-200">
+              {investigationGuidance.primarySignal}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+            <div className="text-xs uppercase tracking-wide text-zinc-500">
+              Most useful next check
+            </div>
+            <p className="mt-1 text-sm leading-6 text-zinc-200">
+              {investigationGuidance.nextCheck}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+            <div className="text-xs uppercase tracking-wide text-zinc-500">
+              Supporting context
+            </div>
+            <p className="mt-1 text-sm leading-6 text-zinc-200">
+              {investigationGuidance.supportingContext}
+            </p>
+          </div>
+        </div>
+      </DrawerDetailSection>
+
       <DrawerDetailSection label="Operator summary">
         <p className="text-sm leading-6 text-zinc-300">{operatorSummary}</p>
 

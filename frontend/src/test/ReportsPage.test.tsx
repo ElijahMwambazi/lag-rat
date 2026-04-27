@@ -377,6 +377,18 @@ it("restores the investigation drawer from query params", async () => {
     }),
   ).toBeInTheDocument();
 
+  expect(await screen.findByText("Likely cause summary")).toBeInTheDocument();
+
+  expect(screen.getByText("Primary signal")).toBeInTheDocument();
+  expect(screen.getByText("Most useful next check")).toBeInTheDocument();
+  expect(screen.getByText("Supporting context")).toBeInTheDocument();
+
+  expect(
+    screen.getByText(
+      "Web connectivity still has active outage evidence in this window.",
+    ),
+  ).toBeInTheDocument();
+
   expect(await screen.findByText("Operator summary")).toBeInTheDocument();
 });
 
