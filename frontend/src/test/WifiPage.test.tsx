@@ -288,6 +288,77 @@ describe("WifiPage", () => {
     expect(await screen.findAllByText("5ghz")).toHaveLength(3);
   });
 
+  it("renders wifi room mapping coverage summary", async () => {
+    mockWifiLocationSummaries();
+
+    vi.mocked(api.getWifiSummary).mockResolvedValue({
+      window_minutes: 60,
+      location_label: null,
+      sample_count: 2,
+      avg_rssi_dbm: -45,
+      min_rssi_dbm: -58,
+      max_rssi_dbm: -42,
+      latest_sample: {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    });
+
+    vi.mocked(api.getWifiSamples).mockResolvedValue([
+      {
+        id: 2,
+        location_label: "office",
+        interface_name: "wlo1",
+        ssid: "TheReal",
+        bssid: "d5:8a:f7:59:88:f1",
+        rssi_dbm: -42,
+        frequency_mhz: 5180,
+        band: "5ghz",
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/wifi"]}
+      >
+        <WifiPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Wi-Fi room mapping")).toBeInTheDocument();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /expand wi-fi room mapping/i,
+      }),
+    );
+
+    expect(await screen.findByText("Rooms mapped")).toBeInTheDocument();
+    expect(await screen.findByText("Weakest room")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Rooms needing attention"),
+    ).toBeInTheDocument();
+
+    expect(
+      (await screen.findAllByText("Coverage score")).length,
+    ).toBeGreaterThan(0);
+    expect(
+      await screen.findByText("Strongest sampled room: office · -45 dBm"),
+    ).toBeInTheDocument();
+  });
+
   it("keeps recent samples collapsed by default", async () => {
     mockWifiLocationSummaries();
 

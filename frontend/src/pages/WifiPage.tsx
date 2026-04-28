@@ -16,6 +16,7 @@ import {
   type Alert,
   type AlertHistoryItem,
   type WifiLocationSummariesResponse,
+  type WifiLocationSummaryItem,
   type WifiLocationsResponse,
   type WifiSample,
   type WifiSummaryResponse,
@@ -167,6 +168,55 @@ function getRoomCardClasses(active: boolean) {
       ? "border-zinc-500 bg-zinc-800/80"
       : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/60",
   ].join(" ");
+}
+
+function getRoomMappingRssi(item: WifiLocationSummaryItem) {
+  return item.avg_rssi_dbm ?? item.latest_sample?.rssi_dbm ?? null;
+}
+
+function getRoomCoverageScore(item: WifiLocationSummaryItem) {
+  const rssi = getRoomMappingRssi(item);
+
+  if (rssi === null || rssi === undefined) return null;
+
+  return Math.max(0, Math.min(100, Math.round((rssi + 90) * 2.5)));
+}
+
+function getRoomCoverageStatus(item: WifiLocationSummaryItem): {
+  label: string;
+  tone: RoomHealthTone;
+} {
+  const rssi = getRoomMappingRssi(item);
+
+  if (rssi === null || rssi === undefined || item.sample_count === 0) {
+    return { label: "Unknown", tone: "stale" };
+  }
+
+  if (rssi <= -75) {
+    return { label: "Poor coverage", tone: "critical" };
+  }
+
+  if (rssi <= -67) {
+    return { label: "Weak coverage", tone: "warning" };
+  }
+
+  return { label: "Good coverage", tone: "healthy" };
+}
+
+function getRoomMappingAdvice(item: WifiLocationSummaryItem) {
+  const status = getRoomCoverageStatus(item);
+
+  switch (status.tone) {
+    case "critical":
+      return "Prioritize this room. Signal is likely to affect stability, calls, streaming, or throughput.";
+    case "warning":
+      return "Worth checking. Signal is usable but weaker than ideal for reliable performance.";
+    case "stale":
+      return "Collect a fresh sample here before making placement decisions.";
+    case "healthy":
+    default:
+      return "Coverage looks healthy in the selected window.";
+  }
 }
 
 function getViewingLabel(locationLabel: string) {
@@ -327,6 +377,7 @@ export default function WifiPage() {
   const [selectedSample, setSelectedSample] = useState<WifiSample | null>(null);
   const [sampleDrawerOpen, setSampleDrawerOpen] = useState(false);
   const [samplesCollapsed, setSamplesCollapsed] = useState(true);
+  const [roomMappingCollapsed, setRoomMappingCollapsed] = useState(true);
 
   const queryClient = useQueryClient();
 
@@ -371,6 +422,32 @@ export default function WifiPage() {
   });
 
   const roomComparisonItems = locationSummariesQuery.data?.items ?? [];
+
+  const roomMappingItems = useMemo(
+    () =>
+      [...roomComparisonItems].sort((a, b) => {
+        const aRssi = getRoomMappingRssi(a);
+        const bRssi = getRoomMappingRssi(b);
+
+        if (aRssi === null || aRssi === undefined) return 1;
+        if (bRssi === null || bRssi === undefined) return -1;
+
+        return aRssi - bRssi;
+      }),
+    [roomComparisonItems],
+  );
+
+  const weakestMappedRoom = roomMappingItems[0] ?? null;
+
+  const strongestMappedRoom =
+    roomMappingItems.length > 0
+      ? roomMappingItems[roomMappingItems.length - 1]
+      : null;
+
+  const roomsNeedingAttention = roomMappingItems.filter((item) => {
+    const tone = getRoomCoverageStatus(item).tone;
+    return tone === "warning" || tone === "critical" || tone === "stale";
+  });
 
   const wifiSamples: WifiSample[] = samplesQuery.data ?? [];
 
@@ -812,6 +889,217 @@ export default function WifiPage() {
           </div>
         )}
       </section>
+
+      <CollapsibleInspectionSection
+        title="Wi-Fi room mapping"
+        description="Coverage-style view of sampled rooms, sorted from weakest to strongest signal."
+        badges={
+          <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+            Last {formatWindowLabel(windowMinutes)}
+          </span>
+        }
+        collapsedSummary={
+          roomMappingItems.length === 0
+            ? "No sampled rooms available yet."
+            : `${roomMappingItems.length} rooms mapped · ${
+                weakestMappedRoom?.location_label ?? "No weakest room"
+              } weakest · ${roomsNeedingAttention.length} need attention`
+        }
+        collapsedDetail="Expand this section to compare room coverage scores, weakest rooms, and signal quality across sampled locations."
+        collapsedActionLabel="Expand Wi-Fi room mapping"
+        expandedActionLabel="Hide mapping"
+        isExpanded={
+          !roomMappingCollapsed ||
+          locationSummariesQuery.isLoading ||
+          locationSummariesQuery.isError ||
+          roomMappingItems.length === 0
+        }
+        onToggle={() => setRoomMappingCollapsed((current) => !current)}
+      >
+        {locationSummariesQuery.isLoading && roomMappingItems.length === 0 ? (
+          <QueryState
+            title="Wi-Fi room mapping"
+            message="Loading room coverage map..."
+          />
+        ) : locationSummariesQuery.isError ? (
+          <QueryState
+            title="Wi-Fi room mapping"
+            tone="error"
+            message={
+              locationSummariesQuery.error instanceof Error
+                ? locationSummariesQuery.error.message
+                : "Room coverage map could not be loaded."
+            }
+          />
+        ) : roomMappingItems.length === 0 ? (
+          <QueryState
+            title="Wi-Fi room mapping"
+            tone="warning"
+            message="No sampled rooms are available for mapping yet."
+          />
+        ) : (
+          <>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Rooms mapped
+                </div>
+                <div className="mt-3 text-2xl font-semibold">
+                  {roomMappingItems.length}
+                </div>
+                <p className="mt-3 text-sm text-zinc-400">
+                  Rooms with Wi-Fi samples in this window.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Weakest room
+                </div>
+                <div className="mt-3 text-2xl font-semibold">
+                  {weakestMappedRoom?.location_label ?? "—"}
+                </div>
+                <p className="mt-3 text-sm text-zinc-400">
+                  {weakestMappedRoom
+                    ? `${formatRssi(getRoomMappingRssi(weakestMappedRoom))} average signal`
+                    : "No room samples available."}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  Rooms needing attention
+                </div>
+                <div className="mt-3 text-2xl font-semibold">
+                  {roomsNeedingAttention.length}
+                </div>
+                <p className="mt-3 text-sm text-zinc-400">
+                  Weak, poor, stale, or unknown coverage rooms.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              {roomMappingItems.map((item) => {
+                const status = getRoomCoverageStatus(item);
+                const score = getRoomCoverageScore(item);
+                const isActive = locationLabel === item.location_label;
+
+                return (
+                  <button
+                    key={item.location_label}
+                    type="button"
+                    onClick={() => {
+                      setLocationLabel(item.location_label);
+                      setDrawerAlertId(null);
+                      setAlertDrawerOpen(false);
+                      setRecoveryDrawerAlert(null);
+
+                      updateSearchParams({
+                        minutes: windowMinutes,
+                        location: item.location_label,
+                        alertId: null,
+                      });
+                    }}
+                    className={[
+                      "rounded-2xl border p-4 text-left transition-colors",
+                      isActive
+                        ? "border-zinc-500 bg-zinc-800/80"
+                        : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/60",
+                    ].join(" ")}
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-medium text-zinc-100">
+                            {item.location_label}
+                          </h4>
+
+                          <span
+                            className={[
+                              "rounded-full border px-2.5 py-1 text-xs",
+                              getRoomStatusBadgeClasses(status.tone),
+                            ].join(" ")}
+                          >
+                            {status.label}
+                          </span>
+
+                          {isActive ? <SelectionBadge active /> : null}
+                        </div>
+
+                        <p className="mt-2 text-sm text-zinc-400">
+                          {getRoomMappingAdvice(item)}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 text-left sm:text-right">
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">
+                          Coverage score
+                        </div>
+                        <div className="mt-1 text-xl font-semibold text-zinc-100">
+                          {score === null ? "—" : `${score}%`}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-950">
+                      <div
+                        className="h-full rounded-full bg-zinc-500"
+                        style={{ width: `${score ?? 0}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">
+                          Avg RSSI
+                        </div>
+                        <div className="mt-1 text-zinc-100">
+                          {formatRssi(item.avg_rssi_dbm)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">
+                          Min RSSI
+                        </div>
+                        <div className="mt-1 text-zinc-100">
+                          {formatRssi(item.min_rssi_dbm)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">
+                          Max RSSI
+                        </div>
+                        <div className="mt-1 text-zinc-100">
+                          {formatRssi(item.max_rssi_dbm)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">
+                          Samples
+                        </div>
+                        <div className="mt-1 text-zinc-100">
+                          {item.sample_count}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {strongestMappedRoom ? (
+              <p className="text-sm text-zinc-500">
+                Strongest sampled room: {strongestMappedRoom.location_label} ·{" "}
+                {formatRssi(getRoomMappingRssi(strongestMappedRoom))}
+              </p>
+            ) : null}
+          </>
+        )}
+      </CollapsibleInspectionSection>
 
       {locationLabel ? (
         <section className="space-y-4">
