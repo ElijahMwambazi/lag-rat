@@ -911,6 +911,12 @@ export default function OverviewPage() {
             focusMode={alertsFocusMode}
             selectedAlertId={selectedOverviewAlertId}
           />
+
+          <InvestigationDrawer
+            open={!!investigationSubject}
+            subject={investigationSubject}
+            onClose={() => setInvestigationSubject(null)}
+          />
         </div>
       </section>
 
@@ -924,12 +930,6 @@ export default function OverviewPage() {
 
         <DebugPanel endpoints={endpoints} />
       </section>
-
-      <InvestigationDrawer
-        open={!!investigationSubject}
-        subject={investigationSubject}
-        onClose={() => setInvestigationSubject(null)}
-      />
     </div>
   );
 }
