@@ -14,6 +14,9 @@ The current implemented module covers:
 - alerts
 - reports
 - metrics
+- room-based Wi-Fi sampling and alerting
+- traffic summaries and top talkers
+- backend-powered incident investigations
 
 Future platform expansion should leave room for:
 
@@ -37,6 +40,10 @@ Stable today:
 - reports and metrics summaries
 - shared detail drawer patterns
 - backend integration coverage for major dashboard APIs
+- Wi-Fi sample ingest, persistence, summaries, and alerting
+- Wi-Fi page room comparison, timelines, recoveries, and sample drawers
+- traffic summary, top talker, and recent sample API/client flows
+- investigation read model for incident targets
 
 ## In progress
 
@@ -57,6 +64,8 @@ Next major testing step:
 
 ## Immediate next steps
 
-- keep README aligned with the project’s current platform direction
-- document the collector/plugin boundary in architecture
-- align roadmap wording with the current responsive/mobile and testing priorities
+- keep README aligned with implemented Wi-Fi, traffic, and investigation workflows
+- harden investigation drawer rendering around the backend read model
+- continue traffic observability productization
+- keep collector/plugin boundary docs aligned with implemented module patterns
+- prepare optional packet capture/export hook design without turning Lag Rat into a packet-analysis suite

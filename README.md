@@ -11,6 +11,8 @@ Today, the first implemented module is network monitoring for:
 - local device activity
 - reports and metrics
 - room-based Wi-Fi sampling and Wi-Fi alerting
+- traffic summaries and top talkers
+- backend-powered incident investigations
 
 The current product shape is:
 
@@ -38,6 +40,9 @@ Implemented:
 - Wi-Fi signal alerting and stale-sample alerting
 - Wi-Fi summaries, location summaries, and recent-sample workflows
 - Wi-Fi page with room comparison, timelines, recoveries, and sample detail drawers
+- traffic summary, top talker, and recent traffic sample workflows
+- backend investigation read model for incident targets
+- investigation drawer with related outages, alert events, devices, traffic, and Wi-Fi context
 
 ## Current focus
 
@@ -45,7 +50,7 @@ Implemented:
 - dashboard cohesion and operator-friendly wording
 - docs refresh
 - defining a collector/plugin boundary for future observability domains
-- continuing Wi-Fi contract and operator-path refinement as a maturing module
+- refining investigation and traffic observability workflows as shared platform capabilities
 
 ## Platform model
 
@@ -80,7 +85,8 @@ The current primary module is **home network observability**:
 ### Near-term additions
 
 - responsive/mobile dashboard polish
-- traffic summaries / top talkers
+- traffic observability hardening
+- investigation workflow refinement
 - optional packet capture export hooks
 - clearer collector/plugin boundaries for future modules
 

@@ -103,41 +103,57 @@ Completed:
 
 ---
 
-## Milestone 8 — Current Work
+## Milestone 8 — Investigation and Traffic Read Models
 
-In progress:
+Completed:
+
+- backend investigation read model for incident targets
+- investigation payload with related outages, recent alert events, likely devices, traffic context, Wi-Fi context, and operator summary fields
+- investigation drawer wired to backend investigation payload
+- investigation query-param flow from Reports
+- traffic summary endpoint
+- traffic top-talkers endpoint
+- traffic recent-samples endpoint
+- frontend traffic API client types
+
+---
+
+## Milestone 9 — Dashboard Productization
+
+Completed:
 
 - responsive/mobile dashboard polish
 - overview page cohesion
 - final dashboard wording consistency
 - empty / loading / partial-failure UX polish
+- shared page filter and drawer interaction patterns
+- cross-page drill-in flows
 - docs refresh to match implementation
-- define collector/plugin boundary for future modules
+- collector/plugin boundary definition for future modules
 
 ---
 
-## Milestone 9 — Near-Term Next Work
+## Milestone 10 — Current Work
 
-Planned:
+In progress:
 
-- traffic summaries / top talkers
-- optional packet capture export hook design
-- screenshot refresh for docs / repo presentation
-- cleanup of collector/plugin boundaries now that Wi-Fi is implemented
-- continued module-level productization and operator-path refinement
+- traffic observability hardening and operator-path refinement
+- investigation workflow refinement across Reports, Overview, and Alerts
+- packet capture export hook design
+- documentation alignment as implemented capabilities move forward
 
 ---
 
-## Milestone 10 — Later Enhancements
+## Milestone 11 — Later Enhancements
 
 Not started:
 
-- Wi-Fi signal mapping
 - richer room-by-room performance workflows
 - ISP comparison by time of day
 - Prometheus-compatible metrics export
 - Docker packaging
 - packet capture / PCAP analysis
+- packet capture export linked to traffic or investigation context
 - remote access / cloud sync
 - richer notification channels
 - Bitcoin node observability module

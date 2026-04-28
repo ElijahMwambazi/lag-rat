@@ -18,6 +18,7 @@ The schema supports three layers of usage:
    - connectivity checks
    - DNS checks
    - Wi-Fi samples
+   - traffic samples / traffic observations
 
 2. **derived incident state**
    - outages
@@ -32,6 +33,8 @@ The schema supports three layers of usage:
    - recent event panels
    - snapshot export
    - Wi-Fi room summaries
+   - traffic summary and top-talker views
+   - investigation read models
 
 ---
 
@@ -97,6 +100,31 @@ Notes:
 - used for latest-sample lookups and recent-sample tables
 - powers Wi-Fi summary and per-location summary rollups
 - feeds weak-signal and stale-sample alert evaluation
+
+### `traffic_samples`
+
+Stores traffic counter observations.
+
+Fields may include:
+
+- `id`
+- `interface_name`
+- `entity_type`
+- `entity_key`
+- `device_ip_address`
+- `mac_address`
+- `bytes_rx`
+- `bytes_tx`
+- `packets_rx`
+- `packets_tx`
+- `sampled_at`
+
+Notes:
+
+- used to calculate traffic deltas over a selected time window
+- powers traffic summary, top talkers, and recent traffic sample views
+- provides traffic context for investigation read models
+- stores summary-level counters, not packet contents
 
 ### `outages`
 
@@ -286,3 +314,5 @@ The schema is beyond initial draft stage and already supports:
 - Wi-Fi summary aggregation and per-location rollups
 - Wi-Fi alert evaluation inputs
 - report and metrics aggregation queries
+- traffic sample storage and top-talker aggregation
+- investigation read-model inputs across outages, alerts, devices, traffic, and Wi-Fi

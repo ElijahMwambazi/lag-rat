@@ -46,7 +46,7 @@ Lag Rat is built around three main layers:
    - alerts open, escalate, acknowledge, and resolve
    - device history records are appended
    - Wi-Fi signal weakness and stale-sample alerts are evaluated
-4. Aggregation queries build status, metrics, report, and Wi-Fi module views.
+4. Aggregation and read-model queries build status, metrics, report, Wi-Fi, traffic, and investigation views.
 5. Axum serves local REST endpoints.
 6. The React dashboard renders overview, alerts, reports, metrics, devices, Wi-Fi, and detail drawers.
 
@@ -67,6 +67,7 @@ The shared platform should own:
 - report aggregation
 - local API delivery
 - dashboard presentation patterns
+- investigation read models
 
 ### Module responsibilities
 
@@ -94,6 +95,8 @@ It currently covers:
 - reports and metrics summaries
 - room-based Wi-Fi sampling
 - room-level Wi-Fi health summaries and timelines
+- traffic summaries / top talkers
+- incident investigations
 
 ---
 
@@ -112,6 +115,8 @@ The backend currently owns:
 - history/event recording
 - summary/report aggregation
 - local API delivery
+- traffic sample aggregation
+- investigation read-model composition
 
 ### Current backend domains
 
@@ -142,6 +147,23 @@ The backend currently owns:
 - per-location summary rollups
 - weak-signal alert evaluation
 - stale-sample freshness evaluation
+
+#### Traffic
+
+- traffic summary aggregation
+- top talker ranking
+- recent traffic sample retrieval
+- device/interface traffic context for investigations
+
+#### Investigations
+
+- incident-target investigation read model
+- related outage lookup
+- related recent alert-event lookup
+- likely device candidate lookup
+- traffic context lookup
+- Wi-Fi context lookup
+- operator summary fields for investigation drawers
 
 #### Incident state
 
@@ -182,6 +204,8 @@ The frontend currently owns:
 - Metrics
 - Devices
 - Wi-Fi
+- Traffic
+- Investigation drawers
 
 ### Current UI patterns
 
@@ -209,6 +233,7 @@ SQLite is currently the system of record for:
 - known devices
 - Wi-Fi samples
 - schema migration tracking
+- traffic samples or traffic observations
 
 The database supports both raw-event storage and higher-level dashboard aggregation.
 
@@ -234,8 +259,8 @@ Architectural emphasis is now on:
 
 These are the most likely next architectural extensions:
 
-- responsive/mobile dashboard polish
-- traffic summaries / top talkers
+- traffic observability hardening
+- investigation workflow refinement
 - optional packet capture export hooks
 - clearer collector/plugin boundaries
 
@@ -255,7 +280,6 @@ The architecture should leave room for future modules such as:
 
 These are not yet core architectural modules or completed platform capabilities:
 
-- traffic summaries
 - optional packet capture export
 - Prometheus-compatible export
 - Docker packaging

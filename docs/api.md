@@ -18,13 +18,15 @@ http://127.0.0.1:8080
 
 ## Current API shape
 
-The current API serves five broad categories:
+The current API serves seven broad categories:
 
 - operational status
 - historical probe data
 - incidents and alerts
 - reports and metrics summaries
 - Wi-Fi sample and room-health workflows
+- traffic summaries and top talkers
+- investigation read models
 
 ---
 
@@ -101,6 +103,45 @@ Common query parameters:
 
 ---
 
+## Investigations
+
+### `GET /api/investigations?incident_type=internet_http&target=https%3A%2F%2Fexample.com&hours=24`
+
+Returns a backend-composed investigation read model for an incident target.
+
+The investigation payload includes:
+
+- investigation subject
+- related outages
+- recent alert events
+- likely device candidates
+- traffic context
+- Wi-Fi context
+- operator summary fields
+
+Current subject shape:
+
+```json
+{
+  "kind": "incident_target",
+  "incident_type": "internet_http",
+  "target": "https://example.com",
+  "window_hours": 24
+}
+```
+
+Current summary shape:
+
+```json
+{
+  "primary_signal": "string",
+  "next_check": "string",
+  "supporting_context": "string"
+}
+```
+
+---
+
 ## Reports
 
 ### `GET /api/reports/summary?hours=24`
@@ -159,6 +200,58 @@ Each item includes:
 - average latency
 - latest latency
 - last checked timestamp
+
+---
+
+## Traffic
+
+### `GET /api/traffic/summary?minutes=60`
+
+Returns traffic totals for the selected operational window.
+
+Fields include:
+
+- `window_minutes`
+- `total_bytes_rx`
+- `total_bytes_tx`
+- `total_bytes`
+- `interface_count`
+- `top_talker`
+
+### `GET /api/traffic/top-talkers?minutes=60&limit=5`
+
+Returns ranked traffic entities for the selected window.
+
+Each item includes:
+
+- `interface_name`
+- `entity_type`
+- `entity_key`
+- `device_ip_address`
+- `mac_address`
+- latest RX/TX counters
+- earliest RX/TX counters
+- RX/TX deltas
+- total byte delta
+- latest sample timestamp
+
+### `GET /api/traffic/samples?minutes=60&limit=20`
+
+Returns recent traffic samples.
+
+Each item includes:
+
+- `id`
+- `interface_name`
+- `entity_type`
+- `entity_key`
+- `device_ip_address`
+- `mac_address`
+- `bytes_rx`
+- `bytes_tx`
+- `packets_rx`
+- `packets_tx`
+- `sampled_at`
 
 ---
 
@@ -244,6 +337,8 @@ That includes:
 - reports
 - metrics
 - Wi-Fi room health and sample workflows
+- traffic summaries and top talkers
+- incident investigation read models
 
 ---
 
@@ -264,7 +359,7 @@ These should stay familiar across modules:
 
 These may expand over time:
 
-- traffic summary endpoints
+- optional packet capture/export endpoints
 - optional capture/export endpoints
 - Bitcoin node observability summaries
 - Lightning observability summaries
@@ -278,3 +373,7 @@ The goal is to keep the dashboard contract familiar even as new observability mo
 - This API is local-first and intended for dashboard use.
 - Query parameters are currently simple and operator-focused.
 - Reports, metrics, and Wi-Fi endpoints form part of the stable dashboard-facing contract.
+
+```
+
+```
