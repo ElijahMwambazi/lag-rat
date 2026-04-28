@@ -1109,6 +1109,52 @@ export default function WifiPage() {
                   ))}
                 </div>
               )}
+
+              <AlertDetailDrawer
+                open={alertDrawerOpen}
+                alert={selectedRoomPrimaryAlert}
+                onClose={() => {
+                  setAlertDrawerOpen(false);
+                  setDrawerAlertId(null);
+                  updateSearchParams({
+                    minutes: windowMinutes,
+                    location: locationLabel,
+                    alertId: null,
+                  });
+                }}
+                history={selectedRoomHistoryQuery.data ?? []}
+                historyLoading={selectedRoomHistoryQuery.isLoading}
+                historyError={selectedRoomHistoryQuery.isError}
+                acknowledgePending={acknowledgeWifiAlertMutation.isPending}
+                acknowledgeErrorMessage={
+                  acknowledgeWifiAlertMutation.isError
+                    ? acknowledgeWifiAlertMutation.error instanceof Error
+                      ? acknowledgeWifiAlertMutation.error.message
+                      : "Could not acknowledge alert."
+                    : null
+                }
+                onAcknowledge={(id) => acknowledgeWifiAlertMutation.mutate(id)}
+              />
+
+              <AlertDetailDrawer
+                open={!!recoveryDrawerAlert}
+                alert={recoveryDrawerAlert}
+                onClose={() => {
+                  setRecoveryDrawerAlert(null);
+                  setDrawerAlertId(null);
+                  updateSearchParams({
+                    minutes: windowMinutes,
+                    location: locationLabel,
+                    alertId: null,
+                  });
+                }}
+                history={recoveryAlertHistoryQuery.data ?? []}
+                historyLoading={recoveryAlertHistoryQuery.isLoading}
+                historyError={recoveryAlertHistoryQuery.isError}
+                acknowledgePending={false}
+                acknowledgeErrorMessage={null}
+                onAcknowledge={() => {}}
+              />
             </section>
           </div>
         </section>
@@ -1327,52 +1373,6 @@ export default function WifiPage() {
           />
         </DataTableCard>
       </CollapsibleInspectionSection>
-
-      <AlertDetailDrawer
-        open={alertDrawerOpen}
-        alert={selectedRoomPrimaryAlert}
-        onClose={() => {
-          setAlertDrawerOpen(false);
-          setDrawerAlertId(null);
-          updateSearchParams({
-            minutes: windowMinutes,
-            location: locationLabel,
-            alertId: null,
-          });
-        }}
-        history={selectedRoomHistoryQuery.data ?? []}
-        historyLoading={selectedRoomHistoryQuery.isLoading}
-        historyError={selectedRoomHistoryQuery.isError}
-        acknowledgePending={acknowledgeWifiAlertMutation.isPending}
-        acknowledgeErrorMessage={
-          acknowledgeWifiAlertMutation.isError
-            ? acknowledgeWifiAlertMutation.error instanceof Error
-              ? acknowledgeWifiAlertMutation.error.message
-              : "Could not acknowledge alert."
-            : null
-        }
-        onAcknowledge={(id) => acknowledgeWifiAlertMutation.mutate(id)}
-      />
-
-      <AlertDetailDrawer
-        open={!!recoveryDrawerAlert}
-        alert={recoveryDrawerAlert}
-        onClose={() => {
-          setRecoveryDrawerAlert(null);
-          setDrawerAlertId(null);
-          updateSearchParams({
-            minutes: windowMinutes,
-            location: locationLabel,
-            alertId: null,
-          });
-        }}
-        history={recoveryAlertHistoryQuery.data ?? []}
-        historyLoading={recoveryAlertHistoryQuery.isLoading}
-        historyError={recoveryAlertHistoryQuery.isError}
-        acknowledgePending={false}
-        acknowledgeErrorMessage={null}
-        onAcknowledge={() => {}}
-      />
     </div>
   );
 }
