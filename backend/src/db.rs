@@ -5,10 +5,11 @@ use chrono::{DateTime, Timelike, Utc};
 use sqlx::{Row, SqlitePool};
 
 use crate::models::{
-    Alert, ConnectivityCheck, Device, DeviceHistoryEvent, DnsCheck, IncidentTargetSummaryItem,
-    KnownDevice, MetricsSummaryResponse, Outage, ProbeMetricsSummaryItem, RecentAlertEventItem,
-    RecentDeviceEventItem, ReportSummaryResponse, ReportTrendPoint, SummaryResponse,
-    TimeseriesPoint, TrafficSample, TrafficTopTalkerItem, WifiSample,
+    Alert, CaptureExportRequest, ConnectivityCheck, CreateCaptureExportRequest, Device,
+    DeviceHistoryEvent, DnsCheck, IncidentTargetSummaryItem, KnownDevice, MetricsSummaryResponse,
+    Outage, ProbeMetricsSummaryItem, RecentAlertEventItem, RecentDeviceEventItem,
+    ReportSummaryResponse, ReportTrendPoint, SummaryResponse, TimeseriesPoint, TrafficSample,
+    TrafficTopTalkerItem, WifiSample,
 };
 
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
@@ -2190,4 +2191,98 @@ pub async fn traffic_summary(
         interface_count as u32,
         top_talker,
     ))
+}
+
+pub async fn create_capture_export_request(
+    pool: &SqlitePool,
+    request: &CreateCaptureExportRequest,
+    created_at: DateTime<Utc>,
+) -> anyhow::Result<CaptureExportRequest> {
+    let result = sqlx::query(
+        r#"
+        INSERT INTO capture_export_requests (
+            source,
+            interface_name,
+            entity_type,
+            entity_key,
+            device_ip_address,
+            mac_address,
+            window_minutes,
+            note,
+            status,
+            capture_reference,
+            created_at
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'requested', NULL, ?9)
+        "#,
+    )
+    .bind(request.source.trim())
+    .bind(request.interface_name.as_deref())
+    .bind(request.entity_type.as_deref())
+    .bind(request.entity_key.as_deref())
+    .bind(request.device_ip_address.as_deref())
+    .bind(request.mac_address.as_deref())
+    .bind(request.window_minutes)
+    .bind(request.note.as_deref())
+    .bind(created_at)
+    .execute(pool)
+    .await?;
+
+    let id = result.last_insert_rowid();
+
+    let item = sqlx::query_as::<_, CaptureExportRequest>(
+        r#"
+        SELECT
+            id,
+            source,
+            interface_name,
+            entity_type,
+            entity_key,
+            device_ip_address,
+            mac_address,
+            window_minutes,
+            note,
+            status,
+            capture_reference,
+            created_at
+        FROM capture_export_requests
+        WHERE id = ?1
+        "#,
+    )
+    .bind(id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(item)
+}
+
+pub async fn list_capture_export_requests(
+    pool: &SqlitePool,
+    limit: i64,
+) -> anyhow::Result<Vec<CaptureExportRequest>> {
+    let items = sqlx::query_as::<_, CaptureExportRequest>(
+        r#"
+        SELECT
+            id,
+            source,
+            interface_name,
+            entity_type,
+            entity_key,
+            device_ip_address,
+            mac_address,
+            window_minutes,
+            note,
+            status,
+            capture_reference,
+            created_at
+        FROM capture_export_requests
+        ORDER BY datetime(created_at) DESC
+        LIMIT ?1
+        "#,
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(items)
 }

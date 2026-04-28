@@ -11,11 +11,12 @@ use serde_json::json;
 use crate::{
     db,
     models::{
-        AlertHistoryItem, DeviceHistoryItem, EnrichedDevice, HealthCurrentResponse,
-        IncidentTargetSummaryItem, KnownDeviceView, MetricsSummaryResponse, OutageReportItem,
-        RecentAlertEventItem, RecentDeviceEventItem, ReportSnapshotResponse, ReportSummaryResponse,
-        ReportTrendPoint, SaveKnownDeviceRequest, SummaryResponse, TimeseriesPoint, TrafficSample,
-        TrafficSummaryResponse, TrafficTopTalkerItem, TrafficTopTalkersResponse, WifiSample,
+        AlertHistoryItem, CaptureExportRequest, CreateCaptureExportRequest, DeviceHistoryItem,
+        EnrichedDevice, HealthCurrentResponse, IncidentTargetSummaryItem, KnownDeviceView,
+        MetricsSummaryResponse, OutageReportItem, RecentAlertEventItem, RecentDeviceEventItem,
+        ReportSnapshotResponse, ReportSummaryResponse, ReportTrendPoint, SaveKnownDeviceRequest,
+        SummaryResponse, TimeseriesPoint, TrafficSample, TrafficSummaryResponse,
+        TrafficTopTalkerItem, TrafficTopTalkersResponse, WifiSample,
     },
     services::{devices, status_overview},
     state::AppState,
@@ -151,6 +152,11 @@ struct TrafficSamplesQuery {
     limit: Option<u32>,
 }
 
+#[derive(Debug, Deserialize)]
+struct CaptureExportRequestsQuery {
+    limit: Option<u32>,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/status/overview", get(get_status_overview))
@@ -194,6 +200,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/traffic/summary", get(get_traffic_summary))
         .route("/api/traffic/top-talkers", get(get_traffic_top_talkers))
         .route("/api/traffic/samples", get(get_traffic_samples))
+        .route(
+            "/api/captures/export-requests",
+            get(get_capture_export_requests).post(create_capture_export_request),
+        )
         .with_state(state)
 }
 
@@ -1118,6 +1128,39 @@ async fn get_traffic_samples(
     let items = db::list_traffic_samples(&state.db, minutes, limit)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(items))
+}
+
+async fn create_capture_export_request(
+    State(state): State<AppState>,
+    Json(payload): Json<CreateCaptureExportRequest>,
+) -> Result<Json<CaptureExportRequest>, (StatusCode, Json<serde_json::Value>)> {
+    if payload.source.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "source is required"
+            })),
+        ));
+    }
+
+    let item = db::create_capture_export_request(&state.db, &payload, Utc::now())
+        .await
+        .map_err(internal_error)?;
+
+    Ok(Json(item))
+}
+
+async fn get_capture_export_requests(
+    State(state): State<AppState>,
+    Query(query): Query<CaptureExportRequestsQuery>,
+) -> Result<Json<Vec<CaptureExportRequest>>, (StatusCode, Json<serde_json::Value>)> {
+    let limit = query.limit.unwrap_or(20).min(100) as i64;
+
+    let items = db::list_capture_export_requests(&state.db, limit)
+        .await
+        .map_err(internal_error)?;
 
     Ok(Json(items))
 }

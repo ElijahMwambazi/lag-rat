@@ -10,7 +10,17 @@ async fn migrations_are_tracked_and_applied_once() -> anyhow::Result<()> {
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM schema_migrations")
         .fetch_one(&harness.state.db)
         .await?;
-    assert_eq!(count, 9); // 0001_initial, 0002_outages, 0003_alerts_and_known_devices, 0004_multi_probe, 0005_device_history, 0006_alert_acknowledgment, 0007_alert_history, 0008_wifi_sample, 0009_traffic_sanples
+    assert_eq!(count, 10);
+    // 0001_initial
+    // 0002_outages
+    // 0003_alerts_and_known_devices
+    // 0004_multi_probe
+    // 0005_device_history
+    // 0006_alert_acknowledgment
+    // 0007_alert_history
+    // 0008_wifi_sample
+    // 0009_traffic_sanples
+    // 0010_capture_export_requests
 
     let old_dir = std::env::current_dir()?;
     std::env::set_current_dir(harness.root.join("backend"))?;
@@ -20,7 +30,7 @@ async fn migrations_are_tracked_and_applied_once() -> anyhow::Result<()> {
     let count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM schema_migrations")
         .fetch_one(&harness.state.db)
         .await?;
-    assert_eq!(count_after, 9);
+    assert_eq!(count_after, 10);
 
     let row = sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name='outages'")
         .fetch_one(&harness.state.db)

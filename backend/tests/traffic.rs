@@ -232,3 +232,90 @@ async fn traffic_top_talkers_api_returns_ranked_items() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn capture_export_requests_can_be_created_and_listed() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "device_ip_address": "192.168.1.20",
+                        "mac_address": null,
+                        "window_minutes": 60,
+                        "note": "High traffic movement observed from top talker drawer"
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+
+    assert_eq!(created["source"].as_str(), Some("traffic_top_talker"));
+    assert_eq!(created["status"].as_str(), Some("requested"));
+    assert_eq!(created["interface_name"].as_str(), Some("eth0"));
+    assert_eq!(created["entity_key"].as_str(), Some("eth0"));
+    assert!(created["id"].as_i64().is_some());
+
+    let list_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/captures/export-requests?limit=10")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(list_response.status(), StatusCode::OK);
+
+    let list_body = to_bytes(list_response.into_body(), usize::MAX).await?;
+    let listed: Value = serde_json::from_slice(&list_body)?;
+    let items = listed.as_array().expect("response should be an array");
+
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["source"].as_str(), Some("traffic_top_talker"));
+    assert_eq!(items[0]["status"].as_str(), Some("requested"));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_export_request_requires_source() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "",
+                        "interface_name": "eth0"
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    Ok(())
+}

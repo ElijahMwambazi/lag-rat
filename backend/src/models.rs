@@ -467,3 +467,31 @@ pub struct TrafficTopTalkersResponse {
     pub window_minutes: u32,
     pub items: Vec<TrafficTopTalkerItem>,
 }
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+pub struct CaptureExportRequest {
+    pub id: i64,
+    pub source: String,
+    pub interface_name: Option<String>,
+    pub entity_type: Option<String>,
+    pub entity_key: Option<String>,
+    pub device_ip_address: Option<String>,
+    pub mac_address: Option<String>,
+    pub window_minutes: Option<i64>,
+    pub note: Option<String>,
+    pub status: String,
+    pub capture_reference: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateCaptureExportRequest {
+    pub source: String,
+    pub interface_name: Option<String>,
+    pub entity_type: Option<String>,
+    pub entity_key: Option<String>,
+    pub device_ip_address: Option<String>,
+    pub mac_address: Option<String>,
+    pub window_minutes: Option<i64>,
+    pub note: Option<String>,
+}
