@@ -62,6 +62,10 @@ Lag Rat should be treated as a **local observability platform** with a current p
   - current module tables
   - planned schema extensions
 
+### Capture execution plan
+
+- `docs/capture-execution-plan.md`
+
 ### Roadmap
 
 - `docs/roadmap.md`
