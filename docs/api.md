@@ -27,6 +27,7 @@ The current API serves seven broad categories:
 - Wi-Fi sample and room-health workflows
 - traffic summaries and top talkers
 - investigation read models
+- capture export request workflows
 
 ---
 
@@ -255,6 +256,42 @@ Each item includes:
 
 ---
 
+## Capture export requests
+
+### `POST /api/captures/export-requests`
+
+Creates a capture export request metadata record.
+
+This endpoint does not inspect packets and does not create a PCAP by itself. It records operator intent and context for later external packet-capture workflows.
+
+Request fields include:
+
+- `source`
+- `interface_name`
+- `entity_type`
+- `entity_key`
+- `device_ip_address`
+- `mac_address`
+- `window_minutes`
+- `note`
+
+Example request:
+
+```json
+{
+  "source": "traffic_top_talker",
+  "interface_name": "eth0",
+  "entity_type": "interface",
+  "entity_key": "eth0",
+  "device_ip_address": "192.168.1.20",
+  "mac_address": null,
+  "window_minutes": 60,
+  "note": "Capture export requested from traffic top talker drawer"
+}
+```
+
+---
+
 ## Wi-Fi
 
 ### `GET /api/wifi/samples?minutes=60&location_label=office&limit=50`
@@ -339,6 +376,7 @@ That includes:
 - Wi-Fi room health and sample workflows
 - traffic summaries and top talkers
 - incident investigation read models
+- capture export request metadata and history
 
 ---
 
@@ -359,8 +397,7 @@ These should stay familiar across modules:
 
 These may expand over time:
 
-- optional packet capture/export endpoints
-- optional capture/export endpoints
+- optional packet capture execution endpoints, after command allowlists, retention policy, and permissions model are defined
 - Bitcoin node observability summaries
 - Lightning observability summaries
 
@@ -373,7 +410,3 @@ The goal is to keep the dashboard contract familiar even as new observability mo
 - This API is local-first and intended for dashboard use.
 - Query parameters are currently simple and operator-focused.
 - Reports, metrics, and Wi-Fi endpoints form part of the stable dashboard-facing contract.
-
-```
-
-```

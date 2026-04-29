@@ -35,6 +35,7 @@ The schema supports three layers of usage:
    - Wi-Fi room summaries
    - traffic summary and top-talker views
    - investigation read models
+   - capture export request history
 
 ---
 
@@ -125,6 +126,33 @@ Notes:
 - powers traffic summary, top talkers, and recent traffic sample views
 - provides traffic context for investigation read models
 - stores summary-level counters, not packet contents
+
+### `capture_export_requests`
+
+Stores metadata for operator-created packet-capture handoff requests.
+
+Fields may include:
+
+- `id`
+- `source`
+- `interface_name`
+- `entity_type`
+- `entity_key`
+- `device_ip_address`
+- `mac_address`
+- `window_minutes`
+- `note`
+- `status`
+- `capture_reference`
+- `created_at`
+
+Notes:
+
+- records capture/export intent and context
+- powers capture export request history on the Traffic page
+- supports future capture execution workflows
+- does not store packet contents
+- does not imply packet inspection inside Lag Rat
 
 ### `outages`
 
@@ -295,6 +323,8 @@ These tables are currently specific to the first implemented module:
 - devices
 - known_devices
 - wifi_samples
+- traffic_samples
+- capture_export_requests
 
 Future modules should reuse shared incident/reporting patterns where possible rather than inventing separate lifecycle models.
 
@@ -316,3 +346,4 @@ The schema is beyond initial draft stage and already supports:
 - report and metrics aggregation queries
 - traffic sample storage and top-talker aggregation
 - investigation read-model inputs across outages, alerts, devices, traffic, and Wi-Fi
+- capture export request persistence and history

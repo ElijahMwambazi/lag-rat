@@ -16,9 +16,9 @@ Lag Rat already has a working local API, storage model, alerting flow, reports, 
 
 As the project grows, new domains such as:
 
-- room-based Wi-Fi sampling
-- traffic summaries / top talkers
-- optional packet capture export hooks
+- room-based Wi-Fi sampling and room mapping
+- traffic summaries, top talkers, and samples
+- capture export request metadata and history
 - Bitcoin node observability
 - Lightning observability
 
@@ -103,6 +103,9 @@ Examples in the current network module:
 - internet HTTP reachability check
 - DNS lookup timing check
 - device inventory/activity ingestion
+- Wi-Fi room sampling and room mapping
+- traffic counter sampling
+- capture export request metadata recording
 
 ---
 
@@ -225,20 +228,30 @@ Likely shared-platform concerns:
 - summary surfaces
 - export hooks
 - UI patterns
+- capture export request history
 
-### Optional packet capture export hooks
+### Capture export handoff workflows
 
 Likely module-owned concerns:
 
-- capture trigger conditions
-- capture reference metadata
-- target/device association
+- capture trigger context
+- source workflow context
+- target/device/interface association
+- suggested capture window
 
 Likely shared-platform concerns:
 
-- export metadata recording
-- incident linkage
-- operator-facing summaries
+- capture export request persistence
+- capture request history
+- status tracking
+- incident or investigation linkage
+- dashboard presentation patterns
+
+Boundary:
+
+- Lag Rat records capture/export metadata
+- Lag Rat should not inspect packet contents
+- packet-level inspection should remain external through tools such as `tcpdump` and Wireshark
 
 ### Bitcoin node observability
 
@@ -298,6 +311,8 @@ Lag Rat should avoid becoming:
 - a Wireshark replacement
 - a collection of unrelated dashboards with different interaction models
 
+Lag Rat may create capture handoff records, but packet capture execution and packet-content analysis should be treated as separate, carefully bounded workflows.
+
 Lag Rat should aim to be:
 
 - local-first
@@ -322,6 +337,7 @@ Deep forensic workflows can still exist, but they should usually connect through
 - metrics summaries
 - API conventions
 - dashboard conventions
+- capture/export metadata handoffs
 
 ### Modules own
 

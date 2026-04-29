@@ -46,7 +46,7 @@ Lag Rat is built around three main layers:
    - alerts open, escalate, acknowledge, and resolve
    - device history records are appended
    - Wi-Fi signal weakness and stale-sample alerts are evaluated
-4. Aggregation and read-model queries build status, metrics, report, Wi-Fi, traffic, and investigation views.
+4. Aggregation and read-model queries build status, metrics, report, Wi-Fi, traffic, investigation, and capture export request views.
 5. Axum serves local REST endpoints.
 6. The React dashboard renders overview, alerts, reports, metrics, devices, Wi-Fi, and detail drawers.
 
@@ -68,6 +68,7 @@ The shared platform should own:
 - local API delivery
 - dashboard presentation patterns
 - investigation read models
+- capture/export handoff metadata
 
 ### Module responsibilities
 
@@ -97,6 +98,9 @@ It currently covers:
 - room-level Wi-Fi health summaries and timelines
 - traffic summaries / top talkers
 - incident investigations
+- Wi-Fi room mapping summary / coverage workflow
+- traffic sample and top talker drawers
+- capture export request metadata and history
 
 ---
 
@@ -117,6 +121,7 @@ The backend currently owns:
 - local API delivery
 - traffic sample aggregation
 - investigation read-model composition
+- capture export request persistence and listing
 
 ### Current backend domains
 
@@ -154,6 +159,14 @@ The backend currently owns:
 - top talker ranking
 - recent traffic sample retrieval
 - device/interface traffic context for investigations
+
+#### Capture export requests
+
+- capture export request creation
+- capture export request history
+- source/interface/target/window metadata recording
+- status tracking for capture handoff workflows
+- packet-capture boundary enforcement by keeping packet inspection external
 
 #### Investigations
 
@@ -195,6 +208,8 @@ The frontend currently owns:
 - incident drill-down drawers
 - operator-friendly copy for primary surfaces
 - Wi-Fi room comparison, sample inspection, and room-specific incident flows
+- capture export actions from traffic drawers
+- capture export request history presentation
 
 ### Current dashboard surfaces
 
@@ -206,6 +221,7 @@ The frontend currently owns:
 - Wi-Fi
 - Traffic
 - Investigation drawers
+- Capture export request history
 
 ### Current UI patterns
 
@@ -234,6 +250,7 @@ SQLite is currently the system of record for:
 - Wi-Fi samples
 - schema migration tracking
 - traffic samples or traffic observations
+- capture export requests
 
 The database supports both raw-event storage and higher-level dashboard aggregation.
 
@@ -261,7 +278,8 @@ These are the most likely next architectural extensions:
 
 - traffic observability hardening
 - investigation workflow refinement
-- optional packet capture export hooks
+- capture export workflow refinement
+- packet capture execution planning
 - clearer collector/plugin boundaries
 
 ---
@@ -280,7 +298,6 @@ The architecture should leave room for future modules such as:
 
 These are not yet core architectural modules or completed platform capabilities:
 
-- optional packet capture export
 - Prometheus-compatible export
 - Docker packaging
 - PCAP/packet analysis inside Lag Rat
@@ -288,6 +305,9 @@ These are not yet core architectural modules or completed platform capabilities:
 - richer notification channels
 - Bitcoin node observability
 - Lightning observability
+- packet capture execution
+- packet capture command allowlist
+- capture retention policy
 
 Recommended separation:
 

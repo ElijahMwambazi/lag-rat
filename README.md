@@ -13,6 +13,9 @@ Today, the first implemented module is network monitoring for:
 - room-based Wi-Fi sampling and Wi-Fi alerting
 - traffic summaries and top talkers
 - backend-powered incident investigations
+- room-based Wi-Fi sampling, Wi-Fi alerting, and Wi-Fi room mapping
+- traffic summaries, top talkers, recent samples, and traffic drawers
+- capture export request metadata and history
 
 The current product shape is:
 
@@ -43,12 +46,19 @@ Implemented:
 - traffic summary, top talker, and recent traffic sample workflows
 - backend investigation read model for incident targets
 - investigation drawer with related outages, alert events, devices, traffic, and Wi-Fi context
+- Wi-Fi room mapping summary / coverage workflow
+- traffic top talker and traffic sample detail drawers
+- capture export request API
+- capture export request actions from traffic drawers
+- capture export request history on the Traffic page
 
 ## Current focus
 
-- responsive/mobile dashboard polish
-- dashboard cohesion and operator-friendly wording
-- docs refresh
+- keeping documentation aligned with implemented platform workflows
+- refining traffic observability and capture handoff workflows
+- refining investigation entry points across dashboard surfaces
+- preserving the collector/plugin boundary for future observability domains
+- keeping Lag Rat summary-oriented rather than turning it into a packet-analysis suite
 - defining a collector/plugin boundary for future observability domains
 - refining investigation and traffic observability workflows as shared platform capabilities
 
@@ -94,6 +104,23 @@ The current primary module is **home network observability**:
 
 - Bitcoin node observability
 - Lightning observability
+
+## Packet capture boundary
+
+Lag Rat records **capture export request metadata** as an operator handoff from traffic and investigation workflows.
+
+Lag Rat should not inspect packet contents or become a Wireshark replacement. Packet-level analysis should remain external through tools such as `tcpdump` and Wireshark.
+
+Current capture workflow:
+
+```text
+
+Traffic drawer
+→ Create capture export request
+→ Capture request history records source, target, window, status, and note
+→ Operator uses external tools for packet-level inspection
+
+```
 
 ## Current priorities
 
@@ -149,6 +176,7 @@ Next major testing step:
 ## Monorepo structure
 
 ```text
+
 lag-rat/
 ├── README.md
 ├── docs/
@@ -161,4 +189,5 @@ lag-rat/
 ├── backend/
 ├── frontend/
 └── scripts/
+
 ```

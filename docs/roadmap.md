@@ -115,6 +115,9 @@ Completed:
 - traffic top-talkers endpoint
 - traffic recent-samples endpoint
 - frontend traffic API client types
+- traffic top talker detail drawer
+- traffic sample detail drawer
+- traffic query-param drawer flows
 
 ---
 
@@ -133,18 +136,34 @@ Completed:
 
 ---
 
-## Milestone 10 — Current Work
+## Milestone 10 — Capture Export Handoff
+
+Completed:
+
+- backend capture export request API
+- capture export request persistence
+- capture export request listing
+- frontend capture export actions from traffic top talker drawers
+- frontend capture export actions from traffic sample drawers
+- capture export request history on the Traffic page
+- packet-capture boundary documented as metadata handoff, not packet inspection
+
+---
+
+## Milestone 11 — Current Work
 
 In progress:
 
-- traffic observability hardening and operator-path refinement
 - investigation workflow refinement across Reports, Overview, and Alerts
-- packet capture export hook design
+- capture export workflow refinement
+- packet capture execution planning
+- command allowlist design
+- capture retention policy design
 - documentation alignment as implemented capabilities move forward
 
 ---
 
-## Milestone 11 — Later Enhancements
+## Milestone 12 — Later Enhancements
 
 Not started:
 
@@ -153,7 +172,8 @@ Not started:
 - Prometheus-compatible metrics export
 - Docker packaging
 - packet capture / PCAP analysis
-- packet capture export linked to traffic or investigation context
+- packet capture execution
+- packet capture / PCAP analysis outside Lag Rat
 - remote access / cloud sync
 - richer notification channels
 - Bitcoin node observability module
@@ -170,8 +190,9 @@ Not started:
 
 ## Near-term new capabilities
 
-- richer traffic summaries / top talkers
-- optional packet capture export hooks
+- capture export workflow refinement
+- packet capture execution planning
+- investigation entry points from Overview and Alerts
 - future module onboarding patterns
 
 ## Future modules
