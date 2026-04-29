@@ -14,7 +14,13 @@ function LocationDisplay() {
 
 function renderReportsPage(initialEntries = ["/reports"]) {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={initialEntries}>
+    <MemoryRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+      initialEntries={initialEntries}
+    >
       <ReportsPage />
       <LocationDisplay />
     </MemoryRouter>,
