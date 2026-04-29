@@ -1,6 +1,7 @@
 use std::{
     net::IpAddr,
     path::{Path, PathBuf},
+    time::{Duration, SystemTime},
 };
 
 use anyhow::{anyhow, bail};
@@ -167,6 +168,13 @@ pub async fn process_next_capture_export_request(
     config: &CaptureConfig,
 ) -> anyhow::Result<bool> {
     let Some(request) = db::get_next_queued_capture_export_request(pool).await? else {
+        if let Err(err) = cleanup_expired_capture_files(config).await {
+            warn!(
+                error = %err,
+                "capture retention cleanup failed"
+            );
+        }
+
         return Ok(false);
     };
 
@@ -204,6 +212,24 @@ pub async fn process_next_capture_export_request(
         );
 
         return Ok(true);
+    }
+
+    match cleanup_expired_capture_files(config).await {
+        Ok(removed_count) => {
+            if removed_count > 0 {
+                info!(
+                    removed_count,
+                    retention_hours = config.retention_hours,
+                    "expired capture files removed"
+                );
+            }
+        }
+        Err(err) => {
+            warn!(
+                error = %err,
+                "capture retention cleanup failed"
+            );
+        }
     }
 
     let interface_name = running_request
@@ -313,6 +339,53 @@ pub async fn prepare_capture_output_dir(config: &CaptureConfig) -> anyhow::Resul
     tokio::fs::create_dir_all(path).await?;
 
     Ok(path.to_path_buf())
+}
+
+fn is_lag_rat_capture_file(path: &Path) -> bool {
+    let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+
+    file_name.starts_with("capture-") && file_name.ends_with(".pcap")
+}
+
+pub async fn cleanup_expired_capture_files(config: &CaptureConfig) -> anyhow::Result<u64> {
+    if config.retention_hours == 0 {
+        return Ok(0);
+    }
+
+    let output_dir = prepare_capture_output_dir(config).await?;
+    let retention = Duration::from_secs(config.retention_hours.saturating_mul(60 * 60));
+    let now = SystemTime::now();
+
+    let mut removed_count = 0;
+    let mut entries = tokio::fs::read_dir(&output_dir).await?;
+
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+
+        if !path.is_file() || !is_lag_rat_capture_file(&path) {
+            continue;
+        }
+
+        let metadata = entry.metadata().await?;
+        let Ok(modified_at) = metadata.modified() else {
+            continue;
+        };
+
+        let Ok(age) = now.duration_since(modified_at) else {
+            continue;
+        };
+
+        if age <= retention {
+            continue;
+        }
+
+        tokio::fs::remove_file(&path).await?;
+        removed_count += 1;
+    }
+
+    Ok(removed_count)
 }
 
 #[cfg(test)]
@@ -541,5 +614,87 @@ mod tests {
         );
 
         tokio::fs::remove_file(temp_file).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn cleanup_removes_expired_capture_files_only() {
+        let mut config = test_config();
+
+        let temp_dir = std::env::temp_dir().join(format!(
+            "lag-rat-capture-cleanup-test-{}",
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+
+        tokio::fs::create_dir_all(&temp_dir).await.unwrap();
+
+        let expired_capture = temp_dir.join("capture-1-20260429T123000Z.pcap");
+        let fresh_capture = temp_dir.join("capture-2-20260429T123000Z.pcap");
+        let unrelated_file = temp_dir.join("notes.txt");
+
+        tokio::fs::write(&expired_capture, b"old capture")
+            .await
+            .unwrap();
+        tokio::fs::write(&fresh_capture, b"fresh capture")
+            .await
+            .unwrap();
+        tokio::fs::write(&unrelated_file, b"do not delete")
+            .await
+            .unwrap();
+
+        filetime::set_file_mtime(
+            &expired_capture,
+            filetime::FileTime::from_system_time(
+                SystemTime::now() - Duration::from_secs(48 * 60 * 60),
+            ),
+        )
+        .unwrap();
+
+        config.output_dir = temp_dir.to_string_lossy().to_string();
+        config.retention_hours = 24;
+
+        let removed_count = cleanup_expired_capture_files(&config).await.unwrap();
+
+        assert_eq!(removed_count, 1);
+        assert!(!expired_capture.exists());
+        assert!(fresh_capture.exists());
+        assert!(unrelated_file.exists());
+
+        tokio::fs::remove_dir_all(temp_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn cleanup_skips_when_retention_is_zero() {
+        let mut config = test_config();
+
+        let temp_dir = std::env::temp_dir().join(format!(
+            "lag-rat-capture-cleanup-disabled-test-{}",
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+
+        tokio::fs::create_dir_all(&temp_dir).await.unwrap();
+
+        let expired_capture = temp_dir.join("capture-1-20260429T123000Z.pcap");
+
+        tokio::fs::write(&expired_capture, b"old capture")
+            .await
+            .unwrap();
+
+        filetime::set_file_mtime(
+            &expired_capture,
+            filetime::FileTime::from_system_time(
+                SystemTime::now() - Duration::from_secs(48 * 60 * 60),
+            ),
+        )
+        .unwrap();
+
+        config.output_dir = temp_dir.to_string_lossy().to_string();
+        config.retention_hours = 0;
+
+        let removed_count = cleanup_expired_capture_files(&config).await.unwrap();
+
+        assert_eq!(removed_count, 0);
+        assert!(expired_capture.exists());
+
+        tokio::fs::remove_dir_all(temp_dir).await.unwrap();
     }
 }
