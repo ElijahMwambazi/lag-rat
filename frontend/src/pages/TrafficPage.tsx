@@ -11,6 +11,7 @@ import TrafficTalkerDetailDrawer from "../components/TrafficTalkerDetailDrawer";
 import InspectionHighlightCard from "../components/InspectionHighlightCard";
 import {
   api,
+  type CaptureExportRequest,
   type TrafficSample,
   type TrafficTopTalkerItem,
 } from "../services/api";
@@ -88,6 +89,32 @@ function formatSampleAge(value?: string | null) {
   return `${diffDays} days ago`;
 }
 
+function formatCaptureSource(value: string) {
+  return value.replace(/_/g, " ");
+}
+
+function formatCaptureTarget(item: CaptureExportRequest) {
+  return (
+    item.device_ip_address ??
+    item.mac_address ??
+    item.entity_key ??
+    item.interface_name ??
+    "—"
+  );
+}
+
+function getCaptureStatusClasses(status: string) {
+  switch (status) {
+    case "completed":
+      return "border-emerald-800 bg-emerald-950 text-emerald-300";
+    case "failed":
+      return "border-red-800 bg-red-950 text-red-300";
+    case "requested":
+    default:
+      return "border-amber-800 bg-amber-950 text-amber-300";
+  }
+}
+
 function getViewingLabel(selectedInterface: string) {
   return selectedInterface || "All interfaces";
 }
@@ -141,6 +168,7 @@ export default function TrafficPage() {
   const [windowMinutes, setWindowMinutes] = useState(60);
   const [selectedInterface, setSelectedInterface] = useState("");
   const [samplesCollapsed, setSamplesCollapsed] = useState(true);
+  const [captureHistoryCollapsed, setCaptureHistoryCollapsed] = useState(true);
 
   const trafficSummaryQuery = useQuery({
     queryKey: ["traffic-summary", windowMinutes],
@@ -160,9 +188,17 @@ export default function TrafficPage() {
     refetchInterval: 30000,
   });
 
+  const captureExportRequestsQuery = useQuery({
+    queryKey: ["capture-export-requests", 20],
+    queryFn: () => api.getCaptureExportRequests(20),
+    refetchInterval: 30000,
+  });
+
   const trafficSamples: TrafficSample[] = trafficSamplesQuery.data ?? [];
   const summary = trafficSummaryQuery.data;
   const topTalkers = topTalkersQuery.data?.items ?? [];
+  const captureExportRequests = captureExportRequestsQuery.data ?? [];
+  const latestCaptureRequest = captureExportRequests[0] ?? null;
 
   const interfaceOptions = useMemo(() => {
     const values = new Set<string>();
@@ -704,6 +740,121 @@ export default function TrafficPage() {
             open={!!selectedSample}
             onClose={clearSampleDrawerParam}
           />
+        </DataTableCard>
+      </CollapsibleInspectionSection>
+
+      <CollapsibleInspectionSection
+        title="Capture export requests"
+        description="Metadata handoff records for packet-capture work that should be inspected externally with tools like tcpdump or Wireshark."
+        badges={
+          <>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+              {captureExportRequests.length} request
+              {captureExportRequests.length === 1 ? "" : "s"}
+            </span>
+
+            {latestCaptureRequest ? (
+              <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                Latest · {formatSampleAge(latestCaptureRequest.created_at)}
+              </span>
+            ) : null}
+          </>
+        }
+        collapsedSummary={
+          captureExportRequests.length === 0
+            ? "No capture export requests have been created yet."
+            : `${captureExportRequests.length} capture export request${
+                captureExportRequests.length === 1 ? "" : "s"
+              } recorded. Latest target: ${
+                latestCaptureRequest
+                  ? formatCaptureTarget(latestCaptureRequest)
+                  : "—"
+              }.`
+        }
+        collapsedDetail="Expand this section to review capture handoff metadata. Lag Rat records request context but does not inspect packet contents."
+        collapsedActionLabel="Show capture requests"
+        expandedActionLabel="Hide capture requests"
+        isExpanded={
+          !captureHistoryCollapsed ||
+          captureExportRequestsQuery.isLoading ||
+          captureExportRequestsQuery.isError
+        }
+        onToggle={() => setCaptureHistoryCollapsed((current) => !current)}
+      >
+        <DataTableCard
+          title="Capture export requests"
+          description="Recent capture handoff requests created from traffic drawers."
+          rightSlot={null}
+          helperText="These records are metadata handoffs only. Use external tooling for packet-level inspection."
+          isLoading={captureExportRequestsQuery.isLoading}
+          isError={captureExportRequestsQuery.isError}
+          errorMessage={
+            captureExportRequestsQuery.error instanceof Error
+              ? captureExportRequestsQuery.error.message
+              : "Capture export requests could not be loaded."
+          }
+          emptyTitle="Capture export requests"
+          emptyMessage="No capture export requests have been created yet."
+          hasData={captureExportRequests.length > 0}
+          tableMinWidthClassName="min-w-[1040px]"
+          variant="flush"
+        >
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-800/50 text-zinc-300">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Created</th>
+                <th className="px-4 py-3 text-left font-medium">Source</th>
+                <th className="px-4 py-3 text-left font-medium">Interface</th>
+                <th className="px-4 py-3 text-left font-medium">Target</th>
+                <th className="px-4 py-3 text-left font-medium">Window</th>
+                <th className="px-4 py-3 text-left font-medium">Status</th>
+                <th className="px-4 py-3 text-left font-medium">Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {captureExportRequests.map((item) => (
+                <tr
+                  key={item.id}
+                  className="border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
+                >
+                  <td className="px-4 py-3 text-zinc-300">
+                    <div>{formatDate(item.created_at)}</div>
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {formatSampleAge(item.created_at)}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    {formatCaptureSource(item.source)}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-100">
+                    {formatInterfaceName(item.interface_name)}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    <div>{formatCaptureTarget(item)}</div>
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {item.entity_type ?? "unknown"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    {item.window_minutes ? `${item.window_minutes}m` : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    <span
+                      className={[
+                        "rounded-full border px-2 py-0.5 text-[11px]",
+                        getCaptureStatusClasses(item.status),
+                      ].join(" ")}
+                    >
+                      {item.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-400">
+                    {item.note ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </DataTableCard>
       </CollapsibleInspectionSection>
     </div>

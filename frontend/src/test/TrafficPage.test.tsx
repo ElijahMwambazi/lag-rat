@@ -1248,4 +1248,72 @@ describe("TrafficPage", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("renders capture export request history", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.getTrafficSummary).mockResolvedValue({
+      window_minutes: 60,
+      total_bytes_rx: 40_000_000,
+      total_bytes_tx: 70_000_000,
+      total_bytes: 110_000_000,
+      interface_count: 1,
+      top_talker: null,
+    });
+
+    vi.mocked(api.getTrafficTopTalkers).mockResolvedValue({
+      window_minutes: 60,
+      items: [],
+    });
+
+    vi.mocked(api.getTrafficSamples).mockResolvedValue([]);
+
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: "192.168.1.20",
+        mac_address: null,
+        window_minutes: 60,
+        note: "High traffic movement observed from top talker drawer",
+        status: "requested",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Capture export requests"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Show capture requests",
+      }),
+    );
+
+    expect(await screen.findByText("traffic top talker")).toBeInTheDocument();
+    expect(await screen.findByText("192.168.1.20")).toBeInTheDocument();
+    expect(await screen.findByText("requested")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "High traffic movement observed from top talker drawer",
+      ),
+    ).toBeInTheDocument();
+  });
 });

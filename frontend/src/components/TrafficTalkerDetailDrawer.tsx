@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api, type TrafficTopTalkerItem } from "../services/api";
 import DrawerDetailSection from "./DrawerDetailSection";
@@ -139,18 +139,30 @@ export default function TrafficTalkerDetailDrawer({
 }: Props) {
   const navigate = useNavigate();
 
+  const queryClient = useQueryClient();
+
   const captureExportMutation = useMutation({
-    mutationFn: () =>
-      api.createCaptureExportRequest({
+    mutationFn: () => {
+      if (!talker) {
+        throw new Error("No traffic talker selected");
+      }
+
+      return api.createCaptureExportRequest({
         source: "traffic_top_talker",
-        interface_name: currentTalker.interface_name,
-        entity_type: currentTalker.entity_type,
-        entity_key: currentTalker.entity_key,
-        device_ip_address: currentTalker.device_ip_address,
-        mac_address: currentTalker.mac_address,
+        interface_name: talker.interface_name,
+        entity_type: talker.entity_type,
+        entity_key: talker.entity_key,
+        device_ip_address: talker.device_ip_address,
+        mac_address: talker.mac_address,
         window_minutes: windowMinutes,
         note: "Capture export requested from traffic top talker drawer",
-      }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["capture-export-requests"],
+      });
+    },
   });
 
   async function copyText(value?: string | null) {
