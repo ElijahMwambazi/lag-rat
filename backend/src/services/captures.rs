@@ -1,4 +1,7 @@
-use std::net::IpAddr;
+use std::{
+    net::IpAddr,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{anyhow, bail};
 use chrono::{DateTime, Utc};
@@ -228,6 +231,27 @@ pub async fn process_next_capture_export_request(
 
     match command_result {
         Ok(command) => {
+            let output_dir = match prepare_capture_output_dir(config).await {
+                Ok(path) => path,
+                Err(err) => {
+                    db::fail_capture_export_request(
+                        pool,
+                        running_request.id,
+                        Utc::now(),
+                        &err.to_string(),
+                    )
+                    .await?;
+
+                    warn!(
+                        request_id = running_request.id,
+                        error = %err,
+                        "capture output directory preparation failed"
+                    );
+
+                    return Ok(true);
+                }
+            };
+
             db::attach_capture_export_request_command_metadata(
                 pool,
                 running_request.id,
@@ -250,12 +274,14 @@ pub async fn process_next_capture_export_request(
                 request_id = running_request.id,
                 program = %command.program,
                 args = ?command.args,
+                output_dir = %output_dir.display(),
                 output_filename = %command.output_filename,
                 output_reference = %command.output_reference,
                 duration_seconds = command.duration_seconds,
-                "capture command metadata persisted but not executed"
+                "capture output directory prepared and command metadata persisted but not executed"
             );
         }
+
         Err(err) => {
             db::fail_capture_export_request(pool, running_request.id, Utc::now(), &err.to_string())
                 .await?;
@@ -269,6 +295,24 @@ pub async fn process_next_capture_export_request(
     }
 
     Ok(true)
+}
+
+pub async fn prepare_capture_output_dir(config: &CaptureConfig) -> anyhow::Result<PathBuf> {
+    let output_dir = config.output_dir.trim();
+
+    if output_dir.is_empty() {
+        bail!("capture output directory is required");
+    }
+
+    let path = Path::new(output_dir);
+
+    if path.exists() && !path.is_dir() {
+        bail!("capture output path exists but is not a directory");
+    }
+
+    tokio::fs::create_dir_all(path).await?;
+
+    Ok(path.to_path_buf())
 }
 
 #[cfg(test)]
@@ -445,5 +489,57 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err.to_string(), "capture host filter must be an IP address");
+    }
+
+    #[tokio::test]
+    async fn prepares_capture_output_directory() {
+        let mut config = test_config();
+        let temp_dir = std::env::temp_dir().join(format!(
+            "lag-rat-capture-test-{}",
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+
+        config.output_dir = temp_dir.to_string_lossy().to_string();
+
+        let prepared = prepare_capture_output_dir(&config).await.unwrap();
+
+        assert!(prepared.exists());
+        assert!(prepared.is_dir());
+
+        tokio::fs::remove_dir_all(prepared).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn rejects_empty_capture_output_directory() {
+        let mut config = test_config();
+        config.output_dir = "   ".to_string();
+
+        let err = prepare_capture_output_dir(&config).await.unwrap_err();
+
+        assert_eq!(err.to_string(), "capture output directory is required");
+    }
+
+    #[tokio::test]
+    async fn rejects_capture_output_path_that_is_file() {
+        let mut config = test_config();
+        let temp_file = std::env::temp_dir().join(format!(
+            "lag-rat-capture-file-test-{}",
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+
+        tokio::fs::write(&temp_file, b"not a directory")
+            .await
+            .unwrap();
+
+        config.output_dir = temp_file.to_string_lossy().to_string();
+
+        let err = prepare_capture_output_dir(&config).await.unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            "capture output path exists but is not a directory"
+        );
+
+        tokio::fs::remove_file(temp_file).await.unwrap();
     }
 }

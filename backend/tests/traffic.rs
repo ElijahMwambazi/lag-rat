@@ -832,3 +832,86 @@ async fn capture_command_metadata_is_only_attached_to_running_requests() -> Resu
 
     Ok(())
 }
+
+#[tokio::test]
+async fn capture_worker_fails_request_when_output_dir_is_invalid() -> Result<()> {
+    let mut harness = TestHarness::new().await?;
+    harness.state.config.capture.execution_enabled = true;
+    harness.state.config.capture.allowed_interfaces = vec!["eth0".to_string()];
+    harness.state.config.capture.output_dir = "   ".to_string();
+
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "device",
+                        "entity_key": "192.168.1.20",
+                        "device_ip_address": "192.168.1.20",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let queue_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/captures/export-requests/{id}/queue"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(queue_response.status(), StatusCode::OK);
+
+    let processed = captures::process_next_capture_export_request(
+        &harness.state.db,
+        &harness.state.config.capture,
+    )
+    .await?;
+
+    assert!(processed);
+
+    let get_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/captures/export-requests/{id}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(get_response.status(), StatusCode::OK);
+
+    let get_body = to_bytes(get_response.into_body(), usize::MAX).await?;
+    let loaded: Value = serde_json::from_slice(&get_body)?;
+
+    assert_eq!(loaded["status"].as_str(), Some("failed"));
+    assert_eq!(
+        loaded["failure_reason"].as_str(),
+        Some("capture output directory is required")
+    );
+    assert!(loaded["output_filename"].is_null());
+    assert!(loaded["capture_reference"].is_null());
+
+    Ok(())
+}
