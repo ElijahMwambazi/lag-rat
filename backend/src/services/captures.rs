@@ -33,6 +33,19 @@ pub struct CaptureCommandRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CaptureRunnerStatus {
+    Completed,
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaptureRunnerResult {
+    pub status: CaptureRunnerStatus,
+    pub failure_reason: Option<String>,
+    pub file_size_bytes: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureExecutionPreflight {
     pub tcpdump_available: bool,
     pub output_dir_ready: bool,
@@ -94,6 +107,17 @@ pub fn build_capture_command(
         output_filename,
         output_reference,
         duration_seconds,
+    })
+}
+
+pub async fn run_capture_command(
+    _command: &CaptureCommand,
+    _config: &CaptureConfig,
+) -> anyhow::Result<CaptureRunnerResult> {
+    Ok(CaptureRunnerResult {
+        status: CaptureRunnerStatus::Failed,
+        failure_reason: Some("capture execution runner is not implemented".to_string()),
+        file_size_bytes: None,
     })
 }
 
@@ -367,24 +391,54 @@ pub async fn process_next_capture_export_request(
             )
             .await?;
 
-            db::fail_capture_export_request(
-                pool,
-                running_request.id,
-                Utc::now(),
-                "capture command built but execution runner is not implemented",
-            )
-            .await?;
+            let runner_result = run_capture_command(&command, config).await?;
 
-            warn!(
-                request_id = running_request.id,
-                program = %command.program,
-                args = ?command.args,
-                output_dir = %output_dir.display(),
-                output_filename = %command.output_filename,
-                output_reference = %command.output_reference,
-                duration_seconds = command.duration_seconds,
-                "capture output directory prepared and command metadata persisted but not executed"
-            );
+            match runner_result.status {
+                CaptureRunnerStatus::Completed => {
+                    db::complete_capture_export_request(
+                        pool,
+                        running_request.id,
+                        Utc::now(),
+                        runner_result.file_size_bytes,
+                    )
+                    .await?;
+
+                    info!(
+                        request_id = running_request.id,
+                        output_dir = %output_dir.display(),
+                        output_filename = %command.output_filename,
+                        output_reference = %command.output_reference,
+                        duration_seconds = command.duration_seconds,
+                        "capture command completed through runner abstraction"
+                    );
+                }
+                CaptureRunnerStatus::Failed => {
+                    let failure_reason = runner_result
+                        .failure_reason
+                        .as_deref()
+                        .unwrap_or("capture execution failed");
+
+                    db::fail_capture_export_request(
+                        pool,
+                        running_request.id,
+                        Utc::now(),
+                        failure_reason,
+                    )
+                    .await?;
+
+                    warn!(
+                        request_id = running_request.id,
+                        program = %command.program,
+                        args = ?command.args,
+                        output_dir = %output_dir.display(),
+                        output_filename = %command.output_filename,
+                        output_reference = %command.output_reference,
+                        duration_seconds = command.duration_seconds,
+                        failure_reason,
+                        "capture runner returned failure"
+                    );
+                }
+            }
         }
 
         Err(err) => {
@@ -855,5 +909,33 @@ mod tests {
         assert!(!result.output_dir_ready);
 
         tokio::fs::remove_file(temp_file).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn default_capture_runner_returns_not_implemented_failure() {
+        let now = DateTime::parse_from_rfc3339("2026-04-29T12:30:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let command = build_capture_command(
+            &test_config(),
+            CaptureCommandRequest {
+                request_id: 22,
+                interface_name: "eth0".to_string(),
+                host_filter: Some("192.168.1.20".to_string()),
+                duration_seconds: Some(30),
+                now,
+            },
+        )
+        .unwrap();
+
+        let result = run_capture_command(&command, &test_config()).await.unwrap();
+
+        assert_eq!(result.status, CaptureRunnerStatus::Failed);
+        assert_eq!(
+            result.failure_reason.as_deref(),
+            Some("capture execution runner is not implemented")
+        );
+        assert_eq!(result.file_size_bytes, None);
     }
 }

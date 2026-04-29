@@ -746,11 +746,11 @@ async fn capture_worker_fails_after_preflight_until_runner_exists() -> Result<()
 
     assert!(
         failure_reason == "tcpdump is not available"
-            || failure_reason == "capture command built but execution runner is not implemented",
+            || failure_reason == "capture execution runner is not implemented",
         "unexpected failure reason: {failure_reason}"
     );
 
-    if failure_reason == "capture command built but execution runner is not implemented" {
+    if failure_reason == "capture execution runner is not implemented" {
         assert_eq!(loaded["duration_seconds"].as_i64(), Some(30));
 
         let output_filename = loaded["output_filename"]
@@ -925,6 +925,56 @@ async fn capture_worker_fails_request_when_output_dir_is_invalid() -> Result<()>
     );
     assert!(loaded["output_filename"].is_null());
     assert!(loaded["capture_reference"].is_null());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_request_can_only_complete_from_running_status() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let completed =
+        db::complete_capture_export_request(&harness.state.db, id, chrono::Utc::now(), Some(1024))
+            .await?;
+
+    assert!(completed.is_none());
+
+    let loaded = db::get_capture_export_request(&harness.state.db, id)
+        .await?
+        .expect("request should exist");
+
+    assert_eq!(loaded.status, "requested");
+    assert!(loaded.completed_at.is_none());
+    assert!(loaded.file_size_bytes.is_none());
 
     Ok(())
 }

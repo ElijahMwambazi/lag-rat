@@ -2474,3 +2474,33 @@ pub async fn fail_capture_export_request(
 
     get_capture_export_request(pool, id).await
 }
+
+pub async fn complete_capture_export_request(
+    pool: &SqlitePool,
+    id: i64,
+    completed_at: DateTime<Utc>,
+    file_size_bytes: Option<i64>,
+) -> anyhow::Result<Option<CaptureExportRequest>> {
+    let result = sqlx::query(
+        r#"
+        UPDATE capture_export_requests
+        SET
+            status = 'completed',
+            completed_at = ?2,
+            file_size_bytes = ?3
+        WHERE id = ?1
+          AND status = 'running'
+        "#,
+    )
+    .bind(id)
+    .bind(completed_at)
+    .bind(file_size_bytes)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Ok(None);
+    }
+
+    get_capture_export_request(pool, id).await
+}
