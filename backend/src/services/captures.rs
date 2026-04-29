@@ -7,6 +7,7 @@ use std::{
 use anyhow::{anyhow, bail};
 use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
+use tokio::process::Command;
 use tracing::{info, warn};
 
 use crate::{config::CaptureConfig, db};
@@ -29,6 +30,14 @@ pub struct CaptureCommandRequest {
     pub host_filter: Option<String>,
     pub duration_seconds: Option<u64>,
     pub now: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaptureExecutionPreflight {
+    pub tcpdump_available: bool,
+    pub output_dir_ready: bool,
+    pub duration_bounds_valid: bool,
+    pub allowed_interfaces_valid: bool,
 }
 
 pub fn build_capture_command(
@@ -214,6 +223,76 @@ pub async fn process_next_capture_export_request(
         return Ok(true);
     }
 
+    let preflight = run_capture_execution_preflight(config).await?;
+
+    if !preflight.duration_bounds_valid {
+        db::fail_capture_export_request(
+            pool,
+            running_request.id,
+            Utc::now(),
+            "capture duration configuration is invalid",
+        )
+        .await?;
+
+        warn!(
+            request_id = running_request.id,
+            "capture execution preflight failed: invalid duration bounds"
+        );
+
+        return Ok(true);
+    }
+
+    if !preflight.allowed_interfaces_valid {
+        db::fail_capture_export_request(
+            pool,
+            running_request.id,
+            Utc::now(),
+            "capture allowed interface configuration is invalid",
+        )
+        .await?;
+
+        warn!(
+            request_id = running_request.id,
+            "capture execution preflight failed: invalid allowed interface configuration"
+        );
+
+        return Ok(true);
+    }
+
+    if !preflight.output_dir_ready {
+        db::fail_capture_export_request(
+            pool,
+            running_request.id,
+            Utc::now(),
+            "capture output directory is not ready",
+        )
+        .await?;
+
+        warn!(
+            request_id = running_request.id,
+            "capture execution preflight failed: output directory is not ready"
+        );
+
+        return Ok(true);
+    }
+
+    if !preflight.tcpdump_available {
+        db::fail_capture_export_request(
+            pool,
+            running_request.id,
+            Utc::now(),
+            "tcpdump is not available",
+        )
+        .await?;
+
+        warn!(
+            request_id = running_request.id,
+            "capture execution preflight failed: tcpdump is not available"
+        );
+
+        return Ok(true);
+    }
+
     match cleanup_expired_capture_files(config).await {
         Ok(removed_count) => {
             if removed_count > 0 {
@@ -386,6 +465,40 @@ pub async fn cleanup_expired_capture_files(config: &CaptureConfig) -> anyhow::Re
     }
 
     Ok(removed_count)
+}
+
+pub async fn run_capture_execution_preflight(
+    config: &CaptureConfig,
+) -> anyhow::Result<CaptureExecutionPreflight> {
+    let tcpdump_available = is_tcpdump_available().await;
+
+    let output_dir_ready = prepare_capture_output_dir(config).await.is_ok();
+
+    let duration_bounds_valid = config.min_duration_seconds > 0
+        && config.max_duration_seconds >= config.min_duration_seconds
+        && config.default_duration_seconds >= config.min_duration_seconds
+        && config.default_duration_seconds <= config.max_duration_seconds;
+
+    let allowed_interfaces_valid = config
+        .allowed_interfaces
+        .iter()
+        .all(|interface_name| validate_capture_interface(config, interface_name).is_ok());
+
+    Ok(CaptureExecutionPreflight {
+        tcpdump_available,
+        output_dir_ready,
+        duration_bounds_valid,
+        allowed_interfaces_valid,
+    })
+}
+
+async fn is_tcpdump_available() -> bool {
+    Command::new("tcpdump")
+        .arg("--version")
+        .output()
+        .await
+        .map(|output| output.status.success())
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -696,5 +809,51 @@ mod tests {
         assert!(expired_capture.exists());
 
         tokio::fs::remove_dir_all(temp_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn preflight_reports_invalid_duration_bounds() {
+        let mut config = test_config();
+
+        config.min_duration_seconds = 120;
+        config.default_duration_seconds = 30;
+        config.max_duration_seconds = 60;
+
+        let result = run_capture_execution_preflight(&config).await.unwrap();
+
+        assert!(!result.duration_bounds_valid);
+    }
+
+    #[tokio::test]
+    async fn preflight_reports_invalid_allowed_interface_config() {
+        let mut config = test_config();
+
+        config.allowed_interfaces = vec!["../eth0".to_string()];
+
+        let result = run_capture_execution_preflight(&config).await.unwrap();
+
+        assert!(!result.allowed_interfaces_valid);
+    }
+
+    #[tokio::test]
+    async fn preflight_reports_output_dir_not_ready_for_file_path() {
+        let mut config = test_config();
+
+        let temp_file = std::env::temp_dir().join(format!(
+            "lag-rat-capture-preflight-file-test-{}",
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+
+        tokio::fs::write(&temp_file, b"not a directory")
+            .await
+            .unwrap();
+
+        config.output_dir = temp_file.to_string_lossy().to_string();
+
+        let result = run_capture_execution_preflight(&config).await.unwrap();
+
+        assert!(!result.output_dir_ready);
+
+        tokio::fs::remove_file(temp_file).await.unwrap();
     }
 }

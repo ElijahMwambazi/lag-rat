@@ -665,7 +665,7 @@ async fn capture_worker_marks_queued_request_failed_when_execution_is_disabled()
 }
 
 #[tokio::test]
-async fn capture_worker_builds_command_but_fails_when_runner_is_missing() -> Result<()> {
+async fn capture_worker_fails_after_preflight_until_runner_exists() -> Result<()> {
     let mut harness = TestHarness::new().await?;
     harness.state.config.capture.execution_enabled = true;
     harness.state.config.capture.allowed_interfaces = vec!["eth0".to_string()];
@@ -739,25 +739,38 @@ async fn capture_worker_builds_command_but_fails_when_runner_is_missing() -> Res
     assert_eq!(loaded["status"].as_str(), Some("failed"));
     assert!(loaded["started_at"].as_str().is_some());
     assert!(loaded["failed_at"].as_str().is_some());
-    assert_eq!(
-        loaded["failure_reason"].as_str(),
-        Some("capture command built but execution runner is not implemented")
+
+    let failure_reason = loaded["failure_reason"]
+        .as_str()
+        .expect("failure reason should be present");
+
+    assert!(
+        failure_reason == "tcpdump is not available"
+            || failure_reason == "capture command built but execution runner is not implemented",
+        "unexpected failure reason: {failure_reason}"
     );
-    assert_eq!(loaded["duration_seconds"].as_i64(), Some(30));
 
-    let output_filename = loaded["output_filename"]
-        .as_str()
-        .expect("output filename should be persisted");
+    if failure_reason == "capture command built but execution runner is not implemented" {
+        assert_eq!(loaded["duration_seconds"].as_i64(), Some(30));
 
-    assert!(output_filename.starts_with(&format!("capture-{id}-")));
-    assert!(output_filename.ends_with(".pcap"));
+        let output_filename = loaded["output_filename"]
+            .as_str()
+            .expect("output filename should be persisted");
 
-    let capture_reference = loaded["capture_reference"]
-        .as_str()
-        .expect("capture reference should be persisted");
+        assert!(output_filename.starts_with(&format!("capture-{id}-")));
+        assert!(output_filename.ends_with(".pcap"));
 
-    assert!(capture_reference.starts_with("data/captures/capture-"));
-    assert!(capture_reference.ends_with(".pcap"));
+        let capture_reference = loaded["capture_reference"]
+            .as_str()
+            .expect("capture reference should be persisted");
+
+        assert!(capture_reference.starts_with("data/captures/capture-"));
+        assert!(capture_reference.ends_with(".pcap"));
+    } else {
+        assert!(loaded["duration_seconds"].is_null());
+        assert!(loaded["output_filename"].is_null());
+        assert!(loaded["capture_reference"].is_null());
+    }
 
     Ok(())
 }
@@ -908,7 +921,7 @@ async fn capture_worker_fails_request_when_output_dir_is_invalid() -> Result<()>
     assert_eq!(loaded["status"].as_str(), Some("failed"));
     assert_eq!(
         loaded["failure_reason"].as_str(),
-        Some("capture output directory is required")
+        Some("capture output directory is not ready")
     );
     assert!(loaded["output_filename"].is_null());
     assert!(loaded["capture_reference"].is_null());
