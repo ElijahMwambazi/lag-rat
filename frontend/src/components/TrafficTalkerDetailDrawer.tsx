@@ -1,5 +1,6 @@
-import type { TrafficTopTalkerItem } from "../services/api";
+import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { api, type TrafficTopTalkerItem } from "../services/api";
 import DrawerDetailSection from "./DrawerDetailSection";
 import SideDrawer from "./SideDrawer";
 
@@ -138,6 +139,20 @@ export default function TrafficTalkerDetailDrawer({
 }: Props) {
   const navigate = useNavigate();
 
+  const captureExportMutation = useMutation({
+    mutationFn: () =>
+      api.createCaptureExportRequest({
+        source: "traffic_top_talker",
+        interface_name: currentTalker.interface_name,
+        entity_type: currentTalker.entity_type,
+        entity_key: currentTalker.entity_key,
+        device_ip_address: currentTalker.device_ip_address,
+        mac_address: currentTalker.mac_address,
+        window_minutes: windowMinutes,
+        note: "Capture export requested from traffic top talker drawer",
+      }),
+  });
+
   async function copyText(value?: string | null) {
     if (!value) return;
 
@@ -267,7 +282,31 @@ export default function TrafficTalkerDetailDrawer({
               Open device details
             </button>
           ) : null}
+
+          <button
+            type="button"
+            onClick={() => captureExportMutation.mutate()}
+            disabled={captureExportMutation.isPending}
+            className="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-sm text-amber-200 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {captureExportMutation.isPending
+              ? "Requesting export..."
+              : "Create capture export"}
+          </button>
         </div>
+
+        {captureExportMutation.isSuccess ? (
+          <div className="rounded-xl border border-emerald-800 bg-emerald-950/40 p-3 text-sm text-emerald-200">
+            Capture export request created. Use this as a handoff point for
+            external packet inspection tools.
+          </div>
+        ) : null}
+
+        {captureExportMutation.isError ? (
+          <div className="rounded-xl border border-red-800 bg-red-950/40 p-3 text-sm text-red-200">
+            Capture export request failed.
+          </div>
+        ) : null}
 
         <DrawerDetailSection label="Movement summary">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

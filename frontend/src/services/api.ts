@@ -300,6 +300,32 @@ export type TrafficSample = {
   sampled_at: string;
 };
 
+export type CaptureExportRequest = {
+  id: number;
+  source: string;
+  interface_name?: string | null;
+  entity_type?: string | null;
+  entity_key?: string | null;
+  device_ip_address?: string | null;
+  mac_address?: string | null;
+  window_minutes?: number | null;
+  note?: string | null;
+  status: string;
+  capture_reference?: string | null;
+  created_at: string;
+};
+
+export type CreateCaptureExportRequest = {
+  source: string;
+  interface_name?: string | null;
+  entity_type?: string | null;
+  entity_key?: string | null;
+  device_ip_address?: string | null;
+  mac_address?: string | null;
+  window_minutes?: number | null;
+  note?: string | null;
+};
+
 export type InvestigationSubjectResponse = {
   kind: "incident_target";
   incident_type: string;
@@ -502,6 +528,16 @@ export const api = {
   getTrafficSamples: (minutes = 60, limit = 20) =>
     getJson<TrafficSample[]>(
       `/api/traffic/samples?minutes=${minutes}&limit=${limit}`,
+    ),
+  createCaptureExportRequest: (body: CreateCaptureExportRequest) =>
+    postJson<CaptureExportRequest, CreateCaptureExportRequest>(
+      "/api/captures/export-requests",
+      body,
+    ),
+
+  getCaptureExportRequests: (limit = 20) =>
+    getJson<CaptureExportRequest[]>(
+      `/api/captures/export-requests?limit=${limit}`,
     ),
   getInvestigation: (params: {
     incident_type: string;

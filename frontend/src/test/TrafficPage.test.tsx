@@ -1,6 +1,6 @@
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import TrafficPage from "../pages/TrafficPage";
 import { api } from "../services/api";
 import { renderWithQueryClient } from "./render";
@@ -21,10 +21,31 @@ vi.mock("../services/api", () => ({
     getTrafficSummary: vi.fn(),
     getTrafficTopTalkers: vi.fn(),
     getTrafficSamples: vi.fn(),
+    createCaptureExportRequest: vi.fn(),
+    getCaptureExportRequests: vi.fn(),
   },
 }));
 
 describe("TrafficPage", () => {
+  beforeEach(() => {
+    vi.mocked(api.createCaptureExportRequest).mockResolvedValue({
+      id: 1,
+      source: "traffic_top_talker",
+      interface_name: "eth0",
+      entity_type: "interface",
+      entity_key: "eth0",
+      device_ip_address: null,
+      mac_address: null,
+      window_minutes: 60,
+      note: "Capture export requested from traffic top talker drawer",
+      status: "requested",
+      capture_reference: null,
+      created_at: new Date().toISOString(),
+    });
+
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([]);
+  });
+
   it("renders traffic summary and top talkers", async () => {
     vi.mocked(api.getTrafficSummary).mockResolvedValue({
       window_minutes: 60,
@@ -962,6 +983,83 @@ describe("TrafficPage", () => {
     );
   });
 
+  it("creates a capture export request from the top talker drawer", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.getTrafficSummary).mockResolvedValue({
+      window_minutes: 60,
+      total_bytes_rx: 40_000_000,
+      total_bytes_tx: 70_000_000,
+      total_bytes: 110_000_000,
+      interface_count: 1,
+      top_talker: null,
+    });
+
+    vi.mocked(api.getTrafficTopTalkers).mockResolvedValue({
+      window_minutes: 60,
+      items: [
+        {
+          interface_name: "eth0",
+          entity_type: "interface",
+          entity_key: "eth0",
+          device_ip_address: "192.168.1.20",
+          mac_address: null,
+          latest_bytes_rx: 20_000_000,
+          latest_bytes_tx: 30_000_000,
+          earliest_bytes_rx: 10_000_000,
+          earliest_bytes_tx: 15_000_000,
+          delta_bytes_rx: 10_000_000,
+          delta_bytes_tx: 15_000_000,
+          delta_bytes_total: 25_000_000,
+          latest_sampled_at: new Date().toISOString(),
+        },
+      ],
+    });
+
+    vi.mocked(api.getTrafficSamples).mockResolvedValue([]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Inspect top talker eth0",
+      }),
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Create capture export",
+      }),
+    );
+
+    expect(api.createCaptureExportRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: "192.168.1.20",
+        window_minutes: 60,
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Capture export request created. Use this as a handoff point for external packet inspection tools.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("opens device details from the traffic sample drawer", async () => {
     const user = userEvent.setup();
 
@@ -1067,5 +1165,87 @@ describe("TrafficPage", () => {
     expect(screen.getByTestId("location-search")).toHaveTextContent(
       "deviceMac=00%3A11%3A22%3A33%3A44%3A55",
     );
+  });
+
+  it("creates a capture export request from the traffic sample drawer", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.getTrafficSummary).mockResolvedValue({
+      window_minutes: 60,
+      total_bytes_rx: 40_000_000,
+      total_bytes_tx: 70_000_000,
+      total_bytes: 110_000_000,
+      interface_count: 1,
+      top_talker: null,
+    });
+
+    vi.mocked(api.getTrafficTopTalkers).mockResolvedValue({
+      window_minutes: 60,
+      items: [],
+    });
+
+    vi.mocked(api.getTrafficSamples).mockResolvedValue([
+      {
+        id: 2,
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: "192.168.1.20",
+        mac_address: null,
+        bytes_rx: 20_000_000,
+        bytes_tx: 30_000_000,
+        packets_rx: 4200,
+        packets_tx: 5100,
+        sampled_at: new Date().toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/traffic"]}
+      >
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Expand table",
+      }),
+    );
+
+    const inspectLabel = await screen.findByText("Inspect");
+    const sampleRow = inspectLabel.closest("tr");
+
+    expect(sampleRow).not.toBeNull();
+
+    await user.click(sampleRow!);
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Create capture export",
+      }),
+    );
+
+    expect(api.createCaptureExportRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "traffic_sample",
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: "192.168.1.20",
+        window_minutes: 60,
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Capture export request created. Use this as a handoff point for external packet inspection tools.",
+      ),
+    ).toBeInTheDocument();
   });
 });

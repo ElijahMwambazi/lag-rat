@@ -1,10 +1,12 @@
-import type { TrafficSample } from "../services/api";
+import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { api, type TrafficSample } from "../services/api";
 import DrawerDetailSection from "./DrawerDetailSection";
 import SideDrawer from "./SideDrawer";
 
 type Props = {
   sample: TrafficSample | null;
+  windowMinutes: number;
   open: boolean;
   onClose: () => void;
 };
@@ -120,10 +122,25 @@ function getTrafficSampleNarrative(sample: TrafficSample) {
 
 export default function TrafficSampleDetailDrawer({
   sample,
+  windowMinutes,
   open,
   onClose,
 }: Props) {
   const navigate = useNavigate();
+
+  const captureExportMutation = useMutation({
+    mutationFn: () =>
+      api.createCaptureExportRequest({
+        source: "traffic_sample",
+        interface_name: currentSample.interface_name,
+        entity_type: currentSample.entity_type,
+        entity_key: currentSample.entity_key,
+        device_ip_address: currentSample.device_ip_address,
+        mac_address: currentSample.mac_address,
+        window_minutes: windowMinutes,
+        note: "Capture export requested from traffic sample drawer",
+      }),
+  });
 
   async function copyText(value?: string | null) {
     if (!value) return;
@@ -255,7 +272,31 @@ export default function TrafficSampleDetailDrawer({
               Open device details
             </button>
           ) : null}
+
+          <button
+            type="button"
+            onClick={() => captureExportMutation.mutate()}
+            disabled={captureExportMutation.isPending}
+            className="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-sm text-amber-200 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {captureExportMutation.isPending
+              ? "Requesting export..."
+              : "Create capture export"}
+          </button>
         </div>
+
+        {captureExportMutation.isSuccess ? (
+          <div className="rounded-xl border border-emerald-800 bg-emerald-950/40 p-3 text-sm text-emerald-200">
+            Capture export request created. Use this as a handoff point for
+            external packet inspection tools.
+          </div>
+        ) : null}
+
+        {captureExportMutation.isError ? (
+          <div className="rounded-xl border border-red-800 bg-red-950/40 p-3 text-sm text-red-200">
+            Capture export request failed.
+          </div>
+        ) : null}
 
         <DrawerDetailSection label="Sample">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

@@ -700,6 +700,7 @@ export default function TrafficPage() {
           </table>
           <TrafficSampleDetailDrawer
             sample={selectedSample}
+            windowMinutes={windowMinutes}
             open={!!selectedSample}
             onClose={clearSampleDrawerParam}
           />
