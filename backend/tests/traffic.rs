@@ -629,7 +629,11 @@ async fn capture_worker_marks_queued_request_failed_when_execution_is_disabled()
 
     assert_eq!(queue_response.status(), StatusCode::OK);
 
-    let processed = captures::process_next_capture_export_request(&harness.state.db).await?;
+    let processed = captures::process_next_capture_export_request(
+        &harness.state.db,
+        &harness.state.config.capture,
+    )
+    .await?;
 
     assert!(processed);
 
@@ -664,7 +668,11 @@ async fn capture_worker_marks_queued_request_failed_when_execution_is_disabled()
 async fn capture_worker_noops_when_no_request_is_queued() -> Result<()> {
     let harness = TestHarness::new().await?;
 
-    let processed = captures::process_next_capture_export_request(&harness.state.db).await?;
+    let processed = captures::process_next_capture_export_request(
+        &harness.state.db,
+        &harness.state.config.capture,
+    )
+    .await?;
 
     assert!(!processed);
 

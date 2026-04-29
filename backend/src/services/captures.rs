@@ -2,11 +2,14 @@ use chrono::Utc;
 use sqlx::SqlitePool;
 use tracing::{info, warn};
 
-use crate::db;
+use crate::{config::CaptureConfig, db};
 
 const EXECUTION_DISABLED_REASON: &str = "capture execution is not enabled";
 
-pub async fn process_next_capture_export_request(pool: &SqlitePool) -> anyhow::Result<bool> {
+pub async fn process_next_capture_export_request(
+    pool: &SqlitePool,
+    config: &CaptureConfig,
+) -> anyhow::Result<bool> {
     let Some(request) = db::get_next_queued_capture_export_request(pool).await? else {
         return Ok(false);
     };
@@ -29,18 +32,37 @@ pub async fn process_next_capture_export_request(pool: &SqlitePool) -> anyhow::R
         return Ok(false);
     };
 
+    if !config.execution_enabled {
+        db::fail_capture_export_request(
+            pool,
+            running_request.id,
+            Utc::now(),
+            EXECUTION_DISABLED_REASON,
+        )
+        .await?;
+
+        warn!(
+            request_id = running_request.id,
+            reason = EXECUTION_DISABLED_REASON,
+            "capture execution skipped"
+        );
+
+        return Ok(true);
+    }
+
     db::fail_capture_export_request(
         pool,
         running_request.id,
         Utc::now(),
-        EXECUTION_DISABLED_REASON,
+        "capture execution is configured but no runner is implemented",
     )
     .await?;
 
     warn!(
         request_id = running_request.id,
-        reason = EXECUTION_DISABLED_REASON,
-        "capture execution skipped"
+        output_dir = %config.output_dir,
+        max_duration_seconds = config.max_duration_seconds,
+        "capture execution is enabled but no runner is implemented"
     );
 
     Ok(true)

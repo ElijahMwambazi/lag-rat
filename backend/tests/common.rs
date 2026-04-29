@@ -1,7 +1,11 @@
 use std::sync::Mutex;
 use std::{env, fs, path::PathBuf, str::FromStr};
 
-use lag_rat_backend::{config::AppConfig, db, state::AppState};
+use lag_rat_backend::{
+    config::{AppConfig, CaptureConfig},
+    db,
+    state::AppState,
+};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tempfile::TempDir;
 
@@ -80,6 +84,17 @@ impl TestHarness {
             wifi_sampling_enabled: false,
             wifi_interface: "wlan0".to_string(),
             wifi_location_label: "office".to_string(),
+            capture: CaptureConfig {
+                worker_interval_seconds: 10,
+                execution_enabled: false,
+                retention_hours: 24,
+                max_file_mb: 50,
+                default_duration_seconds: 30,
+                min_duration_seconds: 5,
+                max_duration_seconds: 120,
+                output_dir: "data/captures".to_string(),
+                allowed_interfaces: Vec::new(),
+            },
         };
 
         db::seed_default_known_devices(&pool, &config.router_ip).await?;
