@@ -7,7 +7,7 @@ use chrono::{Duration, Utc};
 use serde_json::Value;
 use tower::ServiceExt;
 
-use lag_rat_backend::{api, db};
+use lag_rat_backend::{api, db, services::captures};
 
 mod common;
 use common::TestHarness;
@@ -580,6 +580,93 @@ async fn missing_capture_export_request_returns_not_found() -> Result<()> {
         .await?;
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_worker_marks_queued_request_failed_when_execution_is_disabled() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let queue_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/captures/export-requests/{id}/queue"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(queue_response.status(), StatusCode::OK);
+
+    let processed = captures::process_next_capture_export_request(&harness.state.db).await?;
+
+    assert!(processed);
+
+    let get_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/captures/export-requests/{id}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(get_response.status(), StatusCode::OK);
+
+    let get_body = to_bytes(get_response.into_body(), usize::MAX).await?;
+    let loaded: Value = serde_json::from_slice(&get_body)?;
+
+    assert_eq!(loaded["id"].as_i64(), Some(id));
+    assert_eq!(loaded["status"].as_str(), Some("failed"));
+    assert!(loaded["queued_at"].as_str().is_some());
+    assert!(loaded["started_at"].as_str().is_some());
+    assert!(loaded["failed_at"].as_str().is_some());
+    assert_eq!(
+        loaded["failure_reason"].as_str(),
+        Some("capture execution is not enabled")
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_worker_noops_when_no_request_is_queued() -> Result<()> {
+    let harness = TestHarness::new().await?;
+
+    let processed = captures::process_next_capture_export_request(&harness.state.db).await?;
+
+    assert!(!processed);
 
     Ok(())
 }

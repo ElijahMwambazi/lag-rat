@@ -2362,3 +2362,83 @@ pub async fn cancel_capture_export_request(
 
     get_capture_export_request(pool, id).await
 }
+
+pub async fn get_next_queued_capture_export_request(
+    pool: &SqlitePool,
+) -> anyhow::Result<Option<CaptureExportRequest>> {
+    let query = format!(
+        r#"
+        {}
+        WHERE status = 'queued'
+        ORDER BY datetime(queued_at) ASC, datetime(created_at) ASC
+        LIMIT 1
+        "#,
+        capture_export_request_select_sql()
+    );
+
+    let item = sqlx::query_as::<_, CaptureExportRequest>(&query)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(item)
+}
+
+pub async fn start_capture_export_request(
+    pool: &SqlitePool,
+    id: i64,
+    started_at: DateTime<Utc>,
+) -> anyhow::Result<Option<CaptureExportRequest>> {
+    let result = sqlx::query(
+        r#"
+        UPDATE capture_export_requests
+        SET
+            status = 'running',
+            started_at = ?2,
+            failed_at = NULL,
+            failure_reason = NULL,
+            cancelled_at = NULL
+        WHERE id = ?1
+          AND status = 'queued'
+        "#,
+    )
+    .bind(id)
+    .bind(started_at)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Ok(None);
+    }
+
+    get_capture_export_request(pool, id).await
+}
+
+pub async fn fail_capture_export_request(
+    pool: &SqlitePool,
+    id: i64,
+    failed_at: DateTime<Utc>,
+    failure_reason: &str,
+) -> anyhow::Result<Option<CaptureExportRequest>> {
+    let result = sqlx::query(
+        r#"
+        UPDATE capture_export_requests
+        SET
+            status = 'failed',
+            failed_at = ?2,
+            failure_reason = ?3
+        WHERE id = ?1
+          AND status IN ('queued', 'running')
+        "#,
+    )
+    .bind(id)
+    .bind(failed_at)
+    .bind(failure_reason)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Ok(None);
+    }
+
+    get_capture_export_request(pool, id).await
+}

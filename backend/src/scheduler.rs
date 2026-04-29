@@ -1,7 +1,7 @@
 use tokio::time::{interval, Duration};
 use tracing::{error, info, warn};
 
-use crate::services::{collector_ingest, traffic};
+use crate::services::{captures, collector_ingest, traffic};
 use crate::{monitors, state::AppState};
 
 pub async fn start(state: AppState) {
@@ -12,6 +12,7 @@ pub async fn start(state: AppState) {
     let mut device_tick = interval(Duration::from_secs(state.config.device_interval_seconds));
     let mut wifi_tick = interval(Duration::from_secs(state.config.wifi_interval_seconds));
     let mut traffic_tick = interval(Duration::from_secs(30));
+    let mut capture_tick = interval(Duration::from_secs(10));
 
     info!("scheduler started");
 
@@ -51,6 +52,11 @@ pub async fn start(state: AppState) {
                     Err(err) => {
                         warn!(error = %err, "failed to collect traffic snapshots");
                     }
+                }
+            }
+            _ = capture_tick.tick() => {
+                if let Err(err) = captures::process_next_capture_export_request(&state.db).await {
+                    error!(error = %err, "failed to process capture export request");
                 }
             }
         }
