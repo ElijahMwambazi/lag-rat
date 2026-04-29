@@ -23,6 +23,8 @@ vi.mock("../services/api", () => ({
     getTrafficSamples: vi.fn(),
     createCaptureExportRequest: vi.fn(),
     getCaptureExportRequests: vi.fn(),
+    queueCaptureExportRequest: vi.fn(),
+    cancelCaptureExportRequest: vi.fn(),
   },
 }));
 
@@ -44,6 +46,54 @@ describe("TrafficPage", () => {
     });
 
     vi.mocked(api.getCaptureExportRequests).mockResolvedValue([]);
+
+    vi.mocked(api.queueCaptureExportRequest).mockResolvedValue({
+      id: 1,
+      source: "traffic_top_talker",
+      interface_name: "eth0",
+      entity_type: "interface",
+      entity_key: "eth0",
+      device_ip_address: null,
+      mac_address: null,
+      window_minutes: 60,
+      note: "Capture this top talker",
+      status: "queued",
+      capture_reference: null,
+      created_at: new Date().toISOString(),
+      queued_at: new Date().toISOString(),
+      started_at: null,
+      completed_at: null,
+      failed_at: null,
+      cancelled_at: null,
+      failure_reason: null,
+      duration_seconds: null,
+      output_filename: null,
+      file_size_bytes: null,
+    });
+
+    vi.mocked(api.cancelCaptureExportRequest).mockResolvedValue({
+      id: 1,
+      source: "traffic_top_talker",
+      interface_name: "eth0",
+      entity_type: "interface",
+      entity_key: "eth0",
+      device_ip_address: null,
+      mac_address: null,
+      window_minutes: 60,
+      note: "Capture this top talker",
+      status: "cancelled",
+      capture_reference: null,
+      created_at: new Date().toISOString(),
+      queued_at: new Date().toISOString(),
+      started_at: null,
+      completed_at: null,
+      failed_at: null,
+      cancelled_at: new Date().toISOString(),
+      failure_reason: null,
+      duration_seconds: null,
+      output_filename: null,
+      file_size_bytes: null,
+    });
   });
 
   it("renders traffic summary and top talkers", async () => {
@@ -1309,11 +1359,67 @@ describe("TrafficPage", () => {
 
     expect(await screen.findByText("traffic top talker")).toBeInTheDocument();
     expect(await screen.findByText("192.168.1.20")).toBeInTheDocument();
-    expect(await screen.findByText("requested")).toBeInTheDocument();
+    expect(await screen.findByText("Requested")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Metadata handoff created"),
+    ).toBeInTheDocument();
     expect(
       await screen.findByText(
         "High traffic movement observed from top talker drawer",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("shows capture lifecycle actions for requested export requests", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: null,
+        mac_address: null,
+        window_minutes: 60,
+        note: "Capture this top talker",
+        status: "requested",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+        queued_at: null,
+        started_at: null,
+        completed_at: null,
+        failed_at: null,
+        cancelled_at: null,
+        failure_reason: null,
+        duration_seconds: null,
+        output_filename: null,
+        file_size_bytes: null,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    expect(await screen.findByText("Requested")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Metadata handoff created"),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /queue/i,
+      }),
+    );
+
+    expect(api.queueCaptureExportRequest).toHaveBeenCalledWith(1);
   });
 });

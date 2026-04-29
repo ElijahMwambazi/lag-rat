@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import DataTableCard from "../components/DataTableCard";
 import QueryState from "../components/QueryState";
@@ -103,16 +103,99 @@ function formatCaptureTarget(item: CaptureExportRequest) {
   );
 }
 
+function formatCaptureStatus(status: string) {
+  switch (status) {
+    case "requested":
+      return "Requested";
+    case "queued":
+      return "Queued";
+    case "running":
+      return "Running";
+    case "completed":
+      return "Completed";
+    case "failed":
+      return "Failed";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status.replace(/_/g, " ");
+  }
+}
+
 function getCaptureStatusClasses(status: string) {
   switch (status) {
     case "completed":
       return "border-emerald-800 bg-emerald-950 text-emerald-300";
     case "failed":
       return "border-red-800 bg-red-950 text-red-300";
+    case "cancelled":
+      return "border-zinc-700 bg-zinc-900 text-zinc-300";
+    case "running":
+      return "border-cyan-800 bg-cyan-950 text-cyan-300";
+    case "queued":
+      return "border-blue-800 bg-blue-950 text-blue-300";
     case "requested":
     default:
       return "border-amber-800 bg-amber-950 text-amber-300";
   }
+}
+
+function getCaptureLifecycleTimestamp(item: CaptureExportRequest) {
+  switch (item.status) {
+    case "queued":
+      return item.queued_at ?? item.created_at;
+    case "running":
+      return item.started_at ?? item.queued_at ?? item.created_at;
+    case "completed":
+      return item.completed_at ?? item.created_at;
+    case "failed":
+      return item.failed_at ?? item.created_at;
+    case "cancelled":
+      return item.cancelled_at ?? item.created_at;
+    case "requested":
+    default:
+      return item.created_at;
+  }
+}
+
+function getCaptureLifecycleDetail(item: CaptureExportRequest) {
+  switch (item.status) {
+    case "queued":
+      return item.queued_at
+        ? `Queued ${formatSampleAge(item.queued_at)}`
+        : "Waiting in queue";
+    case "running":
+      return item.started_at
+        ? `Started ${formatSampleAge(item.started_at)}`
+        : "Capture worker is running";
+    case "completed":
+      if (
+        item.output_filename &&
+        item.file_size_bytes !== null &&
+        item.file_size_bytes !== undefined
+      ) {
+        return `${item.output_filename} · ${formatBytes(item.file_size_bytes)}`;
+      }
+
+      return item.capture_reference ?? "Capture reference available";
+    case "failed":
+      return item.failure_reason ?? "Capture request failed";
+    case "cancelled":
+      return item.cancelled_at
+        ? `Cancelled ${formatSampleAge(item.cancelled_at)}`
+        : "Cancelled";
+    case "requested":
+    default:
+      return "Metadata handoff created";
+  }
+}
+
+function canQueueCaptureRequest(item: CaptureExportRequest) {
+  return item.status === "requested";
+}
+
+function canCancelCaptureRequest(item: CaptureExportRequest) {
+  return ["requested", "queued", "running"].includes(item.status);
 }
 
 function getViewingLabel(selectedInterface: string) {
@@ -170,6 +253,8 @@ export default function TrafficPage() {
   const [samplesCollapsed, setSamplesCollapsed] = useState(true);
   const [captureHistoryCollapsed, setCaptureHistoryCollapsed] = useState(true);
 
+  const queryClient = useQueryClient();
+
   const trafficSummaryQuery = useQuery({
     queryKey: ["traffic-summary", windowMinutes],
     queryFn: () => api.getTrafficSummary(windowMinutes),
@@ -192,6 +277,24 @@ export default function TrafficPage() {
     queryKey: ["capture-export-requests", 20],
     queryFn: () => api.getCaptureExportRequests(20),
     refetchInterval: 30000,
+  });
+
+  const queueCaptureMutation = useMutation({
+    mutationFn: (id: number) => api.queueCaptureExportRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["capture-export-requests"],
+      });
+    },
+  });
+
+  const cancelCaptureMutation = useMutation({
+    mutationFn: (id: number) => api.cancelCaptureExportRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["capture-export-requests"],
+      });
+    },
   });
 
   const trafficSamples: TrafficSample[] = trafficSamplesQuery.data ?? [];
@@ -376,6 +479,30 @@ export default function TrafficPage() {
             trafficSummaryQuery.error instanceof Error
               ? trafficSummaryQuery.error.message
               : "Traffic summary could not be loaded."
+          }
+        />
+      ) : null}
+
+      {queueCaptureMutation.isError ? (
+        <QueryState
+          title="Capture request could not be queued"
+          tone="error"
+          message={
+            queueCaptureMutation.error instanceof Error
+              ? queueCaptureMutation.error.message
+              : "The capture export request could not be queued."
+          }
+        />
+      ) : null}
+
+      {cancelCaptureMutation.isError ? (
+        <QueryState
+          title="Capture request could not be cancelled"
+          tone="error"
+          message={
+            cancelCaptureMutation.error instanceof Error
+              ? cancelCaptureMutation.error.message
+              : "The capture export request could not be cancelled."
           }
         />
       ) : null}
@@ -796,7 +923,7 @@ export default function TrafficPage() {
           emptyTitle="Capture export requests"
           emptyMessage="No capture export requests have been created yet."
           hasData={captureExportRequests.length > 0}
-          tableMinWidthClassName="min-w-[1040px]"
+          tableMinWidthClassName="min-w-[1280px]"
           variant="flush"
         >
           <table className="w-full text-sm">
@@ -808,7 +935,9 @@ export default function TrafficPage() {
                 <th className="px-4 py-3 text-left font-medium">Target</th>
                 <th className="px-4 py-3 text-left font-medium">Window</th>
                 <th className="px-4 py-3 text-left font-medium">Status</th>
+                <th className="px-4 py-3 text-left font-medium">Lifecycle</th>
                 <th className="px-4 py-3 text-left font-medium">Note</th>
+                <th className="px-4 py-3 text-left font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -845,11 +974,49 @@ export default function TrafficPage() {
                         getCaptureStatusClasses(item.status),
                       ].join(" ")}
                     >
-                      {item.status}
+                      {formatCaptureStatus(item.status)}
                     </span>
+                  </td>
+
+                  <td className="px-4 py-3 text-zinc-300">
+                    <div>{formatDate(getCaptureLifecycleTimestamp(item))}</div>
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {getCaptureLifecycleDetail(item)}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-zinc-400">
                     {item.note ?? "—"}
+                  </td>
+
+                  <td className="px-4 py-3 text-zinc-300">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {canQueueCaptureRequest(item) ? (
+                        <button
+                          type="button"
+                          onClick={() => queueCaptureMutation.mutate(item.id)}
+                          disabled={queueCaptureMutation.isPending}
+                          className="rounded-full border border-cyan-800 bg-cyan-950 px-2 py-0.5 text-[11px] text-cyan-200 transition hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Queue
+                        </button>
+                      ) : null}
+
+                      {canCancelCaptureRequest(item) ? (
+                        <button
+                          type="button"
+                          onClick={() => cancelCaptureMutation.mutate(item.id)}
+                          disabled={cancelCaptureMutation.isPending}
+                          className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300 transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
+
+                      {!canQueueCaptureRequest(item) &&
+                      !canCancelCaptureRequest(item) ? (
+                        <span className="text-xs text-zinc-500">No action</span>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -313,6 +313,15 @@ export type CaptureExportRequest = {
   status: string;
   capture_reference?: string | null;
   created_at: string;
+  queued_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  failed_at?: string | null;
+  cancelled_at?: string | null;
+  failure_reason?: string | null;
+  duration_seconds?: number | null;
+  output_filename?: string | null;
+  file_size_bytes?: number | null;
 };
 
 export type CreateCaptureExportRequest = {
@@ -557,4 +566,18 @@ export const api = {
       `/api/investigations?${query.toString()}`,
     );
   },
+  getCaptureExportRequest: (id: number) =>
+    getJson<CaptureExportRequest>(`/api/captures/export-requests/${id}`),
+
+  queueCaptureExportRequest: (id: number) =>
+    postJson<CaptureExportRequest, Record<string, never>>(
+      `/api/captures/export-requests/${id}/queue`,
+      {},
+    ),
+
+  cancelCaptureExportRequest: (id: number) =>
+    postJson<CaptureExportRequest, Record<string, never>>(
+      `/api/captures/export-requests/${id}/cancel`,
+      {},
+    ),
 };
