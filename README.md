@@ -54,13 +54,10 @@ Implemented:
 
 ## Current focus
 
-- keeping documentation aligned with implemented platform workflows
-- refining traffic observability and capture handoff workflows
-- refining investigation entry points across dashboard surfaces
+- refining investigation entry points across Overview, Alerts, and Reports
+- refining capture export workflow visibility and operator handoff states
+- planning packet capture execution safely before adding any runner
 - preserving the collector/plugin boundary for future observability domains
-- keeping Lag Rat summary-oriented rather than turning it into a packet-analysis suite
-- defining a collector/plugin boundary for future observability domains
-- refining investigation and traffic observability workflows as shared platform capabilities
 
 ## Platform model
 
@@ -91,13 +88,14 @@ The current primary module is **home network observability**:
 - reports
 - metrics
 - Wi-Fi samples and room-level Wi-Fi health
+- Wi-Fi samples, room-level Wi-Fi health, and Wi-Fi room mapping
+- traffic summaries, top talkers, samples, and capture export handoffs
+- incident investigations
 
 ### Near-term additions
 
-- responsive/mobile dashboard polish
 - traffic observability hardening
 - investigation workflow refinement
-- optional packet capture export hooks
 - clearer collector/plugin boundaries for future modules
 
 ### Future modules
