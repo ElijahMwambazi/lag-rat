@@ -268,6 +268,15 @@ async fn capture_export_requests_can_be_created_and_listed() -> Result<()> {
 
     assert_eq!(created["source"].as_str(), Some("traffic_top_talker"));
     assert_eq!(created["status"].as_str(), Some("requested"));
+    assert!(created["queued_at"].is_null());
+    assert!(created["started_at"].is_null());
+    assert!(created["completed_at"].is_null());
+    assert!(created["failed_at"].is_null());
+    assert!(created["cancelled_at"].is_null());
+    assert!(created["failure_reason"].is_null());
+    assert!(created["duration_seconds"].is_null());
+    assert!(created["output_filename"].is_null());
+    assert!(created["file_size_bytes"].is_null());
     assert_eq!(created["interface_name"].as_str(), Some("eth0"));
     assert_eq!(created["entity_key"].as_str(), Some("eth0"));
     assert!(created["id"].as_i64().is_some());
@@ -316,6 +325,261 @@ async fn capture_export_request_requires_source() -> Result<()> {
         .await?;
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_export_request_can_be_loaded_by_id() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_sample",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60,
+                        "note": "Inspect this traffic sample"
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let get_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/captures/export-requests/{id}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(get_response.status(), StatusCode::OK);
+
+    let get_body = to_bytes(get_response.into_body(), usize::MAX).await?;
+    let loaded: Value = serde_json::from_slice(&get_body)?;
+
+    assert_eq!(loaded["id"].as_i64(), Some(id));
+    assert_eq!(loaded["status"].as_str(), Some("requested"));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_export_request_can_be_queued() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let queue_response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/captures/export-requests/{id}/queue"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(queue_response.status(), StatusCode::OK);
+
+    let queue_body = to_bytes(queue_response.into_body(), usize::MAX).await?;
+    let queued: Value = serde_json::from_slice(&queue_body)?;
+
+    assert_eq!(queued["id"].as_i64(), Some(id));
+    assert_eq!(queued["status"].as_str(), Some("queued"));
+    assert!(queued["queued_at"].as_str().is_some());
+    assert!(queued["started_at"].is_null());
+    assert!(queued["completed_at"].is_null());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn queued_capture_export_request_can_be_cancelled() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let queue_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/captures/export-requests/{id}/queue"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(queue_response.status(), StatusCode::OK);
+
+    let cancel_response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/captures/export-requests/{id}/cancel"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(cancel_response.status(), StatusCode::OK);
+
+    let cancel_body = to_bytes(cancel_response.into_body(), usize::MAX).await?;
+    let cancelled: Value = serde_json::from_slice(&cancel_body)?;
+
+    assert_eq!(cancelled["id"].as_i64(), Some(id));
+    assert_eq!(cancelled["status"].as_str(), Some("cancelled"));
+    assert!(cancelled["queued_at"].as_str().is_some());
+    assert!(cancelled["cancelled_at"].as_str().is_some());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn cancelled_capture_export_request_cannot_be_queued() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let cancel_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/captures/export-requests/{id}/cancel"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(cancel_response.status(), StatusCode::OK);
+
+    let queue_response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/captures/export-requests/{id}/queue"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(queue_response.status(), StatusCode::CONFLICT);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn missing_capture_export_request_returns_not_found() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/captures/export-requests/9999")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     Ok(())
 }

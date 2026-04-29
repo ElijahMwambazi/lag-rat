@@ -2193,6 +2193,34 @@ pub async fn traffic_summary(
     ))
 }
 
+fn capture_export_request_select_sql() -> &'static str {
+    r#"
+    SELECT
+        id,
+        source,
+        interface_name,
+        entity_type,
+        entity_key,
+        device_ip_address,
+        mac_address,
+        window_minutes,
+        note,
+        status,
+        capture_reference,
+        created_at,
+        queued_at,
+        started_at,
+        completed_at,
+        failed_at,
+        cancelled_at,
+        failure_reason,
+        duration_seconds,
+        output_filename,
+        file_size_bytes
+    FROM capture_export_requests
+    "#
+}
+
 pub async fn create_capture_export_request(
     pool: &SqlitePool,
     request: &CreateCaptureExportRequest,
@@ -2230,28 +2258,9 @@ pub async fn create_capture_export_request(
 
     let id = result.last_insert_rowid();
 
-    let item = sqlx::query_as::<_, CaptureExportRequest>(
-        r#"
-        SELECT
-            id,
-            source,
-            interface_name,
-            entity_type,
-            entity_key,
-            device_ip_address,
-            mac_address,
-            window_minutes,
-            note,
-            status,
-            capture_reference,
-            created_at
-        FROM capture_export_requests
-        WHERE id = ?1
-        "#,
-    )
-    .bind(id)
-    .fetch_one(pool)
-    .await?;
+    let item = get_capture_export_request(pool, id)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("created capture export request was not found"))?;
 
     Ok(item)
 }
@@ -2260,29 +2269,96 @@ pub async fn list_capture_export_requests(
     pool: &SqlitePool,
     limit: i64,
 ) -> anyhow::Result<Vec<CaptureExportRequest>> {
-    let items = sqlx::query_as::<_, CaptureExportRequest>(
+    let query = format!(
         r#"
-        SELECT
-            id,
-            source,
-            interface_name,
-            entity_type,
-            entity_key,
-            device_ip_address,
-            mac_address,
-            window_minutes,
-            note,
-            status,
-            capture_reference,
-            created_at
-        FROM capture_export_requests
+        {}
         ORDER BY datetime(created_at) DESC
         LIMIT ?1
         "#,
-    )
-    .bind(limit)
-    .fetch_all(pool)
-    .await?;
+        capture_export_request_select_sql()
+    );
+
+    let items = sqlx::query_as::<_, CaptureExportRequest>(&query)
+        .bind(limit)
+        .fetch_all(pool)
+        .await?;
 
     Ok(items)
+}
+
+pub async fn get_capture_export_request(
+    pool: &SqlitePool,
+    id: i64,
+) -> anyhow::Result<Option<CaptureExportRequest>> {
+    let query = format!(
+        r#"
+        {}
+        WHERE id = ?1
+        "#,
+        capture_export_request_select_sql()
+    );
+
+    let item = sqlx::query_as::<_, CaptureExportRequest>(&query)
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(item)
+}
+
+pub async fn queue_capture_export_request(
+    pool: &SqlitePool,
+    id: i64,
+    queued_at: DateTime<Utc>,
+) -> anyhow::Result<Option<CaptureExportRequest>> {
+    let result = sqlx::query(
+        r#"
+        UPDATE capture_export_requests
+        SET
+            status = 'queued',
+            queued_at = ?2,
+            cancelled_at = NULL,
+            failed_at = NULL,
+            failure_reason = NULL
+        WHERE id = ?1
+          AND status = 'requested'
+        "#,
+    )
+    .bind(id)
+    .bind(queued_at)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Ok(None);
+    }
+
+    get_capture_export_request(pool, id).await
+}
+
+pub async fn cancel_capture_export_request(
+    pool: &SqlitePool,
+    id: i64,
+    cancelled_at: DateTime<Utc>,
+) -> anyhow::Result<Option<CaptureExportRequest>> {
+    let result = sqlx::query(
+        r#"
+        UPDATE capture_export_requests
+        SET
+            status = 'cancelled',
+            cancelled_at = ?2
+        WHERE id = ?1
+          AND status IN ('requested', 'queued', 'running')
+        "#,
+    )
+    .bind(id)
+    .bind(cancelled_at)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Ok(None);
+    }
+
+    get_capture_export_request(pool, id).await
 }

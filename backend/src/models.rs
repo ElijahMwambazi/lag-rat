@@ -482,6 +482,15 @@ pub struct CaptureExportRequest {
     pub status: String,
     pub capture_reference: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
+    pub queued_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub failed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub cancelled_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub failure_reason: Option<String>,
+    pub duration_seconds: Option<i64>,
+    pub output_filename: Option<String>,
+    pub file_size_bytes: Option<i64>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]

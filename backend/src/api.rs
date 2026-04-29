@@ -204,6 +204,18 @@ pub fn router(state: AppState) -> Router {
             "/api/captures/export-requests",
             get(get_capture_export_requests).post(create_capture_export_request),
         )
+        .route(
+            "/api/captures/export-requests/{id}",
+            get(get_capture_export_request),
+        )
+        .route(
+            "/api/captures/export-requests/{id}/queue",
+            post(queue_capture_export_request),
+        )
+        .route(
+            "/api/captures/export-requests/{id}/cancel",
+            post(cancel_capture_export_request),
+        )
         .with_state(state)
 }
 
@@ -1118,6 +1130,18 @@ fn internal_error(err: anyhow::Error) -> (StatusCode, Json<serde_json::Value>) {
     )
 }
 
+fn bad_request(message: &str) -> (StatusCode, Json<serde_json::Value>) {
+    (StatusCode::BAD_REQUEST, Json(json!({ "error": message })))
+}
+
+fn not_found(message: &str) -> (StatusCode, Json<serde_json::Value>) {
+    (StatusCode::NOT_FOUND, Json(json!({ "error": message })))
+}
+
+fn conflict(message: &str) -> (StatusCode, Json<serde_json::Value>) {
+    (StatusCode::CONFLICT, Json(json!({ "error": message })))
+}
+
 async fn get_traffic_samples(
     State(state): State<AppState>,
     Query(query): Query<TrafficSamplesQuery>,
@@ -1137,12 +1161,7 @@ async fn create_capture_export_request(
     Json(payload): Json<CreateCaptureExportRequest>,
 ) -> Result<Json<CaptureExportRequest>, (StatusCode, Json<serde_json::Value>)> {
     if payload.source.trim().is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "error": "source is required"
-            })),
-        ));
+        return Err(bad_request("source is required"));
     }
 
     let item = db::create_capture_export_request(&state.db, &payload, Utc::now())
@@ -1163,4 +1182,62 @@ async fn get_capture_export_requests(
         .map_err(internal_error)?;
 
     Ok(Json(items))
+}
+
+async fn get_capture_export_request(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<CaptureExportRequest>, (StatusCode, Json<serde_json::Value>)> {
+    let item = db::get_capture_export_request(&state.db, id)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| not_found("capture export request not found"))?;
+
+    Ok(Json(item))
+}
+
+async fn queue_capture_export_request(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<CaptureExportRequest>, (StatusCode, Json<serde_json::Value>)> {
+    let current = db::get_capture_export_request(&state.db, id)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| not_found("capture export request not found"))?;
+
+    if current.status != "requested" {
+        return Err(conflict(
+            "capture export request can only be queued from requested status",
+        ));
+    }
+
+    let item = db::queue_capture_export_request(&state.db, id, Utc::now())
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| conflict("capture export request could not be queued"))?;
+
+    Ok(Json(item))
+}
+
+async fn cancel_capture_export_request(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<CaptureExportRequest>, (StatusCode, Json<serde_json::Value>)> {
+    let current = db::get_capture_export_request(&state.db, id)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| not_found("capture export request not found"))?;
+
+    if !matches!(current.status.as_str(), "requested" | "queued" | "running") {
+        return Err(conflict(
+            "capture export request can only be cancelled from requested, queued, or running status",
+        ));
+    }
+
+    let item = db::cancel_capture_export_request(&state.db, id, Utc::now())
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| conflict("capture export request could not be cancelled"))?;
+
+    Ok(Json(item))
 }
