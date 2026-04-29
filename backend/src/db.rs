@@ -2413,6 +2413,38 @@ pub async fn start_capture_export_request(
     get_capture_export_request(pool, id).await
 }
 
+pub async fn attach_capture_export_request_command_metadata(
+    pool: &SqlitePool,
+    id: i64,
+    duration_seconds: i64,
+    output_filename: &str,
+    capture_reference: &str,
+) -> anyhow::Result<Option<CaptureExportRequest>> {
+    let result = sqlx::query(
+        r#"
+        UPDATE capture_export_requests
+        SET
+            duration_seconds = ?2,
+            output_filename = ?3,
+            capture_reference = ?4
+        WHERE id = ?1
+          AND status = 'running'
+        "#,
+    )
+    .bind(id)
+    .bind(duration_seconds)
+    .bind(output_filename)
+    .bind(capture_reference)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Ok(None);
+    }
+
+    get_capture_export_request(pool, id).await
+}
+
 pub async fn fail_capture_export_request(
     pool: &SqlitePool,
     id: i64,

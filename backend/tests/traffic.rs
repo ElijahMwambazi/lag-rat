@@ -743,6 +743,21 @@ async fn capture_worker_builds_command_but_fails_when_runner_is_missing() -> Res
         loaded["failure_reason"].as_str(),
         Some("capture command built but execution runner is not implemented")
     );
+    assert_eq!(loaded["duration_seconds"].as_i64(), Some(30));
+
+    let output_filename = loaded["output_filename"]
+        .as_str()
+        .expect("output filename should be persisted");
+
+    assert!(output_filename.starts_with(&format!("capture-{id}-")));
+    assert!(output_filename.ends_with(".pcap"));
+
+    let capture_reference = loaded["capture_reference"]
+        .as_str()
+        .expect("capture reference should be persisted");
+
+    assert!(capture_reference.starts_with("data/captures/capture-"));
+    assert!(capture_reference.ends_with(".pcap"));
 
     Ok(())
 }
@@ -758,6 +773,62 @@ async fn capture_worker_noops_when_no_request_is_queued() -> Result<()> {
     .await?;
 
     assert!(!processed);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_command_metadata_is_only_attached_to_running_requests() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let updated = db::attach_capture_export_request_command_metadata(
+        &harness.state.db,
+        id,
+        30,
+        "capture-test.pcap",
+        "data/captures/capture-test.pcap",
+    )
+    .await?;
+
+    assert!(updated.is_none());
+
+    let loaded = db::get_capture_export_request(&harness.state.db, id)
+        .await?
+        .expect("request should exist");
+
+    assert_eq!(loaded.status, "requested");
+    assert!(loaded.duration_seconds.is_none());
+    assert!(loaded.output_filename.is_none());
+    assert!(loaded.capture_reference.is_none());
 
     Ok(())
 }

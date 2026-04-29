@@ -228,6 +228,16 @@ pub async fn process_next_capture_export_request(
 
     match command_result {
         Ok(command) => {
+            db::attach_capture_export_request_command_metadata(
+                pool,
+                running_request.id,
+                i64::try_from(command.duration_seconds)
+                    .map_err(|_| anyhow::anyhow!("capture duration is too large"))?,
+                &command.output_filename,
+                &command.output_reference,
+            )
+            .await?;
+
             db::fail_capture_export_request(
                 pool,
                 running_request.id,
@@ -240,8 +250,10 @@ pub async fn process_next_capture_export_request(
                 request_id = running_request.id,
                 program = %command.program,
                 args = ?command.args,
+                output_filename = %command.output_filename,
                 output_reference = %command.output_reference,
-                "capture command built but not executed"
+                duration_seconds = command.duration_seconds,
+                "capture command metadata persisted but not executed"
             );
         }
         Err(err) => {
