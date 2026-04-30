@@ -358,7 +358,9 @@ export type InvestigationResponse = {
   summary: InvestigationSummary;
 };
 
-const API_BASE = "http://127.0.0.1:8080";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ??
+  `${window.location.protocol}//${window.location.hostname}:8080`;
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`);

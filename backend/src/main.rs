@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = build_router(state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], config.app_port));
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.app_port));
     info!("lag-rat backend listening on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
