@@ -7,12 +7,14 @@ use std::{
 use anyhow::{anyhow, bail};
 use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
-use tokio::process::Command;
+use tokio::{process::Command, time::timeout};
 use tracing::{info, warn};
 
 use crate::{config::CaptureConfig, db};
 
 const EXECUTION_DISABLED_REASON: &str = "capture execution is not enabled";
+const CAPTURE_RUNNER_TIMEOUT_GRACE_SECONDS: u64 = 5;
+const CAPTURE_STDERR_LIMIT_CHARS: usize = 400;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureCommand {
@@ -111,14 +113,84 @@ pub fn build_capture_command(
 }
 
 pub async fn run_capture_command(
-    _command: &CaptureCommand,
-    _config: &CaptureConfig,
+    command: &CaptureCommand,
+    config: &CaptureConfig,
 ) -> anyhow::Result<CaptureRunnerResult> {
+    if !config.execution_enabled {
+        return Ok(CaptureRunnerResult {
+            status: CaptureRunnerStatus::Failed,
+            failure_reason: Some("capture execution is not enabled".to_string()),
+            file_size_bytes: None,
+        });
+    }
+
+    if command.program != "tcpdump" {
+        return Ok(CaptureRunnerResult {
+            status: CaptureRunnerStatus::Failed,
+            failure_reason: Some("capture runner rejected unsupported command".to_string()),
+            file_size_bytes: None,
+        });
+    }
+
+    let timeout_duration = Duration::from_secs(
+        command
+            .duration_seconds
+            .saturating_add(CAPTURE_RUNNER_TIMEOUT_GRACE_SECONDS),
+    );
+
+    let output = match timeout(
+        timeout_duration,
+        Command::new(&command.program).args(&command.args).output(),
+    )
+    .await
+    {
+        Ok(result) => result?,
+        Err(_) => {
+            return Ok(CaptureRunnerResult {
+                status: CaptureRunnerStatus::Failed,
+                failure_reason: Some("capture command timed out".to_string()),
+                file_size_bytes: None,
+            });
+        }
+    };
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = truncate_for_operator(stderr.trim(), CAPTURE_STDERR_LIMIT_CHARS);
+
+        let failure_reason = if stderr.is_empty() {
+            format!("capture command failed with status {}", output.status)
+        } else {
+            format!("capture command failed: {stderr}")
+        };
+
+        return Ok(CaptureRunnerResult {
+            status: CaptureRunnerStatus::Failed,
+            failure_reason: Some(failure_reason),
+            file_size_bytes: None,
+        });
+    }
+
+    let file_size_bytes = match tokio::fs::metadata(&command.output_reference).await {
+        Ok(metadata) => i64::try_from(metadata.len()).ok(),
+        Err(_) => None,
+    };
+
     Ok(CaptureRunnerResult {
-        status: CaptureRunnerStatus::Failed,
-        failure_reason: Some("capture execution runner is not implemented".to_string()),
-        file_size_bytes: None,
+        status: CaptureRunnerStatus::Completed,
+        failure_reason: None,
+        file_size_bytes,
     })
+}
+
+fn truncate_for_operator(value: &str, max_chars: usize) -> String {
+    if value.chars().count() <= max_chars {
+        return value.to_string();
+    }
+
+    let mut output = value.chars().take(max_chars).collect::<String>();
+    output.push('…');
+    output
 }
 
 fn validate_capture_interface(config: &CaptureConfig, interface_name: &str) -> anyhow::Result<()> {
@@ -912,13 +984,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn default_capture_runner_returns_not_implemented_failure() {
+    async fn capture_runner_short_circuits_when_execution_is_disabled() {
         let now = DateTime::parse_from_rfc3339("2026-04-29T12:30:00Z")
             .unwrap()
             .with_timezone(&Utc);
 
+        let mut config = test_config();
+        config.execution_enabled = false;
+
         let command = build_capture_command(
-            &test_config(),
+            &config,
             CaptureCommandRequest {
                 request_id: 22,
                 interface_name: "eth0".to_string(),
@@ -929,13 +1004,28 @@ mod tests {
         )
         .unwrap();
 
-        let result = run_capture_command(&command, &test_config()).await.unwrap();
+        let result = run_capture_command(&command, &config).await.unwrap();
 
         assert_eq!(result.status, CaptureRunnerStatus::Failed);
         assert_eq!(
             result.failure_reason.as_deref(),
-            Some("capture execution runner is not implemented")
+            Some("capture execution is not enabled")
         );
         assert_eq!(result.file_size_bytes, None);
+    }
+
+    #[test]
+    fn truncate_for_operator_leaves_short_messages_unchanged() {
+        assert_eq!(
+            truncate_for_operator("permission denied", 100),
+            "permission denied"
+        );
+    }
+
+    #[test]
+    fn truncate_for_operator_shortens_long_messages() {
+        let message = "x".repeat(20);
+
+        assert_eq!(truncate_for_operator(&message, 5), "xxxxx…");
     }
 }

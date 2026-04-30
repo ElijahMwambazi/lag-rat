@@ -665,10 +665,16 @@ async fn capture_worker_marks_queued_request_failed_when_execution_is_disabled()
 }
 
 #[tokio::test]
-async fn capture_worker_fails_after_preflight_until_runner_exists() -> Result<()> {
+async fn capture_worker_handles_enabled_capture_execution_path() -> Result<()> {
     let mut harness = TestHarness::new().await?;
     harness.state.config.capture.execution_enabled = true;
     harness.state.config.capture.allowed_interfaces = vec!["eth0".to_string()];
+
+    let temp_dir = std::env::temp_dir().join(format!(
+        "lag-rat-runner-test-{}",
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+    ));
+    harness.state.config.capture.output_dir = temp_dir.to_string_lossy().to_string();
 
     let app = api::router(harness.state.clone());
 
@@ -736,21 +742,21 @@ async fn capture_worker_fails_after_preflight_until_runner_exists() -> Result<()
     let loaded: Value = serde_json::from_slice(&get_body)?;
 
     assert_eq!(loaded["id"].as_i64(), Some(id));
-    assert_eq!(loaded["status"].as_str(), Some("failed"));
-    assert!(loaded["started_at"].as_str().is_some());
-    assert!(loaded["failed_at"].as_str().is_some());
 
-    let failure_reason = loaded["failure_reason"]
-        .as_str()
-        .expect("failure reason should be present");
+    let status = loaded["status"].as_str().expect("status should be present");
 
     assert!(
-        failure_reason == "tcpdump is not available"
-            || failure_reason == "capture execution runner is not implemented",
-        "unexpected failure reason: {failure_reason}"
+        status == "failed" || status == "completed",
+        "unexpected capture status: {status}"
     );
 
-    if failure_reason == "capture execution runner is not implemented" {
+    assert!(loaded["started_at"].as_str().is_some());
+
+    if status == "completed" {
+        assert!(loaded["completed_at"].as_str().is_some());
+        assert!(loaded["failed_at"].is_null());
+        assert!(loaded["failure_reason"].is_null());
+
         assert_eq!(loaded["duration_seconds"].as_i64(), Some(30));
 
         let output_filename = loaded["output_filename"]
@@ -764,12 +770,23 @@ async fn capture_worker_fails_after_preflight_until_runner_exists() -> Result<()
             .as_str()
             .expect("capture reference should be persisted");
 
-        assert!(capture_reference.starts_with("data/captures/capture-"));
+        assert!(capture_reference.contains("capture-"));
         assert!(capture_reference.ends_with(".pcap"));
+
+        let _ = tokio::fs::remove_dir_all(temp_dir).await;
     } else {
-        assert!(loaded["duration_seconds"].is_null());
-        assert!(loaded["output_filename"].is_null());
-        assert!(loaded["capture_reference"].is_null());
+        assert!(loaded["failed_at"].as_str().is_some());
+
+        let failure_reason = loaded["failure_reason"]
+            .as_str()
+            .expect("failure reason should be present");
+
+        assert!(
+            failure_reason == "tcpdump is not available"
+                || failure_reason.contains("capture command failed")
+                || failure_reason == "capture command timed out",
+            "unexpected failure reason: {failure_reason}"
+        );
     }
 
     Ok(())
