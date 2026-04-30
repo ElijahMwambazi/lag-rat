@@ -19,14 +19,19 @@ Implemented:
 - capture export request history
 - capture export actions from traffic drawers
 - metadata handoff boundary
+- capture lifecycle states
+- capture command allowlist builder
+- capture output directory preparation
+- capture file retention cleanup
+- capture execution preflight checks
+- guarded `tcpdump` runner
 
 Not implemented:
 
-- packet capture execution
-- packet capture command runner
-- PCAP file generation
 - packet-content parsing
 - packet-content analysis inside Lag Rat
+- Wireshark-style packet inspection UI
+- cloud upload / remote sync of captures
 
 ---
 
@@ -135,6 +140,13 @@ Optional host-scoped form:
 tcpdump -i <interface> host <ip_address> -w <output_file> -G <duration_seconds> -W 1
 ```
 
+The current guarded runner uses argument vectors, not shell strings.
+
+Example generated command shape:
+
+````text
+tcpdump -i eth0 -w data/captures/capture-12-20260429T123000Z.pcap -G 30 -W 1
+
 The operator may choose from safe parameters only:
 
 - interface
@@ -175,7 +187,7 @@ eth0
 wlan0
 enp3s0
 wlp2s0
-```
+````
 
 Not allowed by default:
 
@@ -242,6 +254,23 @@ CAPTURE_MAX_FILE_MB=50
 
 ---
 
+## Runtime configuration
+
+Capture execution is disabled by default.
+
+```env
+CAPTURE_EXECUTION_ENABLED=false
+CAPTURE_OUTPUT_DIR=data/captures
+CAPTURE_RETENTION_HOURS=24
+CAPTURE_MAX_FILE_MB=50
+CAPTURE_DEFAULT_DURATION_SECONDS=30
+CAPTURE_MIN_DURATION_SECONDS=5
+CAPTURE_MAX_DURATION_SECONDS=120
+CAPTURE_ALLOWED_INTERFACES=
+```
+
+---
+
 ## Permissions model
 
 Packet capture often requires elevated privileges.
@@ -255,13 +284,13 @@ Recommended development approach:
 
 Possible Linux approaches:
 
-```text
-setcap cap_net_raw,cap_net_admin=eip /usr/bin/tcpdump
+Running `tcpdump` usually requires elevated network capture privileges.
+
+Recommended local development option:
+
+```bash
+sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
 ```
-
-or a tightly controlled helper process.
-
-This needs careful review before implementation.
 
 ---
 
@@ -314,17 +343,20 @@ Avoid storing packet contents in SQLite.
 
 Capture execution should not block normal API handling.
 
-Recommended future model:
+Current worker model:
 
 ```text
-API request
-→ mark capture request as queued
-→ background worker starts bounded tcpdump process
-→ worker updates status
+queued request
+→ mark as running
+→ run preflight checks
+→ build allowlisted command
+→ prepare output directory
+→ run guarded tcpdump command
+→ mark completed or failed
 → dashboard polls request history
 ```
 
-The worker should be isolated from regular monitoring loops.
+The worker remains isolated from regular monitoring loops. Failure to run a capture should not stop connectivity, DNS, Wi-Fi, traffic, reports, or alert monitoring.
 
 ---
 
@@ -347,18 +379,16 @@ Failures should update the request status to `failed` with a short operator-read
 
 ## Dashboard behavior
 
-The dashboard should show:
+The Traffic page can show capture request lifecycle state, including:
 
-- requested captures
-- queued captures
-- running captures
-- completed captures
-- failed captures
-- capture references when available
+- requested
+- queued
+- running
+- completed
+- failed
+- cancelled
 
-The dashboard should not parse packets.
-
-Completed captures should be presented as handoff artifacts for external tools.
+Completed captures expose metadata such as output filename, capture reference, duration, and file size when available.
 
 ---
 

@@ -58,6 +58,7 @@ Implemented:
 - refining capture export workflow visibility and operator handoff states
 - planning packet capture execution safely before adding any runner
 - preserving the collector/plugin boundary for future observability domains
+- documenting local capture execution requirements and safe operating boundaries
 
 ## Platform model
 
@@ -91,6 +92,7 @@ The current primary module is **home network observability**:
 - Wi-Fi samples, room-level Wi-Fi health, and Wi-Fi room mapping
 - traffic summaries, top talkers, samples, and capture export handoffs
 - incident investigations
+- guarded local capture execution through allowlisted `tcpdump` commands, disabled by default
 
 ### Near-term additions
 
