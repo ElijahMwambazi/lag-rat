@@ -2504,3 +2504,26 @@ pub async fn complete_capture_export_request(
 
     get_capture_export_request(pool, id).await
 }
+
+pub async fn delete_capture_export_request(
+    pool: &SqlitePool,
+    id: i64,
+) -> anyhow::Result<Option<CaptureExportRequest>> {
+    let existing = get_capture_export_request(pool, id).await?;
+
+    let Some(existing) = existing else {
+        return Ok(None);
+    };
+
+    sqlx::query(
+        r#"
+        DELETE FROM capture_export_requests
+        WHERE id = ?1
+        "#,
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+
+    Ok(Some(existing))
+}

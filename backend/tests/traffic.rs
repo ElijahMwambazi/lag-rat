@@ -995,3 +995,119 @@ async fn capture_request_can_only_complete_from_running_status() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn capture_export_request_can_be_deleted() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let delete_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/captures/export-requests/{id}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(delete_response.status(), StatusCode::OK);
+
+    let delete_body = to_bytes(delete_response.into_body(), usize::MAX).await?;
+    let deleted: Value = serde_json::from_slice(&delete_body)?;
+
+    assert_eq!(deleted["id"].as_i64(), Some(id));
+    assert_eq!(deleted["deleted"].as_bool(), Some(true));
+    assert_eq!(deleted["file_deleted"].as_bool(), Some(false));
+
+    let get_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/captures/export-requests/{id}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(get_response.status(), StatusCode::NOT_FOUND);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn running_capture_export_request_cannot_be_deleted() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    db::queue_capture_export_request(&harness.state.db, id, chrono::Utc::now()).await?;
+    db::start_capture_export_request(&harness.state.db, id, chrono::Utc::now()).await?;
+
+    let delete_response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/captures/export-requests/{id}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(delete_response.status(), StatusCode::CONFLICT);
+
+    Ok(())
+}

@@ -25,6 +25,7 @@ vi.mock("../services/api", () => ({
     getCaptureExportRequests: vi.fn(),
     queueCaptureExportRequest: vi.fn(),
     cancelCaptureExportRequest: vi.fn(),
+    deleteCaptureExportRequest: vi.fn(),
   },
 }));
 
@@ -93,6 +94,12 @@ describe("TrafficPage", () => {
       duration_seconds: null,
       output_filename: null,
       file_size_bytes: null,
+    });
+
+    vi.mocked(api.deleteCaptureExportRequest).mockResolvedValue({
+      id: 1,
+      deleted: true,
+      file_deleted: false,
     });
   });
 
@@ -1421,5 +1428,53 @@ describe("TrafficPage", () => {
     );
 
     expect(api.queueCaptureExportRequest).toHaveBeenCalledWith(1);
+  });
+
+  it("deletes a capture export request from history", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: null,
+        mac_address: null,
+        window_minutes: 60,
+        note: "Capture this top talker",
+        status: "failed",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "tcpdump is not available",
+        duration_seconds: 30,
+        output_filename: null,
+        file_size_bytes: null,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /delete/i,
+      }),
+    );
+
+    expect(api.deleteCaptureExportRequest).toHaveBeenCalledWith(1);
   });
 });

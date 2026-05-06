@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use chrono::Utc;
@@ -18,7 +18,7 @@ use crate::{
         SummaryResponse, TimeseriesPoint, TrafficSample, TrafficSummaryResponse,
         TrafficTopTalkerItem, TrafficTopTalkersResponse, WifiSample,
     },
-    services::{devices, status_overview},
+    services::{captures, devices, status_overview},
     state::AppState,
 };
 
@@ -157,6 +157,13 @@ struct CaptureExportRequestsQuery {
     limit: Option<u32>,
 }
 
+#[derive(Debug, serde::Serialize)]
+struct DeleteCaptureExportRequestResponse {
+    id: i64,
+    deleted: bool,
+    file_deleted: bool,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/status/overview", get(get_status_overview))
@@ -206,7 +213,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/api/captures/export-requests/{id}",
-            get(get_capture_export_request),
+            get(get_capture_export_request).delete(delete_capture_export_request),
         )
         .route(
             "/api/captures/export-requests/{id}/queue",
@@ -1240,4 +1247,35 @@ async fn cancel_capture_export_request(
         .ok_or_else(|| conflict("capture export request could not be cancelled"))?;
 
     Ok(Json(item))
+}
+
+async fn delete_capture_export_request(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<DeleteCaptureExportRequestResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let current = db::get_capture_export_request(&state.db, id)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| not_found("capture export request not found"))?;
+
+    if current.status == "running" {
+        return Err(conflict(
+            "running capture export requests cannot be deleted",
+        ));
+    }
+
+    let file_deleted = captures::delete_capture_file_for_request(&state.config.capture, &current)
+        .await
+        .map_err(internal_error)?;
+
+    let deleted = db::delete_capture_export_request(&state.db, id)
+        .await
+        .map_err(internal_error)?
+        .is_some();
+
+    Ok(Json(DeleteCaptureExportRequestResponse {
+        id,
+        deleted,
+        file_deleted,
+    }))
 }

@@ -297,6 +297,15 @@ export default function TrafficPage() {
     },
   });
 
+  const deleteCaptureMutation = useMutation({
+    mutationFn: (id: number) => api.deleteCaptureExportRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["capture-export-requests"],
+      });
+    },
+  });
+
   const trafficSamples: TrafficSample[] = trafficSamplesQuery.data ?? [];
   const summary = trafficSummaryQuery.data;
   const topTalkers = topTalkersQuery.data?.items ?? [];
@@ -420,6 +429,10 @@ export default function TrafficPage() {
     next.delete(TRAFFIC_TALKER_KEY_PARAM);
 
     setSearchParams(next);
+  }
+
+  function canDeleteCaptureRequest(item: CaptureExportRequest) {
+    return item.status !== "running";
   }
 
   return (
@@ -804,6 +817,7 @@ export default function TrafficPage() {
           hasData={filteredTrafficSamples.length > 0}
           tableMinWidthClassName="min-w-[1160px]"
           variant="flush"
+          hideHeader
         >
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
@@ -925,6 +939,7 @@ export default function TrafficPage() {
           hasData={captureExportRequests.length > 0}
           tableMinWidthClassName="min-w-[1280px]"
           variant="flush"
+          hideHeader
         >
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
@@ -1001,6 +1016,18 @@ export default function TrafficPage() {
                         </button>
                       ) : null}
 
+                      {deleteCaptureMutation.isError ? (
+                        <QueryState
+                          title="Capture request could not be deleted"
+                          tone="error"
+                          message={
+                            deleteCaptureMutation.error instanceof Error
+                              ? deleteCaptureMutation.error.message
+                              : "The capture export request could not be deleted."
+                          }
+                        />
+                      ) : null}
+
                       {canCancelCaptureRequest(item) ? (
                         <button
                           type="button"
@@ -1012,8 +1039,20 @@ export default function TrafficPage() {
                         </button>
                       ) : null}
 
+                      {canDeleteCaptureRequest(item) ? (
+                        <button
+                          type="button"
+                          onClick={() => deleteCaptureMutation.mutate(item.id)}
+                          disabled={deleteCaptureMutation.isPending}
+                          className="rounded-full border border-red-900 bg-red-950 px-2 py-0.5 text-[11px] text-red-200 transition hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+
                       {!canQueueCaptureRequest(item) &&
-                      !canCancelCaptureRequest(item) ? (
+                      !canCancelCaptureRequest(item) &&
+                      !canDeleteCaptureRequest(item) ? (
                         <span className="text-xs text-zinc-500">No action</span>
                       ) : null}
                     </div>

@@ -335,6 +335,12 @@ export type CreateCaptureExportRequest = {
   note?: string | null;
 };
 
+export type DeleteCaptureExportRequestResponse = {
+  id: number;
+  deleted: boolean;
+  file_deleted: boolean;
+};
+
 export type InvestigationSubjectResponse = {
   kind: "incident_target";
   incident_type: string;
@@ -380,6 +386,18 @@ async function postJson<TResponse, TBody>(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+
+  return response.json() as Promise<TResponse>;
+}
+
+async function deleteJson<TResponse>(path: string): Promise<TResponse> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "DELETE",
   });
 
   if (!response.ok) {
@@ -545,7 +563,10 @@ export const api = {
       "/api/captures/export-requests",
       body,
     ),
-
+  deleteCaptureExportRequest: (id: number) =>
+    deleteJson<DeleteCaptureExportRequestResponse>(
+      `/api/captures/export-requests/${id}`,
+    ),
   getCaptureExportRequests: (limit = 20) =>
     getJson<CaptureExportRequest[]>(
       `/api/captures/export-requests?limit=${limit}`,

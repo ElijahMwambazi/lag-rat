@@ -618,6 +618,54 @@ pub async fn run_capture_execution_preflight(
     })
 }
 
+pub async fn delete_capture_file_for_request(
+    config: &CaptureConfig,
+    request: &crate::models::CaptureExportRequest,
+) -> anyhow::Result<bool> {
+    let Some(capture_reference) = request.capture_reference.as_deref() else {
+        return Ok(false);
+    };
+
+    let output_dir = prepare_capture_output_dir(config).await?;
+    let candidate = Path::new(capture_reference);
+
+    let path = if candidate.is_absolute() {
+        candidate.to_path_buf()
+    } else {
+        Path::new(capture_reference).to_path_buf()
+    };
+
+    if !is_lag_rat_capture_file(&path) {
+        bail!("capture reference is not a Lag Rat capture file");
+    }
+
+    let allowed_root = output_dir.canonicalize()?;
+
+    let candidate_parent = path.parent().unwrap_or_else(|| Path::new("."));
+
+    let canonical_parent = if candidate_parent.exists() {
+        candidate_parent.canonicalize()?
+    } else {
+        allowed_root.clone()
+    };
+
+    if canonical_parent != allowed_root {
+        bail!("capture reference is outside the capture output directory");
+    }
+
+    if !path.exists() {
+        return Ok(false);
+    }
+
+    if !path.is_file() {
+        bail!("capture reference is not a file");
+    }
+
+    tokio::fs::remove_file(path).await?;
+
+    Ok(true)
+}
+
 async fn is_tcpdump_available() -> bool {
     Command::new("tcpdump")
         .arg("--version")
