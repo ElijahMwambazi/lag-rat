@@ -1430,7 +1430,73 @@ describe("TrafficPage", () => {
     expect(api.queueCaptureExportRequest).toHaveBeenCalledWith(1);
   });
 
-  it("deletes a capture export request from history", async () => {
+  it("confirms before deleting a capture export request from history", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "interface",
+        entity_key: "eth0",
+        device_ip_address: null,
+        mac_address: null,
+        window_minutes: 60,
+        note: "Capture this top talker",
+        status: "failed",
+        capture_reference: "data/captures/capture-1-20260429T123000Z.pcap",
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "tcpdump is not available",
+        duration_seconds: 30,
+        output_filename: "capture-1-20260429T123000Z.pcap",
+        file_size_bytes: null,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^delete$/i,
+      }),
+    );
+
+    expect(api.deleteCaptureExportRequest).not.toHaveBeenCalled();
+
+    expect(
+      await screen.findByText("Delete capture request?"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText("data/captures/capture-1-20260429T123000Z.pcap"),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /delete capture request/i,
+      }),
+    );
+
+    expect(api.deleteCaptureExportRequest).toHaveBeenCalledWith(1);
+  });
+
+  it("cancels capture export request deletion confirmation", async () => {
+    vi.mocked(api.deleteCaptureExportRequest).mockClear();
+
     vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
       {
         id: 1,
@@ -1471,10 +1537,23 @@ describe("TrafficPage", () => {
 
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /delete/i,
+        name: /^delete$/i,
       }),
     );
 
-    expect(api.deleteCaptureExportRequest).toHaveBeenCalledWith(1);
+    expect(
+      await screen.findByText("Delete capture request?"),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^cancel$/i,
+      }),
+    );
+
+    expect(
+      screen.queryByText("Delete capture request?"),
+    ).not.toBeInTheDocument();
+    expect(api.deleteCaptureExportRequest).not.toHaveBeenCalled();
   });
 });

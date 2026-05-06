@@ -252,6 +252,8 @@ export default function TrafficPage() {
   const [selectedInterface, setSelectedInterface] = useState("");
   const [samplesCollapsed, setSamplesCollapsed] = useState(true);
   const [captureHistoryCollapsed, setCaptureHistoryCollapsed] = useState(true);
+  const [pendingDeleteCaptureRequest, setPendingDeleteCaptureRequest] =
+    useState<CaptureExportRequest | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -300,6 +302,8 @@ export default function TrafficPage() {
   const deleteCaptureMutation = useMutation({
     mutationFn: (id: number) => api.deleteCaptureExportRequest(id),
     onSuccess: () => {
+      setPendingDeleteCaptureRequest(null);
+
       queryClient.invalidateQueries({
         queryKey: ["capture-export-requests"],
       });
@@ -1016,6 +1020,17 @@ export default function TrafficPage() {
                         </button>
                       ) : null}
 
+                      {canCancelCaptureRequest(item) ? (
+                        <button
+                          type="button"
+                          onClick={() => cancelCaptureMutation.mutate(item.id)}
+                          disabled={cancelCaptureMutation.isPending}
+                          className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300 transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
+
                       {deleteCaptureMutation.isError ? (
                         <QueryState
                           title="Capture request could not be deleted"
@@ -1028,21 +1043,10 @@ export default function TrafficPage() {
                         />
                       ) : null}
 
-                      {canCancelCaptureRequest(item) ? (
-                        <button
-                          type="button"
-                          onClick={() => cancelCaptureMutation.mutate(item.id)}
-                          disabled={cancelCaptureMutation.isPending}
-                          className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300 transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Cancel
-                        </button>
-                      ) : null}
-
                       {canDeleteCaptureRequest(item) ? (
                         <button
                           type="button"
-                          onClick={() => deleteCaptureMutation.mutate(item.id)}
+                          onClick={() => setPendingDeleteCaptureRequest(item)}
                           disabled={deleteCaptureMutation.isPending}
                           className="rounded-full border border-red-900 bg-red-950 px-2 py-0.5 text-[11px] text-red-200 transition hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-60"
                         >
@@ -1063,6 +1067,107 @@ export default function TrafficPage() {
           </table>
         </DataTableCard>
       </CollapsibleInspectionSection>
+
+      {pendingDeleteCaptureRequest ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-zinc-100">
+                  Delete capture request?
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  This removes the capture request from Lag Rat history. If the
+                  request has a local capture file reference, Lag Rat will also
+                  try to remove that local .pcap file.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPendingDeleteCaptureRequest(null)}
+                className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-300 transition hover:bg-zinc-800"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-sm">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Source
+                  </div>
+                  <div className="mt-1 text-zinc-200">
+                    {formatCaptureSource(pendingDeleteCaptureRequest.source)}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Target
+                  </div>
+                  <div className="mt-1 text-zinc-200">
+                    {formatCaptureTarget(pendingDeleteCaptureRequest)}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Status
+                  </div>
+                  <div className="mt-1 text-zinc-200">
+                    {formatCaptureStatus(pendingDeleteCaptureRequest.status)}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Created
+                  </div>
+                  <div className="mt-1 text-zinc-200">
+                    {formatDate(pendingDeleteCaptureRequest.created_at)}
+                  </div>
+                </div>
+              </div>
+
+              {pendingDeleteCaptureRequest.capture_reference ? (
+                <div className="mt-4 border-t border-zinc-800 pt-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Capture reference
+                  </div>
+                  <div className="mt-1 break-all text-zinc-200">
+                    {pendingDeleteCaptureRequest.capture_reference}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteCaptureRequest(null)}
+                className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 transition hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  deleteCaptureMutation.mutate(pendingDeleteCaptureRequest.id)
+                }
+                disabled={deleteCaptureMutation.isPending}
+                className="rounded-xl border border-red-900 bg-red-950 px-4 py-2 text-sm font-medium text-red-100 transition hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deleteCaptureMutation.isPending
+                  ? "Deleting..."
+                  : "Delete capture request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
