@@ -27,6 +27,7 @@ const WINDOWS = [
 const TRAFFIC_SAMPLE_PARAM = "trafficSampleId";
 const TRAFFIC_TALKER_INTERFACE_PARAM = "trafficTalkerInterface";
 const TRAFFIC_TALKER_KEY_PARAM = "trafficTalkerKey";
+const CAPTURE_REQUEST_PARAM = "captureRequestId";
 
 function formatWindowLabel(minutes: number) {
   const match = WINDOWS.find((option) => option.minutes === minutes);
@@ -255,9 +256,6 @@ export default function TrafficPage() {
   const [captureHistoryCollapsed, setCaptureHistoryCollapsed] = useState(true);
   const [pendingDeleteCaptureRequest, setPendingDeleteCaptureRequest] =
     useState<CaptureExportRequest | null>(null);
-  const [selectedCaptureRequestId, setSelectedCaptureRequestId] = useState<
-    number | null
-  >(null);
 
   const queryClient = useQueryClient();
 
@@ -288,7 +286,9 @@ export default function TrafficPage() {
   const queueCaptureMutation = useMutation({
     mutationFn: (id: number) => api.queueCaptureExportRequest(id),
     onSuccess: (updated) => {
-      setSelectedCaptureRequestId(updated.id);
+      const next = new URLSearchParams(searchParams);
+      next.set(CAPTURE_REQUEST_PARAM, String(updated.id));
+      setSearchParams(next);
 
       queryClient.invalidateQueries({
         queryKey: ["capture-export-requests"],
@@ -299,7 +299,9 @@ export default function TrafficPage() {
   const cancelCaptureMutation = useMutation({
     mutationFn: (id: number) => api.cancelCaptureExportRequest(id),
     onSuccess: (updated) => {
-      setSelectedCaptureRequestId(updated.id);
+      const next = new URLSearchParams(searchParams);
+      next.set(CAPTURE_REQUEST_PARAM, String(updated.id));
+      setSearchParams(next);
 
       queryClient.invalidateQueries({
         queryKey: ["capture-export-requests"],
@@ -311,7 +313,10 @@ export default function TrafficPage() {
     mutationFn: (id: number) => api.deleteCaptureExportRequest(id),
     onSuccess: () => {
       setPendingDeleteCaptureRequest(null);
-      setSelectedCaptureRequestId(null);
+
+      const next = new URLSearchParams(searchParams);
+      next.delete(CAPTURE_REQUEST_PARAM);
+      setSearchParams(next);
 
       queryClient.invalidateQueries({
         queryKey: ["capture-export-requests"],
@@ -381,6 +386,7 @@ export default function TrafficPage() {
     TRAFFIC_TALKER_INTERFACE_PARAM,
   );
   const selectedTalkerKey = searchParams.get(TRAFFIC_TALKER_KEY_PARAM);
+  const selectedCaptureRequestId = searchParams.get(CAPTURE_REQUEST_PARAM);
 
   const selectedSample = useMemo(() => {
     if (!selectedSampleId) {
@@ -407,10 +413,17 @@ export default function TrafficPage() {
     );
   }, [topTalkers, selectedTalkerInterface, selectedTalkerKey]);
 
-  const selectedCaptureRequest =
-    captureExportRequests.find(
-      (item) => item.id === selectedCaptureRequestId,
-    ) ?? null;
+  const selectedCaptureRequest = useMemo(() => {
+    if (!selectedCaptureRequestId) {
+      return null;
+    }
+
+    return (
+      captureExportRequests.find(
+        (item) => String(item.id) === selectedCaptureRequestId,
+      ) ?? null
+    );
+  }, [captureExportRequests, selectedCaptureRequestId]);
 
   function setSampleDrawerParam(sample: TrafficSample) {
     const next = new URLSearchParams(searchParams);
@@ -418,6 +431,7 @@ export default function TrafficPage() {
     next.set(TRAFFIC_SAMPLE_PARAM, String(sample.id));
     next.delete(TRAFFIC_TALKER_INTERFACE_PARAM);
     next.delete(TRAFFIC_TALKER_KEY_PARAM);
+    next.delete(CAPTURE_REQUEST_PARAM);
 
     setSearchParams(next);
   }
@@ -436,6 +450,7 @@ export default function TrafficPage() {
     next.set(TRAFFIC_TALKER_INTERFACE_PARAM, talker.interface_name);
     next.set(TRAFFIC_TALKER_KEY_PARAM, talker.entity_key);
     next.delete(TRAFFIC_SAMPLE_PARAM);
+    next.delete(CAPTURE_REQUEST_PARAM);
 
     setSearchParams(next);
   }
@@ -449,12 +464,27 @@ export default function TrafficPage() {
     setSearchParams(next);
   }
 
-  function canDeleteCaptureRequest(item: CaptureExportRequest) {
-    return item.status !== "running";
+  function setCaptureRequestDrawerParam(request: CaptureExportRequest) {
+    const next = new URLSearchParams(searchParams);
+
+    next.set(CAPTURE_REQUEST_PARAM, String(request.id));
+    next.delete(TRAFFIC_SAMPLE_PARAM);
+    next.delete(TRAFFIC_TALKER_INTERFACE_PARAM);
+    next.delete(TRAFFIC_TALKER_KEY_PARAM);
+
+    setSearchParams(next);
   }
 
-  function clearCaptureRequestDrawer() {
-    setSelectedCaptureRequestId(null);
+  function clearCaptureRequestDrawerParam() {
+    const next = new URLSearchParams(searchParams);
+
+    next.delete(CAPTURE_REQUEST_PARAM);
+
+    setSearchParams(next);
+  }
+
+  function canDeleteCaptureRequest(item: CaptureExportRequest) {
+    return item.status !== "running";
   }
 
   return (
@@ -939,6 +969,7 @@ export default function TrafficPage() {
         expandedActionLabel="Hide capture requests"
         isExpanded={
           !captureHistoryCollapsed ||
+          !!selectedCaptureRequest ||
           captureExportRequestsQuery.isLoading ||
           captureExportRequestsQuery.isError
         }
@@ -983,7 +1014,7 @@ export default function TrafficPage() {
                 <tr
                   key={item.id}
                   className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
-                  onClick={() => setSelectedCaptureRequestId(item.id)}
+                  onClick={() => setCaptureRequestDrawerParam(item)}
                 >
                   <td className="px-4 py-3 text-zinc-300">
                     <div>{formatDate(item.created_at)}</div>
@@ -1037,7 +1068,7 @@ export default function TrafficPage() {
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        setSelectedCaptureRequestId(item.id);
+                        setCaptureRequestDrawerParam(item);
                       }}
                       className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300 transition hover:bg-zinc-900"
                     >
@@ -1116,7 +1147,7 @@ export default function TrafficPage() {
           <CaptureExportRequestDrawer
             request={selectedCaptureRequest}
             open={!!selectedCaptureRequest}
-            onClose={clearCaptureRequestDrawer}
+            onClose={clearCaptureRequestDrawerParam}
             onQueue={(request) => queueCaptureMutation.mutate(request.id)}
             onCancel={(request) => cancelCaptureMutation.mutate(request.id)}
             onDelete={(request) => setPendingDeleteCaptureRequest(request)}

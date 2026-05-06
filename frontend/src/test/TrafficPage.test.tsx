@@ -1668,4 +1668,86 @@ describe("TrafficPage", () => {
     ).toBeInTheDocument();
     expect(api.deleteCaptureExportRequest).not.toHaveBeenCalled();
   });
+
+  it("opens a capture detail drawer from query params", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "device",
+        entity_key: "192.168.1.20",
+        device_ip_address: "192.168.1.20",
+        mac_address: null,
+        window_minutes: 60,
+        note: "Capture this top talker",
+        status: "failed",
+        capture_reference: "data/captures/capture-1-20260429T123000Z.pcap",
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "tcpdump is not available",
+        duration_seconds: 30,
+        output_filename: "capture-1-20260429T123000Z.pcap",
+        file_size_bytes: 1024,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/traffic?captureRequestId=1"]}>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Capture request · #1")).toBeInTheDocument();
+
+    expect(await screen.findByText("Failure reason")).toBeInTheDocument();
+  });
+
+  it("clears capture request query params when the drawer closes", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "device",
+        entity_key: "192.168.1.20",
+        device_ip_address: "192.168.1.20",
+        mac_address: null,
+        window_minutes: 60,
+        note: "Capture this top talker",
+        status: "failed",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "tcpdump is not available",
+        duration_seconds: 30,
+        output_filename: null,
+        file_size_bytes: null,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/traffic?captureRequestId=1"]}>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Capture request · #1")).toBeInTheDocument();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /close/i,
+      }),
+    );
+
+    expect(screen.queryByText("Capture request · #1")).not.toBeInTheDocument();
+  });
 });
