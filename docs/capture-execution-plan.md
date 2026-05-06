@@ -2,11 +2,11 @@
 
 ## Purpose
 
-This document defines the planned boundary for future packet-capture execution in Lag Rat.
+This document defines the packet-capture execution boundary for Lag Rat.
 
-Lag Rat already supports capture export request metadata. That means the operator can create a capture handoff from traffic workflows and review request history.
+Lag Rat supports capture export request metadata, request lifecycle state, guarded local `tcpdump` execution, capture history, retention cleanup, and manual deletion of capture request records.
 
-This document covers the next step: how Lag Rat may eventually execute a bounded packet capture safely.
+Lag Rat should remain a capture handoff and execution coordinator. It should not become a packet-analysis suite.
 
 ---
 
@@ -20,11 +20,15 @@ Implemented:
 - capture export actions from traffic drawers
 - metadata handoff boundary
 - capture lifecycle states
+- queue and cancel transitions
 - capture command allowlist builder
 - capture output directory preparation
 - capture file retention cleanup
 - capture execution preflight checks
 - guarded `tcpdump` runner
+- capture request deletion
+- guarded local `.pcap` cleanup
+- dashboard confirmation before deleting capture requests
 
 Not implemented:
 
@@ -37,10 +41,6 @@ Not implemented:
 
 ## Core boundary
 
-Lag Rat may become a capture handoff and execution coordinator.
-
-Lag Rat should not become a packet-analysis suite.
-
 Allowed direction:
 
 ```text
@@ -50,6 +50,7 @@ Traffic / investigation context
 → write capture file locally
 → expose file/reference metadata
 → inspect externally with tcpdump or Wireshark
+→ delete request metadata and matching local capture file when no longer needed
 ```
 
 Not allowed direction:
@@ -60,6 +61,7 @@ unbounded packet capture
 packet content inspection inside Lag Rat
 cloud upload / remote sync by default
 Wireshark replacement UI
+arbitrary file deletion
 ```
 
 ---
@@ -80,15 +82,41 @@ Packet capture execution must be:
 
 ---
 
-## Proposed request lifecycle
+## Runtime configuration
 
-Current state:
+Capture execution is disabled by default.
 
-```text
-requested
+```env
+CAPTURE_WORKER_INTERVAL_SECONDS=10
+CAPTURE_EXECUTION_ENABLED=false
+CAPTURE_OUTPUT_DIR=data/captures
+CAPTURE_RETENTION_HOURS=24
+CAPTURE_MAX_FILE_MB=50
+CAPTURE_DEFAULT_DURATION_SECONDS=30
+CAPTURE_MIN_DURATION_SECONDS=5
+CAPTURE_MAX_DURATION_SECONDS=120
+CAPTURE_ALLOWED_INTERFACES=
 ```
 
-Future states:
+To enable guarded local execution:
+
+```env
+CAPTURE_EXECUTION_ENABLED=true
+```
+
+`CAPTURE_ALLOWED_INTERFACES` may be left empty during development, but a daily-use setup should prefer an explicit comma-separated allowlist:
+
+```env
+CAPTURE_ALLOWED_INTERFACES=eth0,wlan0,wlp2s0
+```
+
+Lag Rat only builds capture commands from internal templates. It does not accept arbitrary shell commands, arbitrary `tcpdump` expressions, custom output paths, or post-processing commands.
+
+---
+
+## Request lifecycle
+
+Current lifecycle states:
 
 ```text
 requested
@@ -101,22 +129,29 @@ Failure or cancellation paths:
 
 ```text
 requested
+→ cancelled
+
+requested
 → queued
+→ cancelled
+
+requested
+→ queued
+→ running
 → failed
 
-running
-→ failed
-
-running
+requested
+→ queued
+→ running
 → cancelled
 ```
 
-Suggested status meanings:
+Status meanings:
 
 - `requested`: metadata record was created by the dashboard or API
-- `queued`: capture worker accepted the request
-- `running`: capture process is active
-- `completed`: capture file/reference is available
+- `queued`: capture worker can pick up the request
+- `running`: capture process is active or the worker is processing the request
+- `completed`: capture file/reference metadata is available
 - `failed`: capture process could not complete
 - `cancelled`: operator or system stopped execution early
 
@@ -126,26 +161,33 @@ Suggested status meanings:
 
 Lag Rat must not accept arbitrary shell commands.
 
-Allowed command templates should be defined internally by the backend.
+Allowed command templates are defined internally by the backend.
 
-Potential v1 command shape:
+Base command shape:
 
 ```text
 tcpdump -i <interface> -w <output_file> -G <duration_seconds> -W 1
 ```
 
-Optional host-scoped form:
+Host-scoped command shape:
 
 ```text
 tcpdump -i <interface> host <ip_address> -w <output_file> -G <duration_seconds> -W 1
 ```
 
-The current guarded runner uses argument vectors, not shell strings.
+The guarded runner uses argument vectors, not shell strings.
 
-Example generated command shape:
+Example generated command:
 
-````text
+```text
 tcpdump -i eth0 -w data/captures/capture-12-20260429T123000Z.pcap -G 30 -W 1
+```
+
+Example generated host-scoped command:
+
+```text
+tcpdump -i eth0 host 192.168.1.20 -w data/captures/capture-12-20260429T123000Z.pcap -G 30 -W 1
+```
 
 The operator may choose from safe parameters only:
 
@@ -157,7 +199,7 @@ The operator may choose from safe parameters only:
 The operator must not provide:
 
 - raw shell snippets
-- arbitrary tcpdump expressions
+- arbitrary `tcpdump` expressions
 - output path
 - command flags
 - post-processing commands
@@ -180,14 +222,14 @@ Longer captures should remain outside Lag Rat.
 
 Capture execution should require an explicit interface.
 
-Allowed:
+Common valid interface examples:
 
 ```text
 eth0
 wlan0
 enp3s0
 wlp2s0
-````
+```
 
 Not allowed by default:
 
@@ -197,7 +239,7 @@ all interfaces
 unknown interface
 ```
 
-The backend should validate the requested interface against known traffic samples or a configured allowlist.
+The backend validates requested interfaces against the configured allowlist when `CAPTURE_ALLOWED_INTERFACES` is set.
 
 ---
 
@@ -209,13 +251,13 @@ A host filter may be derived from:
 - `entity_key`
 - investigation target when it is a valid local IP
 
-The backend should reject host filters that are empty, malformed, or not relevant to the local network context.
+The backend rejects host filters that are empty, malformed, or not valid IP addresses.
 
 ---
 
 ## Storage path
 
-Capture files should be written to a fixed local directory.
+Capture files are written to a fixed local directory.
 
 Recommended default:
 
@@ -229,7 +271,7 @@ Filename shape:
 capture-<request_id>-<timestamp>.pcap
 ```
 
-The API should expose only metadata/reference fields, not arbitrary file paths.
+The API exposes metadata/reference fields, not arbitrary file paths.
 
 ---
 
@@ -240,34 +282,52 @@ Capture files can contain sensitive network data.
 Recommended v1 retention:
 
 - keep capture files for 24 hours by default
-- allow manual deletion later
-- expose file size and created time
+- expose file size and created time when available
+- remove expired Lag Rat `.pcap` files from the configured capture directory
 - do not upload files anywhere
 - do not sync files to cloud storage
 
-Future retention configuration:
+Retention configuration:
 
-```text
+```env
 CAPTURE_RETENTION_HOURS=24
 CAPTURE_MAX_FILE_MB=50
 ```
+
+A retention value of `0` disables automatic cleanup.
 
 ---
 
-## Runtime configuration
+## Manual cleanup
 
-Capture execution is disabled by default.
+Capture export requests can be deleted from the API and dashboard.
 
-```env
-CAPTURE_EXECUTION_ENABLED=false
-CAPTURE_OUTPUT_DIR=data/captures
-CAPTURE_RETENTION_HOURS=24
-CAPTURE_MAX_FILE_MB=50
-CAPTURE_DEFAULT_DURATION_SECONDS=30
-CAPTURE_MIN_DURATION_SECONDS=5
-CAPTURE_MAX_DURATION_SECONDS=120
-CAPTURE_ALLOWED_INTERFACES=
+Endpoint:
+
+```text
+DELETE /api/captures/export-requests/{id}
 ```
+
+Deletion behavior:
+
+- running capture requests cannot be deleted
+- the capture export request metadata is removed from SQLite
+- if the request has a valid local capture reference, Lag Rat attempts to remove the referenced `.pcap` file
+- file deletion is limited to Lag Rat capture files inside `CAPTURE_OUTPUT_DIR`
+- Lag Rat does not delete arbitrary paths or files outside the configured capture directory
+- Lag Rat does not inspect packet contents before deletion
+
+The delete response reports whether metadata was deleted and whether a local capture file was deleted:
+
+```json
+{
+  "id": 12,
+  "deleted": true,
+  "file_deleted": true
+}
+```
+
+If no capture file exists or no capture reference is available, `file_deleted` is `false`.
 
 ---
 
@@ -275,56 +335,50 @@ CAPTURE_ALLOWED_INTERFACES=
 
 Packet capture often requires elevated privileges.
 
-Recommended development approach:
-
-- document required OS permissions clearly
-- prefer running only the capture helper with required privileges
-- do not require the entire dashboard/API to run as root
-- fail safely when permissions are missing
-
-Possible Linux approaches:
-
-Running `tcpdump` usually requires elevated network capture privileges.
-
 Recommended local development option:
 
 ```bash
 sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
 ```
 
----
+Check capabilities:
 
-## API evolution
-
-Current endpoint:
-
-```text
-POST /api/captures/export-requests
-GET /api/captures/export-requests?limit=20
+```bash
+getcap "$(command -v tcpdump)"
 ```
 
-Future execution endpoints may include:
+If capabilities are not configured, capture requests may fail with a permission-related `tcpdump` error.
 
-```text
-POST /api/captures/export-requests/{id}/queue
-POST /api/captures/export-requests/{id}/cancel
-GET /api/captures/export-requests/{id}
-```
-
-Do not add execution endpoints until command allowlists, file retention, and permission behavior are finalized.
+Lag Rat should not require the entire API/dashboard process to run as root. Prefer granting capture capability to the `tcpdump` binary or using a tightly controlled helper in the future.
 
 ---
 
-## Database evolution
+## API surface
 
-Current table:
+Current capture endpoints:
+
+```text
+POST   /api/captures/export-requests
+GET    /api/captures/export-requests?limit=20
+GET    /api/captures/export-requests/{id}
+POST   /api/captures/export-requests/{id}/queue
+POST   /api/captures/export-requests/{id}/cancel
+DELETE /api/captures/export-requests/{id}
+```
+
+---
+
+## Database model
+
+Current capture table:
 
 ```text
 capture_export_requests
 ```
 
-Possible future fields:
+Lifecycle and metadata fields include:
 
+- `status`
 - `queued_at`
 - `started_at`
 - `completed_at`
@@ -333,6 +387,7 @@ Possible future fields:
 - `failure_reason`
 - `duration_seconds`
 - `output_filename`
+- `capture_reference`
 - `file_size_bytes`
 
 Avoid storing packet contents in SQLite.
@@ -390,13 +445,15 @@ The Traffic page can show capture request lifecycle state, including:
 
 Completed captures expose metadata such as output filename, capture reference, duration, and file size when available.
 
+The Traffic page includes a confirmation step before deleting capture request history. This is intentional because completed capture requests may reference local `.pcap` files.
+
 ---
 
 ## Security and privacy notes
 
 Capture files can contain sensitive metadata and payloads.
 
-Lag Rat should treat capture execution as a privileged local operation.
+Lag Rat should treat capture execution and cleanup as privileged local operations.
 
 Guardrails:
 
@@ -404,22 +461,35 @@ Guardrails:
 - no cloud sync by default
 - no packet content rendering in the dashboard
 - no arbitrary shell execution
+- no arbitrary file deletion
 - short durations only
 - local file retention policy
 - explicit operator action required
+- confirmation before dashboard deletion
 
 ---
 
 ## Implementation order
 
-Recommended order:
+Completed:
 
 1. document command allowlist and retention behavior
 2. add status transition fields
 3. add backend status update helpers
 4. add queue/cancel API shape
-5. add worker skeleton without executing tcpdump
+5. add worker skeleton
 6. add test coverage for state transitions
-7. add guarded tcpdump execution
-8. add dashboard status display
-9. add manual deletion / cleanup workflow
+7. add command allowlist builder
+8. add output directory preparation
+9. add retention cleanup
+10. add execution preflight checks
+11. add guarded `tcpdump` runner
+12. add dashboard lifecycle status display
+13. add request deletion and guarded cleanup
+14. add dashboard deletion confirmation
+
+Near-term next steps:
+
+- improve capture request detail UX
+- document capture troubleshooting examples
+- keep packet content analysis outside Lag Rat

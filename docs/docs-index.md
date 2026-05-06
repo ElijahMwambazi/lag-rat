@@ -52,6 +52,7 @@ Lag Rat should be treated as a **local observability platform** with a current p
   - current local API contract
   - dashboard-facing endpoints
   - current module scope
+  - capture request lifecycle and cleanup endpoints
   - future API direction
 
 ### Database schema
@@ -65,6 +66,13 @@ Lag Rat should be treated as a **local observability platform** with a current p
 ### Capture execution plan
 
 - `docs/capture-execution-plan.md`
+  - capture execution boundary
+  - guarded `tcpdump` runner behavior
+  - command allowlist
+  - local output directory behavior
+  - retention cleanup
+  - manual request deletion and `.pcap` cleanup behavior
+  - security and privacy guardrails
 
 ### Roadmap
 
@@ -113,6 +121,17 @@ Read in this order:
 2. `docs/api.md`
 3. `docs/roadmap.md`
 4. `docs/lag-rat.md`
+5. `docs/capture-execution-plan.md` when touching capture workflows
+
+### If you are working on capture execution or cleanup
+
+Read in this order:
+
+1. `docs/capture-execution-plan.md`
+2. `docs/api.md`
+3. `docs/database-schema.md`
+4. `docs/collector-plugin-boundary.md`
+5. `docs/roadmap.md`
 
 ### If you are exploring future observability modules
 

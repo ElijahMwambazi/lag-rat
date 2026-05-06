@@ -10,12 +10,10 @@ Today, the first implemented module is network monitoring for:
 - outages and alerts
 - local device activity
 - reports and metrics
-- room-based Wi-Fi sampling and Wi-Fi alerting
-- traffic summaries and top talkers
-- backend-powered incident investigations
 - room-based Wi-Fi sampling, Wi-Fi alerting, and Wi-Fi room mapping
 - traffic summaries, top talkers, recent samples, and traffic drawers
-- capture export request metadata and history
+- backend-powered incident investigations
+- capture export request metadata, history, lifecycle controls, and guarded local cleanup
 
 The current product shape is:
 
@@ -43,22 +41,23 @@ Implemented:
 - Wi-Fi signal alerting and stale-sample alerting
 - Wi-Fi summaries, location summaries, and recent-sample workflows
 - Wi-Fi page with room comparison, timelines, recoveries, and sample detail drawers
+- Wi-Fi room mapping summary / coverage workflow
 - traffic summary, top talker, and recent traffic sample workflows
+- traffic top talker and traffic sample detail drawers
 - backend investigation read model for incident targets
 - investigation drawer with related outages, alert events, devices, traffic, and Wi-Fi context
-- Wi-Fi room mapping summary / coverage workflow
-- traffic top talker and traffic sample detail drawers
 - capture export request API
 - capture export request actions from traffic drawers
-- capture export request history on the Traffic page
+- capture export request lifecycle state and Traffic page history
+- guarded local capture execution through allowlisted `tcpdump` commands, disabled by default
+- capture request deletion with guarded local `.pcap` cleanup
 
 ## Current focus
 
 - refining investigation entry points across Overview, Alerts, and Reports
-- refining capture export workflow visibility and operator handoff states
-- planning packet capture execution safely before adding any runner
+- refining capture export workflow visibility, lifecycle state, and operator handoff actions
+- documenting local capture execution requirements, cleanup behavior, and safe operating boundaries
 - preserving the collector/plugin boundary for future observability domains
-- documenting local capture execution requirements and safe operating boundaries
 
 ## Platform model
 
@@ -88,17 +87,18 @@ The current primary module is **home network observability**:
 - alerts
 - reports
 - metrics
-- Wi-Fi samples and room-level Wi-Fi health
 - Wi-Fi samples, room-level Wi-Fi health, and Wi-Fi room mapping
 - traffic summaries, top talkers, samples, and capture export handoffs
 - incident investigations
 - guarded local capture execution through allowlisted `tcpdump` commands, disabled by default
+- guarded local capture cleanup for request metadata and matching `.pcap` files
 
 ### Near-term additions
 
 - traffic observability hardening
 - investigation workflow refinement
 - clearer collector/plugin boundaries for future modules
+- capture history/detail UX polish
 
 ### Future modules
 
@@ -109,39 +109,45 @@ The current primary module is **home network observability**:
 
 Lag Rat records **capture export request metadata** as an operator handoff from traffic and investigation workflows.
 
-Lag Rat should not inspect packet contents or become a Wireshark replacement. Packet-level analysis should remain external through tools such as `tcpdump` and Wireshark.
+Lag Rat can optionally execute short, local, allowlisted `tcpdump` captures when explicitly enabled. It still does **not** inspect packet contents or become a Wireshark replacement. Packet-level analysis should remain external through tools such as `tcpdump` and Wireshark.
 
 Current capture workflow:
 
 ```text
-
 Traffic drawer
-→ Create capture export request
-→ Capture request history records source, target, window, status, and note
-→ Operator uses external tools for packet-level inspection
-
+→ create capture export request
+→ request appears in capture history
+→ operator queues or cancels the request
+→ capture worker runs preflight checks when execution is enabled
+→ guarded tcpdump runner writes a local .pcap file when permitted
+→ request is marked completed or failed
+→ operator inspects packet contents externally
+→ operator can delete request metadata and safely remove matching local .pcap files
 ```
+
+Capture files are local sensitive artifacts. Lag Rat can delete capture request metadata and safely remove matching local `.pcap` files, but it does not parse packet contents or act as a Wireshark replacement.
 
 ## Current priorities
 
-- finish responsive/mobile dashboard behavior
 - tighten overview as the main operator dashboard
 - keep technical detail in drawers while keeping list/table surfaces more human-friendly
+- refine investigation and capture handoff entry points
+- document local capture execution and cleanup behavior clearly
 - design the collector/plugin boundary for future modules
 - continue docs and repo polish
-- use Wi-Fi as the first deeper module-level workflow built on shared platform primitives
 
 ## Testing
 
 Current strength:
 
-- backend integration coverage for alerts, outages, overview, reports, metrics, and Wi-Fi endpoints
-- frontend coverage for dashboard surfaces including Wi-Fi flows and drawer interactions
+- backend integration coverage for alerts, outages, overview, reports, metrics, Wi-Fi, traffic, and capture endpoints
+- frontend coverage for dashboard surfaces including Wi-Fi flows, traffic flows, capture lifecycle actions, and drawer interactions
 
 Next major testing step:
 
+- continue operator-path verification for capture history/detail workflows
 - expand HTTP/API coverage for remaining module-specific surfaces
-- continue operator-path verification for Wi-Fi and future module additions
+- continue operator-path verification for future module additions
 
 ## Stack
 
@@ -176,18 +182,19 @@ Next major testing step:
 ## Monorepo structure
 
 ```text
-
 lag-rat/
 ├── README.md
 ├── docs/
 │   ├── architecture.md
 │   ├── api.md
+│   ├── capture-execution-plan.md
+│   ├── collector-plugin-boundary.md
 │   ├── database-schema.md
-│   ├── roadmap.md
+│   ├── docs-index.md
 │   ├── experiments.md
-│   └── lag_rat.md
+│   ├── lag-rat.md
+│   └── roadmap.md
 ├── backend/
 ├── frontend/
 └── scripts/
-
 ```

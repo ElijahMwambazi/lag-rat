@@ -18,30 +18,62 @@ http://127.0.0.1:8080
 
 ## Current API shape
 
-The current API serves seven broad categories:
+The current API serves four broad categories:
 
 - operational status
 - historical probe data
 - incidents and alerts
 - reports and metrics summaries
-- Wi-Fi sample and room-health workflows
-- traffic summaries and top talkers
-- investigation read models
-- capture export request workflows
 
 ---
 
 ## Status
 
-### `GET /api/overview`
+### `GET /api/status/overview`
 
-Returns the main dashboard overview payload, including:
+Returns a dashboard-oriented operational summary including:
 
-- current health cards
-- active outage summary
-- active alert summary
-- recent device summary
-- Wi-Fi summary block when available
+- router health
+- internet health
+- HTTP probe health
+- TCP probe health
+- DNS health
+- device activity summary
+- outage summary
+- alert summary
+
+### `GET /api/health/current`
+
+Returns the latest current health state including:
+
+- router reachable
+- internet reachable
+- DNS healthy
+- latest check timestamp
+
+---
+
+## Historical probe data
+
+### `GET /api/health/history?minutes=60`
+
+Returns time-series latency data for the internet HTTP probe.
+
+### `GET /api/health/history/tcp?minutes=60`
+
+Returns time-series latency data for the internet TCP probe.
+
+### `GET /api/dns/history?minutes=60`
+
+Returns time-series DNS response-time data.
+
+### `GET /api/stats/summary`
+
+Returns a compact 24-hour summary including:
+
+- uptime percentage
+- average latency
+- outage count
 
 ---
 
@@ -49,42 +81,31 @@ Returns the main dashboard overview payload, including:
 
 ### `GET /api/alerts`
 
-Returns filtered alerts.
+Lists alerts with optional filters.
 
-Common query parameters:
+Supported query params:
 
-- `severity`
-- `status`
-- `entity_type`
-- `limit`
+- `status=active|resolved`
+- `severity=critical|warning|info`
+- `entity_type=router|internet|dns|...`
+- `search=<text>`
+- `limit=<n>`
 
 ### `POST /api/alerts/{id}/acknowledge`
 
-Acknowledges an active alert.
+Acknowledges an active alert and returns the updated alert record.
 
 ### `GET /api/alerts/{id}/history`
 
-Returns alert lifecycle events for a single alert.
+Returns lifecycle history for a single alert.
 
-Typical event types:
+Typical events include:
 
-- `opened`
-- `severity_changed`
-- `message_changed`
-- `acknowledged`
-- `resolved`
-
----
-
-## Devices
-
-### `GET /api/devices`
-
-Returns enriched current device inventory.
-
-### `GET /api/devices/history`
-
-Returns device lifecycle/change history.
+- opened
+- severity changed
+- message changed
+- acknowledged
+- resolved
 
 ---
 
@@ -92,54 +113,53 @@ Returns device lifecycle/change history.
 
 ### `GET /api/outages`
 
-Returns outage records.
+Lists outages with optional filters.
 
-Common query parameters:
+Supported query params:
 
-- `hours`
-- `status`
-- `type`
-- `target`
-- `limit`
+- `status=active|resolved`
+- `outage_type=internet_http|internet_tcp|dns|router`
+- `search=<text>`
+- `limit=<n>`
+
+Returned items include:
+
+- outage type
+- target
+- started at
+- ended at
+- active/resolved state
+- start error
+- recovery note
+- computed duration
+- normalized status string
 
 ---
 
-## Investigations
+## Devices
 
-### `GET /api/investigations?incident_type=internet_http&target=https%3A%2F%2Fexample.com&hours=24`
+### `GET /api/devices`
 
-Returns a backend-composed investigation read model for an incident target.
+Returns enriched devices for the dashboard, including label and confidence information.
 
-The investigation payload includes:
+### `POST /api/devices/known`
 
-- investigation subject
-- related outages
-- recent alert events
-- likely device candidates
-- traffic context
-- Wi-Fi context
-- operator summary fields
+Creates or updates a known device label record.
 
-Current subject shape:
+Request body:
 
 ```json
 {
-  "kind": "incident_target",
-  "incident_type": "internet_http",
-  "target": "https://example.com",
-  "window_hours": 24
+  "ip_address": "192.168.1.20",
+  "mac_address": null,
+  "label": "Office laptop",
+  "notes": "Main work machine"
 }
 ```
 
-Current summary shape:
+### `GET /api/devices/{ip}/history`
 
-```json
-{
-  "primary_signal": "string",
-  "next_check": "string",
-  "supporting_context": "string"
-}
-```
+Returns historical device events for a single IP.
 
 ---
 
@@ -147,11 +167,30 @@ Current summary shape:
 
 ### `GET /api/reports/summary?hours=24`
 
-Returns report summary counts for the selected report window.
+Returns summary metrics for the selected reporting window.
+
+Fields include:
+
+- uptime percentage
+- average latency
+- outage count
+- total downtime
+- DNS failure count
+- device history event count
+- active alert count
+- active critical alert count
+- active unacknowledged alert count
 
 ### `GET /api/reports/trends?hours=24`
 
-Returns trend buckets for outages and failures over the selected report window.
+Returns bucketed report trend data for charts.
+
+Fields include per-bucket counts for:
+
+- outages
+- DNS failures
+- internet HTTP failures
+- internet TCP failures
 
 ### `GET /api/reports/alerts/recent?hours=24`
 
@@ -204,158 +243,96 @@ Each item includes:
 
 ---
 
-## Traffic
-
-### `GET /api/traffic/summary?minutes=60`
-
-Returns traffic totals for the selected operational window.
-
-Fields include:
-
-- `window_minutes`
-- `total_bytes_rx`
-- `total_bytes_tx`
-- `total_bytes`
-- `interface_count`
-- `top_talker`
-
-### `GET /api/traffic/top-talkers?minutes=60&limit=5`
-
-Returns ranked traffic entities for the selected window.
-
-Each item includes:
-
-- `interface_name`
-- `entity_type`
-- `entity_key`
-- `device_ip_address`
-- `mac_address`
-- latest RX/TX counters
-- earliest RX/TX counters
-- RX/TX deltas
-- total byte delta
-- latest sample timestamp
-
-### `GET /api/traffic/samples?minutes=60&limit=20`
-
-Returns recent traffic samples.
-
-Each item includes:
-
-- `id`
-- `interface_name`
-- `entity_type`
-- `entity_key`
-- `device_ip_address`
-- `mac_address`
-- `bytes_rx`
-- `bytes_tx`
-- `packets_rx`
-- `packets_tx`
-- `sampled_at`
-
----
-
 ## Capture export requests
+
+Capture export requests are local operator handoff records created from traffic workflows.
+
+Lag Rat can optionally queue and execute guarded local `tcpdump` captures when execution is enabled, but it does not inspect packet contents.
 
 ### `POST /api/captures/export-requests`
 
-Creates a capture export request metadata record.
+Creates a capture export request.
 
-This endpoint does not inspect packets and does not create a PCAP by itself. It records operator intent and context for later external packet-capture workflows.
-
-Request fields include:
-
-- `source`
-- `interface_name`
-- `entity_type`
-- `entity_key`
-- `device_ip_address`
-- `mac_address`
-- `window_minutes`
-- `note`
-
-Example request:
+Example request body:
 
 ```json
 {
   "source": "traffic_top_talker",
   "interface_name": "eth0",
-  "entity_type": "interface",
-  "entity_key": "eth0",
+  "entity_type": "device",
+  "entity_key": "192.168.1.20",
   "device_ip_address": "192.168.1.20",
-  "mac_address": null,
   "window_minutes": 60,
-  "note": "Capture export requested from traffic top talker drawer"
+  "note": "Inspect this top talker"
 }
 ```
 
----
+New requests start with `status = requested`.
 
-## Wi-Fi
+### `GET /api/captures/export-requests?limit=20`
 
-### `GET /api/wifi/samples?minutes=60&location_label=office&limit=50`
+Lists recent capture export requests.
 
-Returns recent Wi-Fi samples ordered newest first.
+Returned records include request metadata, lifecycle status, timestamps, optional failure reason, and optional capture file metadata.
 
-Supported query parameters:
+### `GET /api/captures/export-requests/{id}`
 
-- `minutes`
-- `location_label` (optional)
-- `limit` (optional)
+Returns a single capture export request.
 
-Each item includes:
+Possible responses:
 
-- `id`
-- `location_label`
-- `interface_name`
-- `ssid`
-- `bssid`
-- `rssi_dbm`
-- `frequency_mhz`
-- `band`
-- `sampled_at`
+- `200 OK` — request found
+- `404 Not Found` — request does not exist
 
-### `GET /api/wifi/latest`
+### `POST /api/captures/export-requests/{id}/queue`
 
-Returns the newest Wi-Fi sample across all locations.
+Moves a capture export request from `requested` to `queued`.
 
-Returns `404` when no Wi-Fi samples exist.
+Possible responses:
 
-### `GET /api/wifi/summary?minutes=60&location_label=office`
+- `200 OK` — request queued
+- `404 Not Found` — request does not exist
+- `409 Conflict` — request is not in a queueable state
 
-Returns a windowed Wi-Fi rollup for all locations or a single location.
+### `POST /api/captures/export-requests/{id}/cancel`
 
-Fields include:
+Cancels a request in `requested`, `queued`, or `running` state.
 
-- `window_minutes`
-- `location_label`
-- `latest_sample`
-- `sample_count`
-- `avg_rssi_dbm`
-- `min_rssi_dbm`
-- `max_rssi_dbm`
+Possible responses:
 
-### `GET /api/wifi/locations`
+- `200 OK` — request cancelled
+- `404 Not Found` — request does not exist
+- `409 Conflict` — request is not in a cancellable state
 
-Returns distinct Wi-Fi location labels.
+### `DELETE /api/captures/export-requests/{id}`
 
-Response shape:
+Deletes a capture export request from Lag Rat history.
 
-- `items: string[]`
+If the request has a valid `capture_reference`, Lag Rat also attempts to delete the referenced local `.pcap` file.
 
-### `GET /api/wifi/locations/summary?minutes=60`
+Safety rules:
 
-Returns per-location Wi-Fi summary items for the selected window.
+- requests with `status = running` cannot be deleted
+- only Lag Rat capture files under `CAPTURE_OUTPUT_DIR` can be removed
+- arbitrary paths are rejected
+- packet contents are not parsed or inspected
 
-Each item includes:
+Example response:
 
-- `location_label`
-- `latest_sample`
-- `sample_count`
-- `avg_rssi_dbm`
-- `min_rssi_dbm`
-- `max_rssi_dbm`
+```json
+{
+  "id": 12,
+  "deleted": true,
+  "file_deleted": false
+}
+```
+
+Possible responses:
+
+- `200 OK` — request deleted
+- `404 Not Found` — request does not exist
+- `409 Conflict` — request is currently running
+- `500 Internal Server Error` — cleanup failed unexpectedly
 
 ---
 
@@ -373,10 +350,6 @@ That includes:
 - alerts
 - reports
 - metrics
-- Wi-Fi room health and sample workflows
-- traffic summaries and top talkers
-- incident investigation read models
-- capture export request metadata and history
 
 ---
 
@@ -397,7 +370,9 @@ These should stay familiar across modules:
 
 These may expand over time:
 
-- optional packet capture execution endpoints, after command allowlists, retention policy, and permissions model are defined
+- Wi-Fi sampling data
+- traffic summary endpoints
+- optional capture/export endpoints
 - Bitcoin node observability summaries
 - Lightning observability summaries
 
@@ -409,4 +384,16 @@ The goal is to keep the dashboard contract familiar even as new observability mo
 
 - This API is local-first and intended for dashboard use.
 - Query parameters are currently simple and operator-focused.
-- Reports, metrics, and Wi-Fi endpoints form part of the stable dashboard-facing contract.
+- Reports and metrics endpoints form part of the stable dashboard-facing contract.
+
+---
+
+## Maintenance notes
+
+When updating this file:
+
+- add new endpoints under the relevant domain section
+- keep shared platform patterns separate from module-specific resources
+- document current implemented behavior first
+- place speculative or future endpoints only in **Future API direction**
+- prefer small edits over large rewrites
