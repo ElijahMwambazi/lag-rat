@@ -1556,4 +1556,116 @@ describe("TrafficPage", () => {
     ).not.toBeInTheDocument();
     expect(api.deleteCaptureExportRequest).not.toHaveBeenCalled();
   });
+
+  it("opens a capture export request detail drawer from history", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "device",
+        entity_key: "192.168.1.20",
+        device_ip_address: "192.168.1.20",
+        mac_address: null,
+        window_minutes: 60,
+        note: "Capture this top talker",
+        status: "failed",
+        capture_reference: "data/captures/capture-1-20260429T123000Z.pcap",
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "tcpdump is not available",
+        duration_seconds: 30,
+        output_filename: "capture-1-20260429T123000Z.pcap",
+        file_size_bytes: 1024,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /inspect/i,
+      }),
+    );
+
+    expect(await screen.findByText("Capture request · #1")).toBeInTheDocument();
+    expect(await screen.findByText("Failure reason")).toBeInTheDocument();
+    expect(screen.getAllByText("tcpdump is not available")).toHaveLength(2);
+    expect(
+      await screen.findByText("data/captures/capture-1-20260429T123000Z.pcap"),
+    ).toBeInTheDocument();
+  });
+
+  it("opens delete confirmation from the capture detail drawer", async () => {
+    vi.mocked(api.deleteCaptureExportRequest).mockClear();
+
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "device",
+        entity_key: "192.168.1.20",
+        device_ip_address: "192.168.1.20",
+        mac_address: null,
+        window_minutes: 60,
+        note: "Capture this top talker",
+        status: "failed",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "tcpdump is not available",
+        duration_seconds: 30,
+        output_filename: null,
+        file_size_bytes: null,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /inspect/i,
+      }),
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /delete request/i,
+      }),
+    );
+
+    expect(
+      await screen.findByText("Delete capture request?"),
+    ).toBeInTheDocument();
+    expect(api.deleteCaptureExportRequest).not.toHaveBeenCalled();
+  });
 });

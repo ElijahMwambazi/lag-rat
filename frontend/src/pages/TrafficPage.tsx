@@ -9,6 +9,7 @@ import CollapsibleInspectionSection from "../components/CollapsibleInspectionSec
 import TrafficSampleDetailDrawer from "../components/TrafficSampleDetailDrawer";
 import TrafficTalkerDetailDrawer from "../components/TrafficTalkerDetailDrawer";
 import InspectionHighlightCard from "../components/InspectionHighlightCard";
+import CaptureExportRequestDrawer from "../components/CaptureExportRequestDrawer";
 import {
   api,
   type CaptureExportRequest,
@@ -254,6 +255,9 @@ export default function TrafficPage() {
   const [captureHistoryCollapsed, setCaptureHistoryCollapsed] = useState(true);
   const [pendingDeleteCaptureRequest, setPendingDeleteCaptureRequest] =
     useState<CaptureExportRequest | null>(null);
+  const [selectedCaptureRequestId, setSelectedCaptureRequestId] = useState<
+    number | null
+  >(null);
 
   const queryClient = useQueryClient();
 
@@ -283,7 +287,9 @@ export default function TrafficPage() {
 
   const queueCaptureMutation = useMutation({
     mutationFn: (id: number) => api.queueCaptureExportRequest(id),
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      setSelectedCaptureRequestId(updated.id);
+
       queryClient.invalidateQueries({
         queryKey: ["capture-export-requests"],
       });
@@ -292,7 +298,9 @@ export default function TrafficPage() {
 
   const cancelCaptureMutation = useMutation({
     mutationFn: (id: number) => api.cancelCaptureExportRequest(id),
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      setSelectedCaptureRequestId(updated.id);
+
       queryClient.invalidateQueries({
         queryKey: ["capture-export-requests"],
       });
@@ -303,6 +311,7 @@ export default function TrafficPage() {
     mutationFn: (id: number) => api.deleteCaptureExportRequest(id),
     onSuccess: () => {
       setPendingDeleteCaptureRequest(null);
+      setSelectedCaptureRequestId(null);
 
       queryClient.invalidateQueries({
         queryKey: ["capture-export-requests"],
@@ -398,6 +407,11 @@ export default function TrafficPage() {
     );
   }, [topTalkers, selectedTalkerInterface, selectedTalkerKey]);
 
+  const selectedCaptureRequest =
+    captureExportRequests.find(
+      (item) => item.id === selectedCaptureRequestId,
+    ) ?? null;
+
   function setSampleDrawerParam(sample: TrafficSample) {
     const next = new URLSearchParams(searchParams);
 
@@ -437,6 +451,10 @@ export default function TrafficPage() {
 
   function canDeleteCaptureRequest(item: CaptureExportRequest) {
     return item.status !== "running";
+  }
+
+  function clearCaptureRequestDrawer() {
+    setSelectedCaptureRequestId(null);
   }
 
   return (
@@ -956,6 +974,7 @@ export default function TrafficPage() {
                 <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3 text-left font-medium">Lifecycle</th>
                 <th className="px-4 py-3 text-left font-medium">Note</th>
+                <th className="px-4 py-3 text-left font-medium">Details</th>
                 <th className="px-4 py-3 text-left font-medium">Actions</th>
               </tr>
             </thead>
@@ -963,7 +982,8 @@ export default function TrafficPage() {
               {captureExportRequests.map((item) => (
                 <tr
                   key={item.id}
-                  className="border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
+                  className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
+                  onClick={() => setSelectedCaptureRequestId(item.id)}
                 >
                   <td className="px-4 py-3 text-zinc-300">
                     <div>{formatDate(item.created_at)}</div>
@@ -971,21 +991,26 @@ export default function TrafficPage() {
                       {formatSampleAge(item.created_at)}
                     </div>
                   </td>
+
                   <td className="px-4 py-3 text-zinc-300">
                     {formatCaptureSource(item.source)}
                   </td>
+
                   <td className="px-4 py-3 text-zinc-100">
                     {formatInterfaceName(item.interface_name)}
                   </td>
+
                   <td className="px-4 py-3 text-zinc-300">
                     <div>{formatCaptureTarget(item)}</div>
                     <div className="mt-1 text-xs text-zinc-500">
                       {item.entity_type ?? "unknown"}
                     </div>
                   </td>
+
                   <td className="px-4 py-3 text-zinc-300">
                     {item.window_minutes ? `${item.window_minutes}m` : "—"}
                   </td>
+
                   <td className="px-4 py-3 text-zinc-300">
                     <span
                       className={[
@@ -1008,11 +1033,27 @@ export default function TrafficPage() {
                   </td>
 
                   <td className="px-4 py-3 text-zinc-300">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setSelectedCaptureRequestId(item.id);
+                      }}
+                      className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300 transition hover:bg-zinc-900"
+                    >
+                      Inspect
+                    </button>
+                  </td>
+
+                  <td className="px-4 py-3 text-zinc-300">
                     <div className="flex flex-wrap items-center gap-2">
                       {canQueueCaptureRequest(item) ? (
                         <button
                           type="button"
-                          onClick={() => queueCaptureMutation.mutate(item.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            queueCaptureMutation.mutate(item.id);
+                          }}
                           disabled={queueCaptureMutation.isPending}
                           className="rounded-full border border-cyan-800 bg-cyan-950 px-2 py-0.5 text-[11px] text-cyan-200 transition hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-60"
                         >
@@ -1023,7 +1064,10 @@ export default function TrafficPage() {
                       {canCancelCaptureRequest(item) ? (
                         <button
                           type="button"
-                          onClick={() => cancelCaptureMutation.mutate(item.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            cancelCaptureMutation.mutate(item.id);
+                          }}
                           disabled={cancelCaptureMutation.isPending}
                           className="rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-300 transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
                         >
@@ -1046,7 +1090,10 @@ export default function TrafficPage() {
                       {canDeleteCaptureRequest(item) ? (
                         <button
                           type="button"
-                          onClick={() => setPendingDeleteCaptureRequest(item)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPendingDeleteCaptureRequest(item);
+                          }}
                           disabled={deleteCaptureMutation.isPending}
                           className="rounded-full border border-red-900 bg-red-950 px-2 py-0.5 text-[11px] text-red-200 transition hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-60"
                         >
@@ -1065,6 +1112,18 @@ export default function TrafficPage() {
               ))}
             </tbody>
           </table>
+
+          <CaptureExportRequestDrawer
+            request={selectedCaptureRequest}
+            open={!!selectedCaptureRequest}
+            onClose={clearCaptureRequestDrawer}
+            onQueue={(request) => queueCaptureMutation.mutate(request.id)}
+            onCancel={(request) => cancelCaptureMutation.mutate(request.id)}
+            onDelete={(request) => setPendingDeleteCaptureRequest(request)}
+            queuePending={queueCaptureMutation.isPending}
+            cancelPending={cancelCaptureMutation.isPending}
+            deletePending={deleteCaptureMutation.isPending}
+          />
         </DataTableCard>
       </CollapsibleInspectionSection>
 
