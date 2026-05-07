@@ -256,6 +256,9 @@ export default function TrafficPage() {
   const [captureHistoryCollapsed, setCaptureHistoryCollapsed] = useState(true);
   const [pendingDeleteCaptureRequest, setPendingDeleteCaptureRequest] =
     useState<CaptureExportRequest | null>(null);
+  const [captureStatusFilter, setCaptureStatusFilter] = useState("");
+  const [captureSourceFilter, setCaptureSourceFilter] = useState("");
+  const [captureSearch, setCaptureSearch] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -424,6 +427,60 @@ export default function TrafficPage() {
       ) ?? null
     );
   }, [captureExportRequests, selectedCaptureRequestId]);
+
+  const captureSourceOptions = useMemo(() => {
+    const values = new Set<string>();
+
+    for (const item of captureExportRequests) {
+      if (item.source.trim()) {
+        values.add(item.source);
+      }
+    }
+
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [captureExportRequests]);
+
+  const filteredCaptureExportRequests = useMemo(() => {
+    const search = captureSearch.trim().toLowerCase();
+
+    return captureExportRequests.filter((item) => {
+      if (captureStatusFilter && item.status !== captureStatusFilter) {
+        return false;
+      }
+
+      if (captureSourceFilter && item.source !== captureSourceFilter) {
+        return false;
+      }
+
+      if (!search) {
+        return true;
+      }
+
+      const searchable = [
+        item.source,
+        item.status,
+        item.interface_name,
+        item.entity_type,
+        item.entity_key,
+        item.device_ip_address,
+        item.mac_address,
+        item.note,
+        item.failure_reason,
+        item.output_filename,
+        item.capture_reference,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(search);
+    });
+  }, [
+    captureExportRequests,
+    captureSearch,
+    captureSourceFilter,
+    captureStatusFilter,
+  ]);
 
   function setSampleDrawerParam(sample: TrafficSample) {
     const next = new URLSearchParams(searchParams);
@@ -945,6 +1002,9 @@ export default function TrafficPage() {
               {captureExportRequests.length} request
               {captureExportRequests.length === 1 ? "" : "s"}
             </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+              {filteredCaptureExportRequests.length} visible
+            </span>
 
             {latestCaptureRequest ? (
               <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
@@ -975,6 +1035,60 @@ export default function TrafficPage() {
         }
         onToggle={() => setCaptureHistoryCollapsed((current) => !current)}
       >
+        <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 md:grid-cols-3">
+          <label className="space-y-1 text-sm">
+            <span className="text-xs uppercase tracking-wide text-zinc-500">
+              Status
+            </span>
+            <select
+              aria-label="Capture status filter"
+              value={captureStatusFilter}
+              onChange={(event) => setCaptureStatusFilter(event.target.value)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+            >
+              <option value="">All statuses</option>
+              <option value="requested">Requested</option>
+              <option value="queued">Queued</option>
+              <option value="running">Running</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm">
+            <span className="text-xs uppercase tracking-wide text-zinc-500">
+              Source
+            </span>
+            <select
+              aria-label="Capture source filter"
+              value={captureSourceFilter}
+              onChange={(event) => setCaptureSourceFilter(event.target.value)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+            >
+              <option value="">All sources</option>
+              {captureSourceOptions.map((source) => (
+                <option key={source} value={source}>
+                  {formatCaptureSource(source)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm">
+            <span className="text-xs uppercase tracking-wide text-zinc-500">
+              Search
+            </span>
+            <input
+              aria-label="Capture search"
+              value={captureSearch}
+              onChange={(event) => setCaptureSearch(event.target.value)}
+              placeholder="Target, note, file, failure..."
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+            />
+          </label>
+        </div>
+
         <DataTableCard
           title="Capture export requests"
           description="Recent capture handoff requests created from traffic drawers."
@@ -988,8 +1102,12 @@ export default function TrafficPage() {
               : "Capture export requests could not be loaded."
           }
           emptyTitle="Capture export requests"
-          emptyMessage="No capture export requests have been created yet."
-          hasData={captureExportRequests.length > 0}
+          emptyMessage={
+            captureExportRequests.length > 0
+              ? "No capture requests match the selected filters."
+              : "No capture export requests have been created yet."
+          }
+          hasData={filteredCaptureExportRequests.length > 0}
           tableMinWidthClassName="min-w-[1280px]"
           variant="flush"
           hideHeader
@@ -1010,7 +1128,7 @@ export default function TrafficPage() {
               </tr>
             </thead>
             <tbody>
-              {captureExportRequests.map((item) => (
+              {filteredCaptureExportRequests.map((item) => (
                 <tr
                   key={item.id}
                   className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"

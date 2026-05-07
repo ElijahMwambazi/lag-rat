@@ -1364,9 +1364,11 @@ describe("TrafficPage", () => {
       }),
     );
 
-    expect(await screen.findByText("traffic top talker")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("traffic top talker").length,
+    ).toBeGreaterThanOrEqual(1);
     expect(await screen.findByText("192.168.1.20")).toBeInTheDocument();
-    expect(await screen.findByText("Requested")).toBeInTheDocument();
+    expect(screen.getAllByText("Requested").length).toBeGreaterThanOrEqual(1);
     expect(
       await screen.findByText("Metadata handoff created"),
     ).toBeInTheDocument();
@@ -1416,7 +1418,7 @@ describe("TrafficPage", () => {
       }),
     );
 
-    expect(await screen.findByText("Requested")).toBeInTheDocument();
+    expect(screen.getAllByText("Requested").length).toBeGreaterThanOrEqual(1);
     expect(
       await screen.findByText("Metadata handoff created"),
     ).toBeInTheDocument();
@@ -1749,5 +1751,101 @@ describe("TrafficPage", () => {
     );
 
     expect(screen.queryByText("Capture request · #1")).not.toBeInTheDocument();
+  });
+
+  it("filters capture export request history by status and search", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "device",
+        entity_key: "192.168.1.20",
+        device_ip_address: "192.168.1.20",
+        mac_address: null,
+        window_minutes: 60,
+        note: "Phone capture",
+        status: "failed",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "tcpdump is not available",
+        duration_seconds: 30,
+        output_filename: null,
+        file_size_bytes: null,
+      },
+      {
+        id: 2,
+        source: "traffic_sample",
+        interface_name: "wlan0",
+        entity_type: "interface",
+        entity_key: "wlan0",
+        device_ip_address: null,
+        mac_address: null,
+        window_minutes: 60,
+        note: "Completed wireless capture",
+        status: "completed",
+        capture_reference: "data/captures/capture-2-20260429T123000Z.pcap",
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        failed_at: null,
+        cancelled_at: null,
+        failure_reason: null,
+        duration_seconds: 30,
+        output_filename: "capture-2-20260429T123000Z.pcap",
+        file_size_bytes: 1024,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    expect(await screen.findByText("192.168.1.20")).toBeInTheDocument();
+    expect(screen.getAllByText("wlan0").length).toBeGreaterThanOrEqual(1);
+
+    await userEvent.selectOptions(
+      screen.getByLabelText(/capture status filter/i),
+      "completed",
+    );
+
+    expect(screen.queryByText("192.168.1.20")).not.toBeInTheDocument();
+    expect(screen.getAllByText("wlan0").length).toBeGreaterThanOrEqual(1);
+
+    await userEvent.type(screen.getByLabelText(/capture search/i), "wireless");
+
+    expect(screen.getAllByText("wlan0").length).toBeGreaterThanOrEqual(1);
+
+    await userEvent.clear(screen.getByLabelText(/capture search/i));
+    await userEvent.type(screen.getByLabelText(/capture search/i), "phone");
+
+    expect(screen.queryByText("192.168.1.20")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Completed wireless capture"),
+    ).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(
+      screen.getByLabelText(/capture status filter/i),
+      "",
+    );
+
+    expect(await screen.findByText("192.168.1.20")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Completed wireless capture"),
+    ).not.toBeInTheDocument();
   });
 });
