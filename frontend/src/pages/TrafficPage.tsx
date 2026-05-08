@@ -563,6 +563,17 @@ export default function TrafficPage() {
     return item.status !== "running";
   }
 
+  const hasCaptureFilters =
+    captureStatusFilter !== "" ||
+    captureSourceFilter !== "" ||
+    captureSearch.trim() !== "";
+
+  function clearCaptureFilters() {
+    setCaptureStatusFilter("");
+    setCaptureSourceFilter("");
+    setCaptureSearch("");
+  }
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <PageFilterBar
@@ -1140,6 +1151,16 @@ export default function TrafficPage() {
               className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
             />
           </label>
+
+          {hasCaptureFilters ? (
+            <button
+              type="button"
+              onClick={clearCaptureFilters}
+              className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs text-zinc-300 transition hover:bg-zinc-800"
+            >
+              Clear filters
+            </button>
+          ) : null}
         </div>
 
         <DataTableCard
