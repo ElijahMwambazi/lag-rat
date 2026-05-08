@@ -268,6 +268,7 @@ export default function TrafficPage() {
   const [captureStatusFilter, setCaptureStatusFilter] = useState("");
   const [captureSourceFilter, setCaptureSourceFilter] = useState("");
   const [captureSearch, setCaptureSearch] = useState("");
+  const [captureCompactMode, setCaptureCompactMode] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -1100,7 +1101,7 @@ export default function TrafficPage() {
           })}
         </div>
 
-        <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 md:grid-cols-3">
+        <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 md:grid-cols-4">
           <label className="space-y-1 text-sm">
             <span className="text-xs uppercase tracking-wide text-zinc-500">
               Status
@@ -1152,6 +1153,25 @@ export default function TrafficPage() {
             />
           </label>
 
+          <div className="flex flex-col justify-end gap-1 text-sm">
+            <span className="text-xs uppercase tracking-wide text-zinc-500">
+              Table density
+            </span>
+            <button
+              type="button"
+              aria-pressed={captureCompactMode}
+              onClick={() => setCaptureCompactMode((current) => !current)}
+              className={[
+                "rounded-xl border px-3 py-2 text-left text-sm transition",
+                captureCompactMode
+                  ? "border-cyan-700 bg-cyan-950 text-cyan-200"
+                  : "border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800",
+              ].join(" ")}
+            >
+              Compact table
+            </button>
+          </div>
+
           {hasCaptureFilters ? (
             <button
               type="button"
@@ -1182,21 +1202,31 @@ export default function TrafficPage() {
               : "No capture export requests have been created yet."
           }
           hasData={filteredCaptureExportRequests.length > 0}
-          tableMinWidthClassName="min-w-[1280px]"
+          tableMinWidthClassName={
+            captureCompactMode ? "min-w-[900px]" : "min-w-[1280px]"
+          }
           variant="flush"
           hideHeader
         >
           <table className="w-full text-sm">
             <thead className="bg-zinc-800/50 text-zinc-300">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Created</th>
+                {!captureCompactMode ? (
+                  <th className="px-4 py-3 text-left font-medium">Created</th>
+                ) : null}
                 <th className="px-4 py-3 text-left font-medium">Source</th>
                 <th className="px-4 py-3 text-left font-medium">Interface</th>
                 <th className="px-4 py-3 text-left font-medium">Target</th>
-                <th className="px-4 py-3 text-left font-medium">Window</th>
+                {!captureCompactMode ? (
+                  <th className="px-4 py-3 text-left font-medium">Window</th>
+                ) : null}
                 <th className="px-4 py-3 text-left font-medium">Status</th>
-                <th className="px-4 py-3 text-left font-medium">Lifecycle</th>
-                <th className="px-4 py-3 text-left font-medium">Note</th>
+                {!captureCompactMode ? (
+                  <th className="px-4 py-3 text-left font-medium">Lifecycle</th>
+                ) : null}
+                {!captureCompactMode ? (
+                  <th className="px-4 py-3 text-left font-medium">Note</th>
+                ) : null}
                 <th className="px-4 py-3 text-left font-medium">Details</th>
                 <th className="px-4 py-3 text-left font-medium">Actions</th>
               </tr>
@@ -1208,12 +1238,14 @@ export default function TrafficPage() {
                   className="cursor-pointer border-t border-zinc-800 transition-colors hover:bg-zinc-800/60"
                   onClick={() => setCaptureRequestDrawerParam(item)}
                 >
-                  <td className="px-4 py-3 text-zinc-300">
-                    <div>{formatDate(item.created_at)}</div>
-                    <div className="mt-1 text-xs text-zinc-500">
-                      {formatSampleAge(item.created_at)}
-                    </div>
-                  </td>
+                  {!captureCompactMode ? (
+                    <td className="px-4 py-3 text-zinc-300">
+                      <div>{formatDate(item.created_at)}</div>
+                      <div className="mt-1 text-xs text-zinc-500">
+                        {formatSampleAge(item.created_at)}
+                      </div>
+                    </td>
+                  ) : null}
 
                   <td className="px-4 py-3 text-zinc-300">
                     {formatCaptureSource(item.source)}
@@ -1226,13 +1258,17 @@ export default function TrafficPage() {
                   <td className="px-4 py-3 text-zinc-300">
                     <div>{formatCaptureTarget(item)}</div>
                     <div className="mt-1 text-xs text-zinc-500">
-                      {item.entity_type ?? "unknown"}
+                      {captureCompactMode
+                        ? getCaptureLifecycleDetail(item)
+                        : (item.entity_type ?? "unknown")}
                     </div>
                   </td>
 
-                  <td className="px-4 py-3 text-zinc-300">
-                    {item.window_minutes ? `${item.window_minutes}m` : "—"}
-                  </td>
+                  {!captureCompactMode ? (
+                    <td className="px-4 py-3 text-zinc-300">
+                      {item.window_minutes ? `${item.window_minutes}m` : "—"}
+                    </td>
+                  ) : null}
 
                   <td className="px-4 py-3 text-zinc-300">
                     <span
@@ -1245,15 +1281,22 @@ export default function TrafficPage() {
                     </span>
                   </td>
 
-                  <td className="px-4 py-3 text-zinc-300">
-                    <div>{formatDate(getCaptureLifecycleTimestamp(item))}</div>
-                    <div className="mt-1 text-xs text-zinc-500">
-                      {getCaptureLifecycleDetail(item)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-400">
-                    {item.note ?? "—"}
-                  </td>
+                  {!captureCompactMode ? (
+                    <td className="px-4 py-3 text-zinc-300">
+                      <div>
+                        {formatDate(getCaptureLifecycleTimestamp(item))}
+                      </div>
+                      <div className="mt-1 text-xs text-zinc-500">
+                        {getCaptureLifecycleDetail(item)}
+                      </div>
+                    </td>
+                  ) : null}
+
+                  {!captureCompactMode ? (
+                    <td className="px-4 py-3 text-zinc-400">
+                      {item.note ?? "—"}
+                    </td>
+                  ) : null}
 
                   <td className="px-4 py-3 text-zinc-300">
                     <button

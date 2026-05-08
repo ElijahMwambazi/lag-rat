@@ -1934,4 +1934,79 @@ describe("TrafficPage", () => {
     expect(screen.getByText("192.168.1.20")).toBeInTheDocument();
     expect(screen.getByText("Completed wireless capture")).toBeInTheDocument();
   });
+
+  it("toggles compact capture export request history table", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "device",
+        entity_key: "192.168.1.20",
+        device_ip_address: "192.168.1.20",
+        mac_address: null,
+        window_minutes: 60,
+        note: "Phone capture",
+        status: "failed",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "tcpdump is not available",
+        duration_seconds: 30,
+        output_filename: null,
+        file_size_bytes: null,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    expect(await screen.findByText("Phone capture")).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: /note/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: /lifecycle/i }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /compact table/i,
+      }),
+    );
+
+    expect(screen.queryByText("Phone capture")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", { name: /note/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", { name: /lifecycle/i }),
+    ).not.toBeInTheDocument();
+
+    expect(screen.getByText("tcpdump is not available")).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /compact table/i,
+      }),
+    );
+
+    expect(await screen.findByText("Phone capture")).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: /note/i }),
+    ).toBeInTheDocument();
+  });
 });
