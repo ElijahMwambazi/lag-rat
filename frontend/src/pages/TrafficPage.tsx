@@ -29,6 +29,15 @@ const TRAFFIC_TALKER_INTERFACE_PARAM = "trafficTalkerInterface";
 const TRAFFIC_TALKER_KEY_PARAM = "trafficTalkerKey";
 const CAPTURE_REQUEST_PARAM = "captureRequestId";
 
+const CAPTURE_STATUS_OPTIONS = [
+  { value: "requested", label: "Requested" },
+  { value: "queued", label: "Queued" },
+  { value: "running", label: "Running" },
+  { value: "completed", label: "Completed" },
+  { value: "failed", label: "Failed" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
 function formatWindowLabel(minutes: number) {
   const match = WINDOWS.find((option) => option.minutes === minutes);
   return match?.label ?? `${minutes}m`;
@@ -481,6 +490,16 @@ export default function TrafficPage() {
     captureSourceFilter,
     captureStatusFilter,
   ]);
+
+  const captureStatusCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const item of captureExportRequests) {
+      counts.set(item.status, (counts.get(item.status) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [captureExportRequests]);
 
   function setSampleDrawerParam(sample: TrafficSample) {
     const next = new URLSearchParams(searchParams);
@@ -1035,6 +1054,41 @@ export default function TrafficPage() {
         }
         onToggle={() => setCaptureHistoryCollapsed((current) => !current)}
       >
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+          <button
+            type="button"
+            onClick={() => setCaptureStatusFilter("")}
+            className={[
+              "rounded-full border px-3 py-1 text-xs transition",
+              captureStatusFilter === ""
+                ? "border-cyan-700 bg-cyan-950 text-cyan-200"
+                : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900",
+            ].join(" ")}
+          >
+            All · {captureExportRequests.length}
+          </button>
+
+          {CAPTURE_STATUS_OPTIONS.map((status) => {
+            const count = captureStatusCounts.get(status.value) ?? 0;
+
+            return (
+              <button
+                key={status.value}
+                type="button"
+                onClick={() => setCaptureStatusFilter(status.value)}
+                className={[
+                  "rounded-full border px-3 py-1 text-xs transition",
+                  captureStatusFilter === status.value
+                    ? "border-cyan-700 bg-cyan-950 text-cyan-200"
+                    : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900",
+                ].join(" ")}
+              >
+                {status.label} · {count}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 md:grid-cols-3">
           <label className="space-y-1 text-sm">
             <span className="text-xs uppercase tracking-wide text-zinc-500">
@@ -1047,12 +1101,11 @@ export default function TrafficPage() {
               className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
             >
               <option value="">All statuses</option>
-              <option value="requested">Requested</option>
-              <option value="queued">Queued</option>
-              <option value="running">Running</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-              <option value="cancelled">Cancelled</option>
+              {CAPTURE_STATUS_OPTIONS.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
             </select>
           </label>
 

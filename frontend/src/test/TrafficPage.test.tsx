@@ -1425,7 +1425,7 @@ describe("TrafficPage", () => {
 
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /queue/i,
+        name: /^queue$/i,
       }),
     );
 
@@ -1847,5 +1847,91 @@ describe("TrafficPage", () => {
     expect(
       screen.queryByText("Completed wireless capture"),
     ).not.toBeInTheDocument();
+  });
+
+  it("filters capture export request history from status summary chips", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "eth0",
+        entity_type: "device",
+        entity_key: "192.168.1.20",
+        device_ip_address: "192.168.1.20",
+        mac_address: null,
+        window_minutes: 60,
+        note: "Failed phone capture",
+        status: "failed",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "tcpdump is not available",
+        duration_seconds: 30,
+        output_filename: null,
+        file_size_bytes: null,
+      },
+      {
+        id: 2,
+        source: "traffic_sample",
+        interface_name: "wlan0",
+        entity_type: "interface",
+        entity_key: "wlan0",
+        device_ip_address: null,
+        mac_address: null,
+        window_minutes: 60,
+        note: "Completed wireless capture",
+        status: "completed",
+        capture_reference: "data/captures/capture-2-20260429T123000Z.pcap",
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        failed_at: null,
+        cancelled_at: null,
+        failure_reason: null,
+        duration_seconds: 30,
+        output_filename: "capture-2-20260429T123000Z.pcap",
+        file_size_bytes: 1024,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    expect(await screen.findByText("192.168.1.20")).toBeInTheDocument();
+    expect(screen.getByText("Completed wireless capture")).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /failed · 1/i,
+      }),
+    );
+
+    expect(screen.getByText("192.168.1.20")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Completed wireless capture"),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /all · 2/i,
+      }),
+    );
+
+    expect(screen.getByText("192.168.1.20")).toBeInTheDocument();
+    expect(screen.getByText("Completed wireless capture")).toBeInTheDocument();
   });
 });
