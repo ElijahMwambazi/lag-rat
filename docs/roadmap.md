@@ -147,6 +147,10 @@ Completed:
 - frontend capture export actions from traffic sample drawers
 - capture export request history on the Traffic page
 - packet-capture boundary documented as metadata handoff, not packet inspection
+- guarded local capture execution through allowlisted `tcpdump` commands, disabled by default
+- capture request deletion with guarded local `.pcap` cleanup
+- capture request detail drawer with `captureRequestId` deep links
+- capture history status chips, filters, clear-filters action, and compact table mode
 
 ---
 
@@ -156,9 +160,7 @@ In progress:
 
 - investigation workflow refinement across Reports, Overview, and Alerts
 - capture export workflow refinement
-- packet capture execution planning
-- command allowlist design
-- capture retention policy design
+- capture troubleshooting examples and stale-running recovery design
 - documentation alignment as implemented capabilities move forward
 
 ---
@@ -172,7 +174,6 @@ Not started:
 - Prometheus-compatible metrics export
 - Docker packaging
 - packet capture / PCAP analysis
-- packet capture execution
 - packet capture / PCAP analysis outside Lag Rat
 - remote access / cloud sync
 - richer notification channels
@@ -191,7 +192,7 @@ Not started:
 ## Near-term new capabilities
 
 - capture export workflow refinement
-- packet capture execution planning
+- capture troubleshooting and stale-running recovery
 - investigation entry points from Overview and Alerts
 - future module onboarding patterns
 

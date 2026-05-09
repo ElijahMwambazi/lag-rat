@@ -48,7 +48,7 @@ Implemented:
 - investigation drawer with related outages, alert events, devices, traffic, and Wi-Fi context
 - capture export request API
 - capture export request actions from traffic drawers
-- capture export request lifecycle state and Traffic page history
+- capture export request lifecycle state, Traffic page history, status chips, filters, compact mode, and detail drawer
 - guarded local capture execution through allowlisted `tcpdump` commands, disabled by default
 - capture request deletion with guarded local `.pcap` cleanup
 
@@ -117,6 +117,7 @@ Current capture workflow:
 Traffic drawer
 → create capture export request
 → request appears in capture history
+→ operator reviews status chips, filters, compact mode, or detail drawer
 → operator queues or cancels the request
 → capture worker runs preflight checks when execution is enabled
 → guarded tcpdump runner writes a local .pcap file when permitted

@@ -29,6 +29,8 @@ Implemented:
 - capture request deletion
 - guarded local `.pcap` cleanup
 - dashboard confirmation before deleting capture requests
+- capture detail drawer and `captureRequestId` deep links
+- capture history status chips, filters, clear filters action, and compact table mode
 
 Not implemented:
 
@@ -447,6 +449,8 @@ Completed captures expose metadata such as output filename, capture reference, d
 
 The Traffic page includes a confirmation step before deleting capture request history. This is intentional because completed capture requests may reference local `.pcap` files.
 
+The Traffic page also supports a capture detail drawer, `captureRequestId` deep links, lifecycle status chips, status/source/search filters, a clear filters action, and a compact table mode for dense capture history.
+
 ---
 
 ## Security and privacy notes
@@ -487,9 +491,10 @@ Completed:
 12. add dashboard lifecycle status display
 13. add request deletion and guarded cleanup
 14. add dashboard deletion confirmation
+15. add capture request detail drawer and deep links
+16. add capture history filters, clear filters, status chips, and compact table mode
 
 Near-term next steps:
 
-- improve capture request detail UX
 - document capture troubleshooting examples
 - keep packet content analysis outside Lag Rat

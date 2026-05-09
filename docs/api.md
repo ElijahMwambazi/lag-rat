@@ -334,6 +334,24 @@ Possible responses:
 - `409 Conflict` — request is currently running
 - `500 Internal Server Error` — cleanup failed unexpectedly
 
+### Dashboard workflow notes
+
+The Traffic page uses these endpoints to support the capture request workflow.
+
+Dashboard behavior includes:
+
+- capture request history on the Traffic page
+- lifecycle status chips for quick status counts and filtering
+- status, source, and search filters
+- a clear filters action
+- compact and comfortable table density modes
+- a capture request detail drawer
+- `captureRequestId` query-param deep links for restoring the drawer
+- queue, cancel, and delete actions from table rows and the detail drawer
+- confirmation before deleting request history or matching local `.pcap` files
+
+The dashboard remains a metadata and handoff surface. Packet-content inspection should still happen externally through tools such as `tcpdump` or Wireshark.
+
 ---
 
 ## Current module scope
