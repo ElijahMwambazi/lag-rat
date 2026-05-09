@@ -15,6 +15,8 @@ use crate::{config::CaptureConfig, db};
 const EXECUTION_DISABLED_REASON: &str = "capture execution is not enabled";
 const CAPTURE_RUNNER_TIMEOUT_GRACE_SECONDS: u64 = 5;
 const CAPTURE_STDERR_LIMIT_CHARS: usize = 400;
+const STALE_RUNNING_CAPTURE_BUFFER_SECONDS: u64 = 60;
+const STALE_RUNNING_CAPTURE_REASON: &str = "capture request was recovered after becoming stale";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureCommand {
@@ -272,6 +274,23 @@ pub async fn process_next_capture_export_request(
     pool: &SqlitePool,
     config: &CaptureConfig,
 ) -> anyhow::Result<bool> {
+    match recover_stale_running_capture_export_requests(pool, config, Utc::now()).await {
+        Ok(recovered_count) => {
+            if recovered_count > 0 {
+                warn!(
+                    recovered_count,
+                    "stale running capture export requests recovered"
+                );
+            }
+        }
+        Err(err) => {
+            warn!(
+                error = %err,
+                "stale running capture recovery failed"
+            );
+        }
+    }
+
     let Some(request) = db::get_next_queued_capture_export_request(pool).await? else {
         if let Err(err) = cleanup_expired_capture_files(config).await {
             warn!(
@@ -526,6 +545,27 @@ pub async fn process_next_capture_export_request(
     }
 
     Ok(true)
+}
+
+pub async fn recover_stale_running_capture_export_requests(
+    pool: &SqlitePool,
+    config: &CaptureConfig,
+    now: DateTime<Utc>,
+) -> anyhow::Result<u64> {
+    let stale_after_seconds = config
+        .max_duration_seconds
+        .saturating_add(STALE_RUNNING_CAPTURE_BUFFER_SECONDS);
+
+    let cutoff_started_at =
+        now - chrono::Duration::seconds(i64::try_from(stale_after_seconds).unwrap_or(i64::MAX));
+
+    db::fail_stale_running_capture_export_requests(
+        pool,
+        cutoff_started_at,
+        now,
+        STALE_RUNNING_CAPTURE_REASON,
+    )
+    .await
 }
 
 pub async fn prepare_capture_output_dir(config: &CaptureConfig) -> anyhow::Result<PathBuf> {

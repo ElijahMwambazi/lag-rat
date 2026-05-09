@@ -1111,3 +1111,280 @@ async fn running_capture_export_request_cannot_be_deleted() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn stale_running_capture_export_requests_are_marked_failed() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let now = Utc::now();
+    let started_at = now - Duration::seconds(180);
+
+    db::queue_capture_export_request(&harness.state.db, id, now - Duration::seconds(181)).await?;
+    db::start_capture_export_request(&harness.state.db, id, started_at).await?;
+
+    let recovered_count = db::fail_stale_running_capture_export_requests(
+        &harness.state.db,
+        now - Duration::seconds(120),
+        now,
+        "capture request was recovered after becoming stale",
+    )
+    .await?;
+
+    assert_eq!(recovered_count, 1);
+
+    let loaded = db::get_capture_export_request(&harness.state.db, id)
+        .await?
+        .expect("request should exist");
+
+    assert_eq!(loaded.status, "failed");
+    assert!(loaded.failed_at.is_some());
+    assert_eq!(
+        loaded.failure_reason.as_deref(),
+        Some("capture request was recovered after becoming stale")
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn fresh_running_capture_export_requests_are_not_recovered() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let now = Utc::now();
+
+    db::queue_capture_export_request(&harness.state.db, id, now - Duration::seconds(10)).await?;
+    db::start_capture_export_request(&harness.state.db, id, now - Duration::seconds(5)).await?;
+
+    let recovered_count = db::fail_stale_running_capture_export_requests(
+        &harness.state.db,
+        now - Duration::seconds(120),
+        now,
+        "capture request was recovered after becoming stale",
+    )
+    .await?;
+
+    assert_eq!(recovered_count, 0);
+
+    let loaded = db::get_capture_export_request(&harness.state.db, id)
+        .await?
+        .expect("request should exist");
+
+    assert_eq!(loaded.status, "running");
+    assert!(loaded.failed_at.is_none());
+    assert!(loaded.failure_reason.is_none());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_worker_recovers_stale_running_request_before_processing_queue() -> Result<()> {
+    let mut harness = TestHarness::new().await?;
+    harness.state.config.capture.max_duration_seconds = 30;
+
+    let app = api::router(harness.state.clone());
+
+    let stale_create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(stale_create_response.status(), StatusCode::OK);
+
+    let stale_create_body = to_bytes(stale_create_response.into_body(), usize::MAX).await?;
+    let stale_created: Value = serde_json::from_slice(&stale_create_body)?;
+    let stale_id = stale_created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let queued_create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(queued_create_response.status(), StatusCode::OK);
+
+    let queued_create_body = to_bytes(queued_create_response.into_body(), usize::MAX).await?;
+    let queued_created: Value = serde_json::from_slice(&queued_create_body)?;
+    let queued_id = queued_created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let now = Utc::now();
+
+    db::queue_capture_export_request(&harness.state.db, stale_id, now - Duration::seconds(200))
+        .await?;
+    db::start_capture_export_request(&harness.state.db, stale_id, now - Duration::seconds(120))
+        .await?;
+
+    db::queue_capture_export_request(&harness.state.db, queued_id, now).await?;
+
+    let processed = captures::process_next_capture_export_request(
+        &harness.state.db,
+        &harness.state.config.capture,
+    )
+    .await?;
+
+    assert!(processed);
+
+    let stale_loaded = db::get_capture_export_request(&harness.state.db, stale_id)
+        .await?
+        .expect("stale request should exist");
+
+    assert_eq!(stale_loaded.status, "failed");
+    assert_eq!(
+        stale_loaded.failure_reason.as_deref(),
+        Some("capture request was recovered after becoming stale")
+    );
+
+    let queued_loaded = db::get_capture_export_request(&harness.state.db, queued_id)
+        .await?
+        .expect("queued request should exist");
+
+    assert_eq!(queued_loaded.status, "failed");
+    assert_eq!(
+        queued_loaded.failure_reason.as_deref(),
+        Some("capture execution is not enabled")
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_recovery_uses_max_duration_plus_buffer() -> Result<()> {
+    let mut harness = TestHarness::new().await?;
+    harness.state.config.capture.max_duration_seconds = 30;
+
+    let app = api::router(harness.state.clone());
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "traffic_top_talker",
+                        "interface_name": "eth0",
+                        "entity_type": "interface",
+                        "entity_key": "eth0",
+                        "window_minutes": 60
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let create_body = to_bytes(create_response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&create_body)?;
+    let id = created["id"]
+        .as_i64()
+        .expect("created request should have id");
+
+    let now = Utc::now();
+
+    db::queue_capture_export_request(&harness.state.db, id, now - Duration::seconds(91)).await?;
+    db::start_capture_export_request(&harness.state.db, id, now - Duration::seconds(91)).await?;
+
+    let recovered = captures::recover_stale_running_capture_export_requests(
+        &harness.state.db,
+        &harness.state.config.capture,
+        now,
+    )
+    .await?;
+
+    assert_eq!(recovered, 1);
+
+    Ok(())
+}

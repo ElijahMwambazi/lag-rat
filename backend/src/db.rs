@@ -2475,6 +2475,33 @@ pub async fn fail_capture_export_request(
     get_capture_export_request(pool, id).await
 }
 
+pub async fn fail_stale_running_capture_export_requests(
+    pool: &SqlitePool,
+    cutoff_started_at: DateTime<Utc>,
+    failed_at: DateTime<Utc>,
+    failure_reason: &str,
+) -> anyhow::Result<u64> {
+    let result = sqlx::query(
+        r#"
+        UPDATE capture_export_requests
+        SET
+            status = 'failed',
+            failed_at = ?2,
+            failure_reason = ?3
+        WHERE status = 'running'
+          AND started_at IS NOT NULL
+          AND datetime(started_at) < datetime(?1)
+        "#,
+    )
+    .bind(cutoff_started_at)
+    .bind(failed_at)
+    .bind(failure_reason)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}
+
 pub async fn complete_capture_export_request(
     pool: &SqlitePool,
     id: i64,
