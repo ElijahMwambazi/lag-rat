@@ -1388,3 +1388,78 @@ async fn capture_recovery_uses_max_duration_plus_buffer() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn capture_readiness_reports_disabled_execution() -> Result<()> {
+    let mut harness = TestHarness::new().await?;
+    harness.state.config.capture.execution_enabled = false;
+    harness.state.config.capture.allowed_interfaces = vec!["wlo1".to_string()];
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/captures/readiness")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+
+    assert_eq!(json["execution_enabled"].as_bool(), Some(false));
+    assert_eq!(json["can_execute"].as_bool(), Some(false));
+    assert_eq!(json["allowed_interfaces"][0].as_str(), Some("wlo1"));
+    assert_eq!(json["default_duration_seconds"].as_u64(), Some(30));
+    assert_eq!(json["max_file_mb"].as_u64(), Some(50));
+
+    let issues = json["issues"]
+        .as_array()
+        .expect("issues should be an array");
+    assert!(issues
+        .iter()
+        .any(|issue| issue["key"].as_str() == Some("execution_disabled")));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn capture_readiness_reports_invalid_duration_config() -> Result<()> {
+    let mut harness = TestHarness::new().await?;
+    harness.state.config.capture.execution_enabled = true;
+    harness.state.config.capture.min_duration_seconds = 120;
+    harness.state.config.capture.default_duration_seconds = 30;
+    harness.state.config.capture.max_duration_seconds = 60;
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/captures/readiness")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+
+    assert_eq!(json["can_execute"].as_bool(), Some(false));
+    assert_eq!(json["duration_bounds_valid"].as_bool(), Some(false));
+
+    let issues = json["issues"]
+        .as_array()
+        .expect("issues should be an array");
+    assert!(issues
+        .iter()
+        .any(|issue| issue["key"].as_str() == Some("invalid_duration_bounds")));
+
+    Ok(())
+}

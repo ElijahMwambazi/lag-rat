@@ -341,6 +341,29 @@ export type DeleteCaptureExportRequestResponse = {
   file_deleted: boolean;
 };
 
+export type CaptureReadinessIssue = {
+  key: string;
+  severity: string;
+  message: string;
+  action: string;
+};
+
+export type CaptureReadinessResponse = {
+  execution_enabled: boolean;
+  can_execute: boolean;
+  tcpdump_available: boolean;
+  output_directory_ready: boolean;
+  duration_bounds_valid: boolean;
+  allowed_interfaces_valid: boolean;
+  allowed_interfaces: string[];
+  output_dir: string;
+  default_duration_seconds: number;
+  min_duration_seconds: number;
+  max_duration_seconds: number;
+  max_file_mb: number;
+  issues: CaptureReadinessIssue[];
+};
+
 export type InvestigationSubjectResponse = {
   kind: "incident_target";
   incident_type: string;
@@ -567,6 +590,8 @@ export const api = {
     deleteJson<DeleteCaptureExportRequestResponse>(
       `/api/captures/export-requests/${id}`,
     ),
+  getCaptureReadiness: () =>
+    getJson<CaptureReadinessResponse>("/api/captures/readiness"),
   getCaptureExportRequests: (limit = 20) =>
     getJson<CaptureExportRequest[]>(
       `/api/captures/export-requests?limit=${limit}`,

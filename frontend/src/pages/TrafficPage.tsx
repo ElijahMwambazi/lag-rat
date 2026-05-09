@@ -13,6 +13,7 @@ import CaptureExportRequestDrawer from "../components/CaptureExportRequestDrawer
 import {
   api,
   type CaptureExportRequest,
+  type CaptureReadinessResponse,
   type TrafficSample,
   type TrafficTopTalkerItem,
 } from "../services/api";
@@ -209,6 +210,41 @@ function canCancelCaptureRequest(item: CaptureExportRequest) {
   return ["requested", "queued", "running"].includes(item.status);
 }
 
+function getCaptureReadinessSummary(readiness?: CaptureReadinessResponse) {
+  if (!readiness) {
+    return {
+      label: "Checking",
+      title: "Checking capture readiness",
+      message: "Lag Rat is checking whether guarded local captures can run.",
+      className: "border-zinc-800 bg-zinc-950/50 text-zinc-300",
+    };
+  }
+
+  if (readiness.can_execute) {
+    return {
+      label: "Ready",
+      title: "Capture execution is ready",
+      message:
+        "Guarded tcpdump captures can run on the configured backend host and allowed interfaces.",
+      className: "border-emerald-900 bg-emerald-950/40 text-emerald-200",
+    };
+  }
+
+  const primaryIssue = readiness.issues[0];
+
+  return {
+    label: readiness.execution_enabled ? "Needs setup" : "Disabled",
+    title: primaryIssue?.message ?? "Capture execution needs setup",
+    message:
+      primaryIssue?.action ??
+      "Review capture execution settings before queueing local captures.",
+    className:
+      primaryIssue?.severity === "error"
+        ? "border-red-900 bg-red-950/40 text-red-200"
+        : "border-amber-900 bg-amber-950/40 text-amber-200",
+  };
+}
+
 function getViewingLabel(selectedInterface: string) {
   return selectedInterface || "All interfaces";
 }
@@ -296,6 +332,12 @@ export default function TrafficPage() {
     refetchInterval: 30000,
   });
 
+  const captureReadinessQuery = useQuery({
+    queryKey: ["capture-readiness"],
+    queryFn: () => api.getCaptureReadiness(),
+    refetchInterval: 30000,
+  });
+
   const queueCaptureMutation = useMutation({
     mutationFn: (id: number) => api.queueCaptureExportRequest(id),
     onSuccess: (updated) => {
@@ -342,6 +384,8 @@ export default function TrafficPage() {
   const topTalkers = topTalkersQuery.data?.items ?? [];
   const captureExportRequests = captureExportRequestsQuery.data ?? [];
   const latestCaptureRequest = captureExportRequests[0] ?? null;
+  const captureReadiness = captureReadinessQuery.data;
+  const captureReadinessSummary = getCaptureReadinessSummary(captureReadiness);
 
   const interfaceOptions = useMemo(() => {
     const values = new Set<string>();
@@ -1066,6 +1110,65 @@ export default function TrafficPage() {
         }
         onToggle={() => setCaptureHistoryCollapsed((current) => !current)}
       >
+        <div
+          className={[
+            "rounded-2xl border p-4",
+            captureReadinessSummary.className,
+          ].join(" ")}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-wide opacity-80">
+                Capture readiness
+              </div>
+              <h4 className="mt-1 text-sm font-semibold">
+                {captureReadinessSummary.title}
+              </h4>
+              <p className="mt-1 text-sm leading-6 opacity-90">
+                {captureReadinessSummary.message}
+              </p>
+            </div>
+
+            <span className="rounded-full border border-current/30 px-3 py-1 text-xs">
+              {captureReadinessQuery.isLoading
+                ? "Checking"
+                : captureReadinessSummary.label}
+            </span>
+          </div>
+
+          {captureReadiness ? (
+            <div className="mt-3 flex flex-wrap gap-2 text-xs opacity-90">
+              <span className="rounded-full border border-current/20 px-2.5 py-1">
+                Execution ·{" "}
+                {captureReadiness.execution_enabled ? "enabled" : "disabled"}
+              </span>
+              <span className="rounded-full border border-current/20 px-2.5 py-1">
+                tcpdump ·{" "}
+                {captureReadiness.tcpdump_available ? "available" : "missing"}
+              </span>
+              <span className="rounded-full border border-current/20 px-2.5 py-1">
+                Output dir ·{" "}
+                {captureReadiness.output_directory_ready
+                  ? "ready"
+                  : "not ready"}
+              </span>
+              <span className="rounded-full border border-current/20 px-2.5 py-1">
+                Interfaces ·{" "}
+                {captureReadiness.allowed_interfaces.length > 0
+                  ? captureReadiness.allowed_interfaces.join(", ")
+                  : "not restricted"}
+              </span>
+            </div>
+          ) : null}
+
+          {captureReadinessQuery.isError ? (
+            <p className="mt-3 text-xs opacity-80">
+              Capture readiness could not be loaded. Capture request history is
+              still available below.
+            </p>
+          ) : null}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
           <button
             type="button"

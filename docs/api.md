@@ -249,6 +249,28 @@ Capture export requests are local operator handoff records created from traffic 
 
 Lag Rat can optionally queue and execute guarded local `tcpdump` captures when execution is enabled, but it does not inspect packet contents.
 
+### `GET /api/captures/readiness`
+
+Returns local capture execution readiness for the dashboard.
+
+This endpoint does not run a packet capture. It reports whether guarded capture execution is enabled, whether required local tooling is available, whether the output directory is ready, which interfaces are allowed, and which operator actions are needed before queueing captures.
+
+Returned fields include:
+
+- `execution_enabled`
+- `can_execute`
+- `tcpdump_available`
+- `output_directory_ready`
+- `duration_bounds_valid`
+- `allowed_interfaces_valid`
+- `allowed_interfaces`
+- `output_dir`
+- `default_duration_seconds`
+- `min_duration_seconds`
+- `max_duration_seconds`
+- `max_file_mb`
+- `issues`
+
 ### `POST /api/captures/export-requests`
 
 Creates a capture export request.

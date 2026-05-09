@@ -57,6 +57,31 @@ pub struct CaptureExecutionPreflight {
     pub allowed_interfaces_valid: bool,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CaptureReadinessIssue {
+    pub key: String,
+    pub severity: String,
+    pub message: String,
+    pub action: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CaptureReadinessResponse {
+    pub execution_enabled: bool,
+    pub can_execute: bool,
+    pub tcpdump_available: bool,
+    pub output_directory_ready: bool,
+    pub duration_bounds_valid: bool,
+    pub allowed_interfaces_valid: bool,
+    pub allowed_interfaces: Vec<String>,
+    pub output_dir: String,
+    pub default_duration_seconds: u64,
+    pub min_duration_seconds: u64,
+    pub max_duration_seconds: u64,
+    pub max_file_mb: u64,
+    pub issues: Vec<CaptureReadinessIssue>,
+}
+
 pub fn build_capture_command(
     config: &CaptureConfig,
     request: CaptureCommandRequest,
@@ -655,6 +680,80 @@ pub async fn run_capture_execution_preflight(
         output_dir_ready,
         duration_bounds_valid,
         allowed_interfaces_valid,
+    })
+}
+
+pub async fn capture_execution_readiness(
+    config: &CaptureConfig,
+) -> anyhow::Result<CaptureReadinessResponse> {
+    let preflight = run_capture_execution_preflight(config).await?;
+    let mut issues = Vec::new();
+
+    if !config.execution_enabled {
+        issues.push(CaptureReadinessIssue {
+            key: "execution_disabled".to_string(),
+            severity: "warning".to_string(),
+            message: "Capture execution is disabled.".to_string(),
+            action: "Set CAPTURE_EXECUTION_ENABLED=true and restart the backend.".to_string(),
+        });
+    }
+
+    if !preflight.tcpdump_available {
+        issues.push(CaptureReadinessIssue {
+            key: "tcpdump_unavailable".to_string(),
+            severity: "error".to_string(),
+            message: "tcpdump is not available on the backend host.".to_string(),
+            action: "Install tcpdump and confirm `command -v tcpdump` works from the backend environment.".to_string(),
+        });
+    }
+
+    if !preflight.output_dir_ready {
+        issues.push(CaptureReadinessIssue {
+            key: "output_directory_not_ready".to_string(),
+            severity: "error".to_string(),
+            message: "The capture output directory is not ready.".to_string(),
+            action: "Check CAPTURE_OUTPUT_DIR. It must be writable by the backend process and must be a directory, not a file.".to_string(),
+        });
+    }
+
+    if !preflight.duration_bounds_valid {
+        issues.push(CaptureReadinessIssue {
+            key: "invalid_duration_bounds".to_string(),
+            severity: "error".to_string(),
+            message: "Capture duration settings are invalid.".to_string(),
+            action: "Check CAPTURE_MIN_DURATION_SECONDS, CAPTURE_DEFAULT_DURATION_SECONDS, and CAPTURE_MAX_DURATION_SECONDS.".to_string(),
+        });
+    }
+
+    if !preflight.allowed_interfaces_valid {
+        issues.push(CaptureReadinessIssue {
+            key: "invalid_allowed_interfaces".to_string(),
+            severity: "error".to_string(),
+            message: "Capture allowed interface settings are invalid.".to_string(),
+            action: "Use plain interface names in CAPTURE_ALLOWED_INTERFACES, for example CAPTURE_ALLOWED_INTERFACES=wlo1.".to_string(),
+        });
+    }
+
+    let can_execute = config.execution_enabled
+        && preflight.tcpdump_available
+        && preflight.output_dir_ready
+        && preflight.duration_bounds_valid
+        && preflight.allowed_interfaces_valid;
+
+    Ok(CaptureReadinessResponse {
+        execution_enabled: config.execution_enabled,
+        can_execute,
+        tcpdump_available: preflight.tcpdump_available,
+        output_directory_ready: preflight.output_dir_ready,
+        duration_bounds_valid: preflight.duration_bounds_valid,
+        allowed_interfaces_valid: preflight.allowed_interfaces_valid,
+        allowed_interfaces: config.allowed_interfaces.clone(),
+        output_dir: config.output_dir.clone(),
+        default_duration_seconds: config.default_duration_seconds,
+        min_duration_seconds: config.min_duration_seconds,
+        max_duration_seconds: config.max_duration_seconds,
+        max_file_mb: config.max_file_mb,
+        issues,
     })
 }
 

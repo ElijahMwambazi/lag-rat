@@ -207,6 +207,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/traffic/summary", get(get_traffic_summary))
         .route("/api/traffic/top-talkers", get(get_traffic_top_talkers))
         .route("/api/traffic/samples", get(get_traffic_samples))
+        .route("/api/captures/readiness", get(get_capture_readiness))
         .route(
             "/api/captures/export-requests",
             get(get_capture_export_requests).post(create_capture_export_request),
@@ -1161,6 +1162,16 @@ async fn get_traffic_samples(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(items))
+}
+
+async fn get_capture_readiness(
+    State(state): State<AppState>,
+) -> Result<Json<captures::CaptureReadinessResponse>, (StatusCode, Json<serde_json::Value>)> {
+    Ok(Json(
+        captures::capture_execution_readiness(&state.config.capture)
+            .await
+            .map_err(internal_error)?,
+    ))
 }
 
 async fn create_capture_export_request(

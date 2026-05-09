@@ -22,6 +22,7 @@ vi.mock("../services/api", () => ({
     getTrafficTopTalkers: vi.fn(),
     getTrafficSamples: vi.fn(),
     createCaptureExportRequest: vi.fn(),
+    getCaptureReadiness: vi.fn(),
     getCaptureExportRequests: vi.fn(),
     queueCaptureExportRequest: vi.fn(),
     cancelCaptureExportRequest: vi.fn(),
@@ -44,6 +45,29 @@ describe("TrafficPage", () => {
       status: "requested",
       capture_reference: null,
       created_at: new Date().toISOString(),
+    });
+
+    vi.mocked(api.getCaptureReadiness).mockResolvedValue({
+      execution_enabled: false,
+      can_execute: false,
+      tcpdump_available: true,
+      output_directory_ready: true,
+      duration_bounds_valid: true,
+      allowed_interfaces_valid: true,
+      allowed_interfaces: ["wlo1"],
+      output_dir: "data/captures",
+      default_duration_seconds: 30,
+      min_duration_seconds: 5,
+      max_duration_seconds: 120,
+      max_file_mb: 50,
+      issues: [
+        {
+          key: "execution_disabled",
+          severity: "warning",
+          message: "Capture execution is disabled.",
+          action: "Set CAPTURE_EXECUTION_ENABLED=true and restart the backend.",
+        },
+      ],
     });
 
     vi.mocked(api.getCaptureExportRequests).mockResolvedValue([]);
@@ -1611,7 +1635,6 @@ describe("TrafficPage", () => {
     ).toBeGreaterThanOrEqual(2);
     expect(await screen.findByText("Troubleshooting hint")).toBeInTheDocument();
     expect(await screen.findByText(/install tcpdump/i)).toBeInTheDocument();
-    expect(await screen.findByText(/install tcpdump/i)).toBeInTheDocument();
     expect(
       await screen.findByText("data/captures/capture-1-20260429T123000Z.pcap"),
     ).toBeInTheDocument();
@@ -2051,8 +2074,8 @@ describe("TrafficPage", () => {
     expect(await screen.findByText("Capture request · #1")).toBeInTheDocument();
     expect(await screen.findByText("Troubleshooting hint")).toBeInTheDocument();
     expect(
-      await screen.findByText(/CAPTURE_EXECUTION_ENABLED=true/i),
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/CAPTURE_EXECUTION_ENABLED=true/i)).length,
+    ).toBeGreaterThanOrEqual(2);
     expect(
       await screen.findByText(/CAPTURE_ALLOWED_INTERFACES/i),
     ).toBeInTheDocument();
@@ -2096,5 +2119,66 @@ describe("TrafficPage", () => {
     expect(
       await screen.findByText(/backend likely restarted/i),
     ).toBeInTheDocument();
+  });
+
+  it("shows capture readiness when execution is disabled", async () => {
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    expect(await screen.findByText("Capture readiness")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Capture execution is disabled."),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/CAPTURE_EXECUTION_ENABLED=true/i),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Execution · disabled")).toBeInTheDocument();
+    expect(await screen.findByText("Interfaces · wlo1")).toBeInTheDocument();
+  });
+
+  it("shows capture readiness when execution is ready", async () => {
+    vi.mocked(api.getCaptureReadiness).mockResolvedValue({
+      execution_enabled: true,
+      can_execute: true,
+      tcpdump_available: true,
+      output_directory_ready: true,
+      duration_bounds_valid: true,
+      allowed_interfaces_valid: true,
+      allowed_interfaces: ["wlo1"],
+      output_dir: "data/captures",
+      default_duration_seconds: 30,
+      min_duration_seconds: 5,
+      max_duration_seconds: 120,
+      max_file_mb: 50,
+      issues: [],
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    expect(
+      await screen.findByText("Capture execution is ready"),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Ready")).toBeInTheDocument();
+    expect(await screen.findByText("Execution · enabled")).toBeInTheDocument();
+    expect(await screen.findByText("tcpdump · available")).toBeInTheDocument();
   });
 });
