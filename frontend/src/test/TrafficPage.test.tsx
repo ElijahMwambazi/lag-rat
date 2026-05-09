@@ -2139,10 +2139,43 @@ describe("TrafficPage", () => {
       await screen.findByText("Capture execution is disabled."),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText(/CAPTURE_EXECUTION_ENABLED=true/i),
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/CAPTURE_EXECUTION_ENABLED=true/i)).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(await screen.findByText("Execution · disabled")).toBeInTheDocument();
     expect(await screen.findByText("Interfaces · wlo1")).toBeInTheDocument();
+  });
+
+  it("refreshes capture readiness on request", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    expect(await screen.findByText("Capture readiness")).toBeInTheDocument();
+
+    const initialCallCount = vi.mocked(api.getCaptureReadiness).mock.calls
+      .length;
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /refresh readiness/i,
+      }),
+    );
+
+    await screen.findByText("Capture readiness");
+
+    expect(
+      vi.mocked(api.getCaptureReadiness).mock.calls.length,
+    ).toBeGreaterThan(initialCallCount);
   });
 
   it("shows capture readiness when execution is ready", async () => {

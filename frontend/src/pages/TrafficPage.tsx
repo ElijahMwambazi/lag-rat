@@ -1129,11 +1129,27 @@ export default function TrafficPage() {
               </p>
             </div>
 
-            <span className="rounded-full border border-current/30 px-3 py-1 text-xs">
-              {captureReadinessQuery.isLoading
-                ? "Checking"
-                : captureReadinessSummary.label}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-current/30 px-3 py-1 text-xs">
+                {captureReadinessQuery.isLoading
+                  ? "Checking"
+                  : captureReadinessSummary.label}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => captureReadinessQuery.refetch()}
+                disabled={
+                  captureReadinessQuery.isLoading ||
+                  captureReadinessQuery.isRefetching
+                }
+                className="rounded-full border border-current/30 px-3 py-1 text-xs transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {captureReadinessQuery.isRefetching
+                  ? "Refreshing"
+                  : "Refresh readiness"}
+              </button>
+            </div>
           </div>
 
           {captureReadiness ? (
