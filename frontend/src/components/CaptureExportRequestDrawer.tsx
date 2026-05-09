@@ -100,6 +100,102 @@ function canDeleteCaptureRequest(item: CaptureExportRequest) {
   return item.status !== "running";
 }
 
+function getCaptureTroubleshootingHint(failureReason?: string | null) {
+  if (!failureReason) {
+    return null;
+  }
+
+  const normalized = failureReason.toLowerCase();
+
+  if (normalized.includes("capture execution is not enabled")) {
+    return {
+      title: "Capture execution is disabled",
+      message:
+        "Set CAPTURE_EXECUTION_ENABLED=true, optionally set CAPTURE_ALLOWED_INTERFACES, then restart the backend before queueing another capture.",
+    };
+  }
+
+  if (normalized.includes("tcpdump is not available")) {
+    return {
+      title: "tcpdump is not available",
+      message:
+        "Install tcpdump and confirm it is available on the backend PATH. On Linux, run `command -v tcpdump` to verify it.",
+    };
+  }
+
+  if (
+    normalized.includes("permission denied") ||
+    normalized.includes("operation not permitted")
+  ) {
+    return {
+      title: "Capture permission is missing",
+      message:
+        'Grant tcpdump capture capabilities with `sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"`, or use a controlled privileged setup.',
+    };
+  }
+
+  if (
+    normalized.includes("capture interface is not allowed") ||
+    normalized.includes("allowed interface")
+  ) {
+    return {
+      title: "Interface is not allowed",
+      message:
+        "Add this interface to CAPTURE_ALLOWED_INTERFACES, for example CAPTURE_ALLOWED_INTERFACES=wlo1, then restart the backend.",
+    };
+  }
+
+  if (
+    normalized.includes("capture interface") ||
+    normalized.includes("no such device") ||
+    normalized.includes("device not found")
+  ) {
+    return {
+      title: "Capture interface needs checking",
+      message:
+        "Confirm the interface name is correct and active on the backend host. Use commands like `ip link` or `iw dev` on Linux.",
+    };
+  }
+
+  if (normalized.includes("capture command timed out")) {
+    return {
+      title: "Capture command timed out",
+      message:
+        "The bounded capture did not finish in time. Check that the interface is active and try queueing a shorter capture.",
+    };
+  }
+
+  if (normalized.includes("capture output directory")) {
+    return {
+      title: "Capture output directory is not ready",
+      message:
+        "Check CAPTURE_OUTPUT_DIR. The path should be writable by the backend process and must be a directory, not a file.",
+    };
+  }
+
+  if (normalized.includes("recovered after becoming stale")) {
+    return {
+      title: "Capture was recovered as stale",
+      message:
+        "The backend likely restarted or the worker was interrupted while the request was running. Queue a fresh request if the capture is still needed.",
+    };
+  }
+
+  if (normalized.includes("capture command failed")) {
+    return {
+      title: "tcpdump returned an error",
+      message:
+        "Review the failure reason above. It usually points to permissions, an invalid interface, or a local tcpdump/runtime issue.",
+    };
+  }
+
+  return {
+    title: "Capture failed",
+    message:
+      "Review the failure reason above, then verify capture execution settings, tcpdump availability, interface name, and output directory permissions.",
+  };
+}
+
 function TimelineItem({
   label,
   value,
@@ -146,6 +242,24 @@ function DetailItem({
   );
 }
 
+function TroubleshootingHint({
+  hint,
+}: {
+  hint: { title: string; message: string };
+}) {
+  return (
+    <div className="rounded-xl border border-amber-900 bg-amber-950/40 p-3">
+      <div className="text-xs uppercase tracking-wide text-amber-400">
+        Troubleshooting hint
+      </div>
+      <div className="mt-2 text-sm font-medium text-amber-100">
+        {hint.title}
+      </div>
+      <p className="mt-1 text-sm leading-6 text-amber-200">{hint.message}</p>
+    </div>
+  );
+}
+
 export default function CaptureExportRequestDrawer({
   request,
   open,
@@ -158,6 +272,10 @@ export default function CaptureExportRequestDrawer({
   deletePending = false,
 }: Props) {
   if (!open || !request) return null;
+
+  const troubleshootingHint = getCaptureTroubleshootingHint(
+    request.failure_reason,
+  );
 
   return (
     <SideDrawer
@@ -257,9 +375,15 @@ export default function CaptureExportRequestDrawer({
 
         {request.failure_reason ? (
           <DrawerDetailSection label="Failure reason">
-            <p className="text-sm leading-6 text-red-200">
-              {request.failure_reason}
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm leading-6 text-red-200">
+                {request.failure_reason}
+              </p>
+
+              {troubleshootingHint ? (
+                <TroubleshootingHint hint={troubleshootingHint} />
+              ) : null}
+            </div>
           </DrawerDetailSection>
         ) : null}
 

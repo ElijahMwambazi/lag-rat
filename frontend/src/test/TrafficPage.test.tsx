@@ -1606,7 +1606,12 @@ describe("TrafficPage", () => {
 
     expect(await screen.findByText("Capture request · #1")).toBeInTheDocument();
     expect(await screen.findByText("Failure reason")).toBeInTheDocument();
-    expect(screen.getAllByText("tcpdump is not available")).toHaveLength(2);
+    expect(
+      screen.getAllByText("tcpdump is not available").length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(await screen.findByText("Troubleshooting hint")).toBeInTheDocument();
+    expect(await screen.findByText(/install tcpdump/i)).toBeInTheDocument();
+    expect(await screen.findByText(/install tcpdump/i)).toBeInTheDocument();
     expect(
       await screen.findByText("data/captures/capture-1-20260429T123000Z.pcap"),
     ).toBeInTheDocument();
@@ -2007,6 +2012,89 @@ describe("TrafficPage", () => {
     expect(await screen.findByText("Phone capture")).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", { name: /note/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows troubleshooting guidance when capture execution is disabled", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "traffic_top_talker",
+        interface_name: "wlo1",
+        entity_type: "interface",
+        entity_key: "wlo1",
+        device_ip_address: null,
+        mac_address: null,
+        window_minutes: 60,
+        note: "Capture export requested from traffic top talker drawer",
+        status: "failed",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "capture execution is not enabled",
+        duration_seconds: null,
+        output_filename: null,
+        file_size_bytes: null,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/traffic?captureRequestId=1"]}>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Capture request · #1")).toBeInTheDocument();
+    expect(await screen.findByText("Troubleshooting hint")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/CAPTURE_EXECUTION_ENABLED=true/i),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/CAPTURE_ALLOWED_INTERFACES/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows troubleshooting guidance for stale recovered captures", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 2,
+        source: "traffic_top_talker",
+        interface_name: "wlo1",
+        entity_type: "interface",
+        entity_key: "wlo1",
+        device_ip_address: null,
+        mac_address: null,
+        window_minutes: 60,
+        note: "Capture export requested from traffic top talker drawer",
+        status: "failed",
+        capture_reference: null,
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        failed_at: new Date().toISOString(),
+        cancelled_at: null,
+        failure_reason: "capture request was recovered after becoming stale",
+        duration_seconds: null,
+        output_filename: null,
+        file_size_bytes: null,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/traffic?captureRequestId=2"]}>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Capture request · #2")).toBeInTheDocument();
+    expect(await screen.findByText("Troubleshooting hint")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/backend likely restarted/i),
     ).toBeInTheDocument();
   });
 });
