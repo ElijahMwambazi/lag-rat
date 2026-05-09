@@ -31,6 +31,7 @@ Implemented:
 - dashboard confirmation before deleting capture requests
 - capture detail drawer and `captureRequestId` deep links
 - capture history status chips, filters, clear filters action, and compact table mode
+- stale running capture request recovery
 
 Not implemented:
 
@@ -414,6 +415,7 @@ queued request
 ```
 
 The worker remains isolated from regular monitoring loops. Failure to run a capture should not stop connectivity, DNS, Wi-Fi, traffic, reports, or alert monitoring.
+Before processing queued work, the capture worker also checks for stale `running` requests. A running request is considered stale when its `started_at` timestamp is older than the configured maximum capture duration plus a recovery buffer.
 
 ---
 
@@ -429,8 +431,23 @@ The capture worker should handle:
 - output directory unavailable
 - output file too large
 - process exited with non-zero status
+- stale running request after backend restart or interrupted worker lifecycle
 
 Failures should update the request status to `failed` with a short operator-readable reason.
+
+---
+
+## Stale running recovery
+
+Capture requests may become stuck in `running` if the backend restarts, the worker is interrupted, or the process fails after marking a request as running but before recording completion or failure.
+
+Lag Rat recovers these requests opportunistically when the capture worker runs.
+
+Current recovery threshold:
+
+```text
+CAPTURE_MAX_DURATION_SECONDS + 60 seconds
+```
 
 ---
 

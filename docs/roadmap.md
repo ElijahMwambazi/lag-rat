@@ -151,6 +151,7 @@ Completed:
 - capture request deletion with guarded local `.pcap` cleanup
 - capture request detail drawer with `captureRequestId` deep links
 - capture history status chips, filters, clear-filters action, and compact table mode
+- stale running capture request recovery
 
 ---
 
@@ -160,7 +161,7 @@ In progress:
 
 - investigation workflow refinement across Reports, Overview, and Alerts
 - capture export workflow refinement
-- capture troubleshooting examples and stale-running recovery design
+- capture troubleshooting examples
 - documentation alignment as implemented capabilities move forward
 
 ---
