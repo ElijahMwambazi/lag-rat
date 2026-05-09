@@ -157,13 +157,17 @@ Completed:
 
 ## Milestone 11 — Current Work
 
-Completed:
+In progress:
 
-- capture execution readiness endpoint and Traffic page indicator
 - investigation workflow refinement across Reports, Overview, and Alerts
 - capture export workflow refinement
 - capture troubleshooting examples
 - documentation alignment as implemented capabilities move forward
+
+Completed:
+
+- capture execution readiness endpoint and Traffic page indicator
+- capture troubleshooting guide
 
 ---
 

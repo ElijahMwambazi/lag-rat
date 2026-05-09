@@ -55,6 +55,14 @@ Lag Rat should be treated as a **local observability platform** with a current p
   - capture request lifecycle and cleanup endpoints
   - future API direction
 
+  ### Capture troubleshooting
+
+- `docs/capture-troubleshooting.md`
+  - capture readiness
+  - execution setup
+  - common failure reasons
+  - local `tcpdump` permission notes
+
 ### Database schema
 
 - `docs/database-schema.md`
@@ -122,6 +130,7 @@ Read in this order:
 3. `docs/roadmap.md`
 4. `docs/lag-rat.md`
 5. `docs/capture-execution-plan.md` when touching capture workflows
+6. `docs/capture-troubleshooting.md`
 
 ### If you are working on capture execution or cleanup
 
