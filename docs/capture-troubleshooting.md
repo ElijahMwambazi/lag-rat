@@ -357,3 +357,18 @@ Recommended separation:
 - Lag Rat: capture request metadata, readiness, lifecycle, and operator hints
 - `tcpdump`: local packet capture execution
 - Wireshark: packet inspection and protocol-level analysis
+
+---
+
+## Device-scoped captures
+
+Device-scoped captures can be started from the Device detail drawer.
+
+Lag Rat uses known device metadata to request captures for a specific device IP or MAC address.
+
+Example generated capture filters:
+
+```text
+host 192.168.1.20
+ether host aa:bb:cc:dd:ee:ff
+```

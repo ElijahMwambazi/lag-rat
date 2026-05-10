@@ -249,6 +249,9 @@ Capture export requests are local operator handoff records created from traffic 
 
 Lag Rat can optionally queue and execute guarded local `tcpdump` captures when execution is enabled, but it does not inspect packet contents.
 
+Device-scoped capture requests can be created from the Device detail drawer.
+These requests use device metadata such as `device_ip_address` or `mac_address` so the backend can build safe `tcpdump` filters internally. The frontend does not send raw packet-capture filter strings.
+
 ### `GET /api/captures/readiness`
 
 Returns local capture execution readiness for the dashboard.
