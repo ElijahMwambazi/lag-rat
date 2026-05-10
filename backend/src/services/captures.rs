@@ -13,7 +13,7 @@ use tracing::{info, warn};
 use crate::{config::CaptureConfig, db};
 
 const EXECUTION_DISABLED_REASON: &str = "capture execution is not enabled";
-const CAPTURE_RUNNER_TIMEOUT_GRACE_SECONDS: u64 = 5;
+const CAPTURE_RUNNER_TIMEOUT_GRACE_SECONDS: u64 = 15;
 const CAPTURE_STDERR_LIMIT_CHARS: usize = 400;
 const STALE_RUNNING_CAPTURE_BUFFER_SECONDS: u64 = 60;
 const STALE_RUNNING_CAPTURE_REASON: &str = "capture request was recovered after becoming stale";
