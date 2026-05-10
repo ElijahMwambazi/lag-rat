@@ -157,17 +157,15 @@ Completed:
 
 ## Milestone 11 — Current Work
 
-In progress:
-
-- investigation workflow refinement across Reports, Overview, and Alerts
-- capture export workflow refinement
-- capture troubleshooting examples
-- documentation alignment as implemented capabilities move forward
-
 Completed:
 
 - capture execution readiness endpoint and Traffic page indicator
 - capture troubleshooting guide
+- device-scoped capture filters and Device drawer capture action
+- investigation workflow refinement across Reports, Overview, and Alerts
+- capture export workflow refinement
+- capture troubleshooting examples
+- documentation alignment as implemented capabilities move forward
 
 ---
 
