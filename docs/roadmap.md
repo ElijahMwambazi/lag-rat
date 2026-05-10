@@ -155,7 +155,7 @@ Completed:
 
 ---
 
-## Milestone 11 — Current Work
+## Milestone 11 — Investigation and Capture Workflow Refinement
 
 Completed:
 
@@ -166,6 +166,9 @@ Completed:
 - capture export workflow refinement
 - capture troubleshooting examples
 - documentation alignment as implemented capabilities move forward
+- completed capture file guidance in the Traffic capture drawer
+- clearer capture reference, file size, duration, and output filename presentation
+- copy-path action for completed capture references
 
 ---
 
@@ -195,9 +198,8 @@ Not started:
 
 ## Near-term new capabilities
 
-- capture export workflow refinement
-- capture troubleshooting and stale-running recovery
-- investigation entry points from Overview and Alerts
+- capture output usability follow-ups
+- dashboard polish after capture workflow testing
 - future module onboarding patterns
 
 ## Future modules

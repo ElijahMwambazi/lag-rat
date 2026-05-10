@@ -1640,6 +1640,71 @@ describe("TrafficPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows completed capture file guidance in the capture detail drawer", async () => {
+    vi.mocked(api.getCaptureExportRequests).mockResolvedValue([
+      {
+        id: 1,
+        source: "device_detail",
+        interface_name: "wlo1",
+        entity_type: "device",
+        entity_key: "192.168.1.190",
+        device_ip_address: "192.168.1.190",
+        mac_address: "aa:bb:cc:dd:ee:ff",
+        window_minutes: 60,
+        note: "Capture traffic related to this device",
+        status: "completed",
+        capture_reference: "data/captures/capture-1-20260510T074424Z.pcap",
+        created_at: new Date().toISOString(),
+        queued_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        failed_at: null,
+        cancelled_at: null,
+        failure_reason: null,
+        duration_seconds: 30,
+        output_filename: "capture-1-20260510T074424Z.pcap",
+        file_size_bytes: 4096,
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <TrafficPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /show capture requests/i,
+      }),
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /inspect/i,
+      }),
+    );
+
+    expect(await screen.findByText("Capture request · #1")).toBeInTheDocument();
+    expect(await screen.findByText("Capture file ready")).toBeInTheDocument();
+
+    expect(
+      await screen.findByText(
+        /Open this .pcap file with Wireshark or inspect it with tcpdump/i,
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText("data/captures/capture-1-20260510T074424Z.pcap"),
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByRole("button", {
+        name: /copy path/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("opens delete confirmation from the capture detail drawer", async () => {
     vi.mocked(api.deleteCaptureExportRequest).mockClear();
 

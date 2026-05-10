@@ -349,27 +349,57 @@ export default function CaptureExportRequestDrawer({
         </DrawerDetailSection>
 
         <DrawerDetailSection label="Capture file">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DetailItem
-              label="Duration"
-              value={
-                request.duration_seconds ? `${request.duration_seconds}s` : null
-              }
-            />
-            <DetailItem
-              label="File size"
-              value={formatBytes(request.file_size_bytes)}
-            />
-            <DetailItem
-              label="Output filename"
-              value={request.output_filename}
-              breakAll
-            />
-            <DetailItem
-              label="Capture reference"
-              value={request.capture_reference}
-              breakAll
-            />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <DetailItem
+                label="Duration"
+                value={
+                  request.duration_seconds
+                    ? `${request.duration_seconds}s`
+                    : null
+                }
+              />
+              <DetailItem
+                label="File size"
+                value={formatBytes(request.file_size_bytes)}
+              />
+              <DetailItem
+                label="Output filename"
+                value={request.output_filename}
+                breakAll
+              />
+              <DetailItem
+                label="Capture reference"
+                value={request.capture_reference}
+                breakAll
+              />
+            </div>
+
+            {request.status === "completed" ? (
+              <div className="rounded-xl border border-emerald-900 bg-emerald-950/30 p-3">
+                <div className="text-xs uppercase tracking-wide text-emerald-400">
+                  Capture file ready
+                </div>
+                <p className="mt-2 text-sm leading-6 text-emerald-100">
+                  Open this .pcap file with Wireshark or inspect it with tcpdump
+                  on the backend host.
+                </p>
+
+                {request.capture_reference ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(
+                        request.capture_reference ?? "",
+                      );
+                    }}
+                    className="mt-3 rounded-xl border border-emerald-800 bg-emerald-950 px-3 py-2 text-sm text-emerald-100 transition hover:bg-emerald-900"
+                  >
+                    Copy path
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </DrawerDetailSection>
 
