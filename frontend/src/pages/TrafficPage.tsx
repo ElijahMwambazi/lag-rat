@@ -1127,6 +1127,9 @@ export default function TrafficPage() {
               <p className="mt-1 text-sm leading-6 opacity-90">
                 {captureReadinessSummary.message}
               </p>
+              <p className="mt-2 text-xs opacity-75">
+                For setup steps, see docs/capture-troubleshooting.md.
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">

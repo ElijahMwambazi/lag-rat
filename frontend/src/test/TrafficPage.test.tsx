@@ -2136,6 +2136,11 @@ describe("TrafficPage", () => {
 
     expect(await screen.findByText("Capture readiness")).toBeInTheDocument();
     expect(
+      await screen.findByText(
+        "For setup steps, see docs/capture-troubleshooting.md.",
+      ),
+    ).toBeInTheDocument();
+    expect(
       await screen.findByText("Capture execution is disabled."),
     ).toBeInTheDocument();
     expect(
