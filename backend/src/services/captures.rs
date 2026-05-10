@@ -32,6 +32,7 @@ pub struct CaptureCommandRequest {
     pub request_id: i64,
     pub interface_name: String,
     pub host_filter: Option<String>,
+    pub mac_filter: Option<String>,
     pub duration_seconds: Option<u64>,
     pub now: DateTime<Utc>,
 }
@@ -109,16 +110,20 @@ pub fn build_capture_command(
     );
 
     let mut args = vec!["-i".to_string(), interface_name.to_string()];
+    let host_filter = request.host_filter.as_deref().map(str::trim);
+    let mac_filter = request.mac_filter.as_deref().map(str::trim);
 
-    if let Some(host_filter) = request.host_filter.as_deref() {
-        let host_filter = host_filter.trim();
+    if let Some(host_filter) = host_filter.filter(|value| !value.is_empty()) {
+        validate_capture_host_filter(host_filter)?;
 
-        if !host_filter.is_empty() {
-            validate_capture_host_filter(host_filter)?;
+        args.push("host".to_string());
+        args.push(host_filter.to_string());
+    } else if let Some(mac_filter) = mac_filter.filter(|value| !value.is_empty()) {
+        let normalized_mac = normalize_capture_mac_filter(mac_filter)?;
 
-            args.push("host".to_string());
-            args.push(host_filter.to_string());
-        }
+        args.push("ether".to_string());
+        args.push("host".to_string());
+        args.push(normalized_mac);
     }
 
     args.extend([
@@ -295,6 +300,36 @@ fn validate_capture_host_filter(host_filter: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn normalize_capture_mac_filter(value: &str) -> anyhow::Result<String> {
+    let normalized = value.trim().to_ascii_lowercase();
+
+    if normalized.is_empty() {
+        bail!("capture MAC filter is required");
+    }
+
+    if normalized.contains('/') || normalized.contains('\\') {
+        bail!("capture MAC filter must be a plain MAC address");
+    }
+
+    if normalized.contains(' ') || normalized.contains('\t') {
+        bail!("capture MAC filter must not contain whitespace");
+    }
+
+    let parts = normalized.split(':').collect::<Vec<_>>();
+
+    if parts.len() != 6 {
+        bail!("capture MAC filter must use colon-separated hex pairs");
+    }
+
+    for part in &parts {
+        if part.len() != 2 || !part.chars().all(|item| item.is_ascii_hexdigit()) {
+            bail!("capture MAC filter must use colon-separated hex pairs");
+        }
+    }
+
+    Ok(normalized)
+}
+
 pub async fn process_next_capture_export_request(
     pool: &SqlitePool,
     config: &CaptureConfig,
@@ -456,10 +491,17 @@ pub async fn process_next_capture_export_request(
         .clone()
         .ok_or_else(|| anyhow!("capture export request is missing interface name"))?;
 
-    let host_filter = running_request
-        .device_ip_address
-        .clone()
-        .or_else(|| running_request.entity_key.clone());
+    let host_filter = running_request.device_ip_address.clone().or_else(|| {
+        running_request.entity_key.as_ref().and_then(|value| {
+            if value.trim().parse::<IpAddr>().is_ok() {
+                Some(value.clone())
+            } else {
+                None
+            }
+        })
+    });
+
+    let mac_filter = running_request.mac_address.clone();
 
     let command_result = build_capture_command(
         config,
@@ -467,6 +509,7 @@ pub async fn process_next_capture_export_request(
             request_id: running_request.id,
             interface_name,
             host_filter,
+            mac_filter,
             duration_seconds: running_request
                 .duration_seconds
                 .and_then(|value| u64::try_from(value).ok()),
@@ -845,6 +888,7 @@ mod tests {
                 request_id: 12,
                 interface_name: "eth0".to_string(),
                 host_filter: None,
+                mac_filter: None,
                 duration_seconds: None,
                 now,
             },
@@ -885,6 +929,7 @@ mod tests {
                 request_id: 13,
                 interface_name: "wlan0".to_string(),
                 host_filter: Some("192.168.1.20".to_string()),
+                mac_filter: None,
                 duration_seconds: Some(60),
                 now,
             },
@@ -918,6 +963,7 @@ mod tests {
                 request_id: 14,
                 interface_name: "any".to_string(),
                 host_filter: None,
+                mac_filter: None,
                 duration_seconds: None,
                 now,
             },
@@ -937,6 +983,7 @@ mod tests {
                 request_id: 15,
                 interface_name: "../eth0".to_string(),
                 host_filter: None,
+                mac_filter: None,
                 duration_seconds: None,
                 now,
             },
@@ -959,6 +1006,7 @@ mod tests {
                 request_id: 16,
                 interface_name: "eth0".to_string(),
                 host_filter: None,
+                mac_filter: None,
                 duration_seconds: Some(121),
                 now,
             },
@@ -981,6 +1029,7 @@ mod tests {
                 request_id: 17,
                 interface_name: "eth0".to_string(),
                 host_filter: Some("192.168.1.20 or port 80".to_string()),
+                mac_filter: None,
                 duration_seconds: None,
                 now,
             },
@@ -1185,6 +1234,7 @@ mod tests {
                 request_id: 22,
                 interface_name: "eth0".to_string(),
                 host_filter: Some("192.168.1.20".to_string()),
+                mac_filter: None,
                 duration_seconds: Some(30),
                 now,
             },
@@ -1214,5 +1264,114 @@ mod tests {
         let message = "x".repeat(20);
 
         assert_eq!(truncate_for_operator(&message, 5), "xxxxx…");
+    }
+
+    #[test]
+    fn builds_mac_scoped_capture_command() {
+        let now = DateTime::parse_from_rfc3339("2026-04-29T12:30:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let command = build_capture_command(
+            &test_config(),
+            CaptureCommandRequest {
+                request_id: 18,
+                interface_name: "wlan0".to_string(),
+                host_filter: None,
+                mac_filter: Some("AA:BB:CC:DD:EE:FF".to_string()),
+                duration_seconds: Some(60),
+                now,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            command.args,
+            vec![
+                "-i",
+                "wlan0",
+                "ether",
+                "host",
+                "aa:bb:cc:dd:ee:ff",
+                "-w",
+                "data/captures/capture-18-20260429T123000Z.pcap",
+                "-G",
+                "60",
+                "-W",
+                "1",
+            ]
+        );
+    }
+
+    #[test]
+    fn prefers_ip_filter_when_ip_and_mac_are_present() {
+        let now = DateTime::parse_from_rfc3339("2026-04-29T12:30:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let command = build_capture_command(
+            &test_config(),
+            CaptureCommandRequest {
+                request_id: 19,
+                interface_name: "wlan0".to_string(),
+                host_filter: Some("192.168.1.20".to_string()),
+                mac_filter: Some("aa:bb:cc:dd:ee:ff".to_string()),
+                duration_seconds: Some(60),
+                now,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            command.args,
+            vec![
+                "-i",
+                "wlan0",
+                "host",
+                "192.168.1.20",
+                "-w",
+                "data/captures/capture-19-20260429T123000Z.pcap",
+                "-G",
+                "60",
+                "-W",
+                "1",
+            ]
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_mac_filter() {
+        let now = Utc::now();
+
+        let err = build_capture_command(
+            &test_config(),
+            CaptureCommandRequest {
+                request_id: 20,
+                interface_name: "eth0".to_string(),
+                host_filter: None,
+                mac_filter: Some("aa:bb:cc:dd:ee".to_string()),
+                duration_seconds: None,
+                now,
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            "capture MAC filter must use colon-separated hex pairs"
+        );
+    }
+
+    #[test]
+    fn ignores_interface_entity_key_as_host_filter() {
+        let entity_key = "wlan0";
+
+        let host_filter = if entity_key.trim().parse::<IpAddr>().is_ok() {
+            Some(entity_key.to_string())
+        } else {
+            None
+        };
+
+        assert_eq!(host_filter, None);
     }
 }

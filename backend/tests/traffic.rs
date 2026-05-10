@@ -1463,3 +1463,49 @@ async fn capture_readiness_reports_invalid_duration_config() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn queues_device_scoped_capture_request_with_ip_and_mac_metadata() -> Result<()> {
+    let mut harness = TestHarness::new().await?;
+    harness.state.config.capture.execution_enabled = false;
+    harness.state.config.capture.allowed_interfaces = vec!["wlo1".to_string()];
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/captures/export-requests")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "source": "device_detail",
+                        "interface_name": "wlo1",
+                        "entity_type": "device",
+                        "entity_key": "192.168.1.20",
+                        "device_ip_address": "192.168.1.20",
+                        "mac_address": "aa:bb:cc:dd:ee:ff",
+                        "window_minutes": 60,
+                        "note": "Capture traffic related to this device"
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let created: Value = serde_json::from_slice(&body)?;
+
+    assert_eq!(created["source"].as_str(), Some("device_detail"));
+    assert_eq!(created["interface_name"].as_str(), Some("wlo1"));
+    assert_eq!(created["entity_type"].as_str(), Some("device"));
+    assert_eq!(created["entity_key"].as_str(), Some("192.168.1.20"));
+    assert_eq!(created["device_ip_address"].as_str(), Some("192.168.1.20"));
+    assert_eq!(created["mac_address"].as_str(), Some("aa:bb:cc:dd:ee:ff"));
+    assert_eq!(created["status"].as_str(), Some("requested"));
+
+    Ok(())
+}
