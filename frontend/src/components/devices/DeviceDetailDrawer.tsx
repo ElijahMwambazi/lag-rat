@@ -193,6 +193,10 @@ export default function DeviceDetailDrawer({
           Results depend on network position, router behavior, and interface
           mode.
         </p>
+        <p className="text-xs leading-5 text-zinc-500">
+          After creating the request, Lag Rat opens the Traffic page capture
+          drawer so you can queue, inspect, cancel, or delete the request.
+        </p>
 
         <DrawerDetailSection label="Timeline">
           <div className="mt-1 space-y-3">

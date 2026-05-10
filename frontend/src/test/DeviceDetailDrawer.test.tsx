@@ -1,11 +1,5 @@
 import { screen } from "@testing-library/react";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import DeviceDetailDrawer from "../components/devices/DeviceDetailDrawer";
 import { renderWithQueryClient } from "./render";
 
@@ -46,6 +40,7 @@ describe("DeviceDetailDrawer", () => {
         open={false}
         onClose={() => {}}
         onEdit={() => {}}
+        onCaptureTraffic={() => {}}
       />,
     );
 
@@ -53,9 +48,7 @@ describe("DeviceDetailDrawer", () => {
   });
 
   it("renders device details when open", async () => {
-    vi.mocked(
-      api.getDeviceHistory,
-    ).mockResolvedValue([]);
+    vi.mocked(api.getDeviceHistory).mockResolvedValue([]);
 
     renderWithQueryClient(
       <DeviceDetailDrawer
@@ -63,6 +56,7 @@ describe("DeviceDetailDrawer", () => {
         open
         onClose={() => {}}
         onEdit={() => {}}
+        onCaptureTraffic={() => {}}
       />,
     );
 
@@ -71,38 +65,28 @@ describe("DeviceDetailDrawer", () => {
         name: "Office laptop",
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("Device details"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Main machine"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("192.168.1.10"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("aa:bb:cc:dd:ee:ff"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Device details")).toBeInTheDocument();
+    expect(screen.getByText("Main machine")).toBeInTheDocument();
+    expect(screen.getByText("192.168.1.10")).toBeInTheDocument();
+    expect(screen.getByText("aa:bb:cc:dd:ee:ff")).toBeInTheDocument();
+
+    expect(await screen.findByText("No history yet.")).toBeInTheDocument();
+
+    expect(screen.getByText("Edit label")).toBeInTheDocument();
+    expect(screen.getByText("Copy IP")).toBeInTheDocument();
+    expect(screen.getByText("Copy MAC")).toBeInTheDocument();
+
+    expect(screen.getByText("Capture device traffic")).toBeInTheDocument();
 
     expect(
-      await screen.findByText("No history yet."),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Edit label"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Copy IP"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Copy MAC"),
+      screen.getByText(
+        /opens the Traffic page capture drawer so you can queue, inspect, cancel, or delete the request/i,
+      ),
     ).toBeInTheDocument();
   });
 
   it("shows add label when device is not known", async () => {
-    vi.mocked(
-      api.getDeviceHistory,
-    ).mockResolvedValue([]);
+    vi.mocked(api.getDeviceHistory).mockResolvedValue([]);
 
     renderWithQueryClient(
       <DeviceDetailDrawer
@@ -114,22 +98,17 @@ describe("DeviceDetailDrawer", () => {
         open
         onClose={() => {}}
         onEdit={() => {}}
+        onCaptureTraffic={() => {}}
       />,
     );
 
-    expect(
-      screen.getByText("Add label"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Add label")).toBeInTheDocument();
 
-    expect(
-      await screen.findByText("No history yet."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("No history yet.")).toBeInTheDocument();
   });
 
   it("renders history loading state", async () => {
-    vi.mocked(
-      api.getDeviceHistory,
-    ).mockImplementation(
+    vi.mocked(api.getDeviceHistory).mockImplementation(
       () => new Promise(() => {}),
     );
 
@@ -139,20 +118,15 @@ describe("DeviceDetailDrawer", () => {
         open
         onClose={() => {}}
         onEdit={() => {}}
+        onCaptureTraffic={() => {}}
       />,
     );
 
-    expect(
-      await screen.findByText(
-        "Loading history...",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Loading history...")).toBeInTheDocument();
   });
 
   it("renders history error state", async () => {
-    vi.mocked(
-      api.getDeviceHistory,
-    ).mockRejectedValue(
+    vi.mocked(api.getDeviceHistory).mockRejectedValue(
       new Error("history failed"),
     );
 
@@ -162,20 +136,17 @@ describe("DeviceDetailDrawer", () => {
         open
         onClose={() => {}}
         onEdit={() => {}}
+        onCaptureTraffic={() => {}}
       />,
     );
 
     expect(
-      await screen.findByText(
-        "Could not load history.",
-      ),
+      await screen.findByText("Could not load history."),
     ).toBeInTheDocument();
   });
 
   it("renders device history items", async () => {
-    vi.mocked(
-      api.getDeviceHistory,
-    ).mockResolvedValue([
+    vi.mocked(api.getDeviceHistory).mockResolvedValue([
       {
         id: 1,
         event_type: "first_seen",
@@ -198,12 +169,11 @@ describe("DeviceDetailDrawer", () => {
         open
         onClose={() => {}}
         onEdit={() => {}}
+        onCaptureTraffic={() => {}}
       />,
     );
 
-    expect(
-      await screen.findByText("First seen"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("First seen")).toBeInTheDocument();
 
     expect(
       screen.getByRole("heading", {
@@ -211,14 +181,27 @@ describe("DeviceDetailDrawer", () => {
       }),
     ).toBeInTheDocument();
 
-    expect(
-      await screen.findByText("Notes updated"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Notes updated")).toBeInTheDocument();
 
-    expect(
-      await screen.findByText(
-        "Old note → New note",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Old note → New note")).toBeInTheDocument();
+  });
+
+  it("calls capture handler from the device capture action", async () => {
+    vi.mocked(api.getDeviceHistory).mockResolvedValue([]);
+    const onCaptureTraffic = vi.fn();
+
+    renderWithQueryClient(
+      <DeviceDetailDrawer
+        device={baseDevice}
+        open
+        onClose={() => {}}
+        onEdit={() => {}}
+        onCaptureTraffic={onCaptureTraffic}
+      />,
+    );
+
+    screen.getByText("Capture device traffic").click();
+
+    expect(onCaptureTraffic).toHaveBeenCalledWith(baseDevice);
   });
 });

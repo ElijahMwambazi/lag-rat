@@ -68,6 +68,10 @@ vi.mock("../components/devices/DeviceDetailDrawer", () => ({
         <button type="button" onClick={() => onCaptureTraffic(device)}>
           Capture device traffic
         </button>
+        <p>
+          After creating the request, Lag Rat opens the Traffic page capture
+          drawer so you can queue, inspect, cancel, or delete the request.
+        </p>
       </div>
     ) : null,
 }));
@@ -220,6 +224,12 @@ describe("DevicesPage", () => {
 
     expect(
       await screen.findByText("Device drawer · Office laptop"),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        /opens the Traffic page capture drawer so you can queue, inspect, cancel, or delete the request/i,
+      ),
     ).toBeInTheDocument();
 
     await user.click(
