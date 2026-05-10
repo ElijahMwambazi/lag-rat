@@ -11,19 +11,17 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onEdit: (device: Device) => void;
+  onCaptureTraffic: (device: Device) => void;
+  capturePending?: boolean;
 };
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? "—"
-    : parsed.toLocaleString();
+  return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleString();
 }
 
-function formatConfidence(
-  value: Device["confidence"],
-) {
+function formatConfidence(value: Device["confidence"]) {
   if (value === "high") return "High";
   if (value === "medium") return "Medium";
   return "Low";
@@ -59,26 +57,15 @@ function formatEventValues(
     return null;
   }
 
-  if (
-    eventType === "first_seen" ||
-    eventType === "label_added"
-  ) {
+  if (eventType === "first_seen" || eventType === "label_added") {
     return newValue ?? null;
   }
 
-  if (
-    eventType === "notes_changed" &&
-    !previousValue &&
-    newValue
-  ) {
+  if (eventType === "notes_changed" && !previousValue && newValue) {
     return `Added notes: ${newValue}`;
   }
 
-  if (
-    eventType === "notes_changed" &&
-    previousValue &&
-    !newValue
-  ) {
+  if (eventType === "notes_changed" && previousValue && !newValue) {
     return `Cleared notes: ${previousValue}`;
   }
 
@@ -98,6 +85,8 @@ export default function DeviceDetailDrawer({
   open,
   onClose,
   onEdit,
+  onCaptureTraffic,
+  capturePending = false,
 }: Props) {
   async function copyText(value?: string | null) {
     if (!value) return;
@@ -109,12 +98,8 @@ export default function DeviceDetailDrawer({
   }
 
   const historyQuery = useQuery({
-    queryKey: [
-      "device-history",
-      device?.ip_address,
-    ],
-    queryFn: () =>
-      api.getDeviceHistory(device!.ip_address),
+    queryKey: ["device-history", device?.ip_address],
+    queryFn: () => api.getDeviceHistory(device!.ip_address),
     enabled: open && !!device?.ip_address,
   });
 
@@ -143,41 +128,26 @@ export default function DeviceDetailDrawer({
 
         {device.notes ? (
           <DrawerDetailSection label="Notes">
-            <div className="text-sm text-zinc-200">
-              {device.notes}
-            </div>
+            <div className="text-sm text-zinc-200">{device.notes}</div>
           </DrawerDetailSection>
         ) : null}
 
         <DrawerDetailSection label="Identity">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DeviceMetaItem
-              label="IP address"
-              value={device.ip_address}
-            />
-            <DeviceMetaItem
-              label="Hostname"
-              value={device.hostname ?? "—"}
-            />
+            <DeviceMetaItem label="IP address" value={device.ip_address} />
+            <DeviceMetaItem label="Hostname" value={device.hostname ?? "—"} />
             <DeviceMetaItem
               label="MAC address"
               value={device.mac_address ?? "—"}
             />
-            <DeviceMetaItem
-              label="Label"
-              value={device.label ?? "—"}
-            />
+            <DeviceMetaItem label="Label" value={device.label ?? "—"} />
             <DeviceMetaItem
               label="Confidence"
-              value={formatConfidence(
-                device.confidence,
-              )}
+              value={formatConfidence(device.confidence)}
             />
             <DeviceMetaItem
               label="First seen"
-              value={formatDate(
-                device.first_seen,
-              )}
+              value={formatDate(device.first_seen)}
             />
             <DeviceMetaItem
               label="Last seen"
@@ -191,41 +161,45 @@ export default function DeviceDetailDrawer({
             className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900"
             onClick={() => onEdit(device)}
           >
-            {device.is_known
-              ? "Edit label"
-              : "Add label"}
+            {device.is_known ? "Edit label" : "Add label"}
           </button>
 
           <button
             className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
-            onClick={() =>
-              copyText(device.ip_address)
-            }
+            onClick={() => copyText(device.ip_address)}
           >
             Copy IP
           </button>
 
           <button
             className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={() =>
-              copyText(device.mac_address)
-            }
+            onClick={() => copyText(device.mac_address)}
             disabled={!device.mac_address}
           >
             Copy MAC
           </button>
+
+          <button
+            className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-sm text-cyan-100 hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => onCaptureTraffic(device)}
+            disabled={capturePending}
+          >
+            {capturePending ? "Creating capture..." : "Capture device traffic"}
+          </button>
         </div>
+
+        <p className="text-sm leading-6 text-zinc-500">
+          Captures traffic visible to this backend host for the selected device.
+          Results depend on network position, router behavior, and interface
+          mode.
+        </p>
 
         <DrawerDetailSection label="Timeline">
           <div className="mt-1 space-y-3">
             {historyQuery.isLoading ? (
-              <p className="text-sm text-zinc-400">
-                Loading history...
-              </p>
+              <p className="text-sm text-zinc-400">Loading history...</p>
             ) : historyQuery.isError ? (
-              <p className="text-sm text-red-400">
-                Could not load history.
-              </p>
+              <p className="text-sm text-red-400">Could not load history.</p>
             ) : historyQuery.data?.length ? (
               <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
                 {historyQuery.data.map((item) => (
@@ -235,14 +209,10 @@ export default function DeviceDetailDrawer({
                   >
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-medium text-zinc-100">
-                        {formatEventType(
-                          item.event_type,
-                        )}
+                        {formatEventType(item.event_type)}
                       </p>
                       <p className="text-xs text-zinc-400">
-                        {formatDate(
-                          item.created_at,
-                        )}
+                        {formatDate(item.created_at)}
                       </p>
                     </div>
 
@@ -263,9 +233,7 @@ export default function DeviceDetailDrawer({
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-zinc-400">
-                No history yet.
-              </p>
+              <p className="text-sm text-zinc-400">No history yet.</p>
             )}
           </div>
         </DrawerDetailSection>

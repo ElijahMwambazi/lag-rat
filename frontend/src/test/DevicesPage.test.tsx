@@ -20,6 +20,7 @@ vi.mock("../services/api", () => ({
   api: {
     getDevices: vi.fn(),
     saveKnownDevice: vi.fn(),
+    createCaptureExportRequest: vi.fn(),
   },
 }));
 
@@ -49,18 +50,23 @@ vi.mock("../components/devices/DeviceDetailDrawer", () => ({
     device,
     open,
     onClose,
+    onCaptureTraffic,
   }: {
     device: {
       display_name: string;
     } | null;
     open: boolean;
     onClose: () => void;
+    onCaptureTraffic: (device: unknown) => void;
   }) =>
     open && device ? (
       <div>
         <div>{`Device drawer · ${device.display_name}`}</div>
         <button type="button" onClick={onClose}>
           Close device drawer
+        </button>
+        <button type="button" onClick={() => onCaptureTraffic(device)}>
+          Capture device traffic
         </button>
       </div>
     ) : null,
@@ -113,6 +119,20 @@ describe("DevicesPage", () => {
       id: 0,
       created_at: "",
       updated_at: "",
+    });
+    vi.mocked(api.createCaptureExportRequest).mockResolvedValue({
+      id: 42,
+      source: "device_detail",
+      interface_name: "wlo1",
+      entity_type: "device",
+      entity_key: "192.168.1.10",
+      device_ip_address: "192.168.1.10",
+      mac_address: "aa:bb:cc:dd:ee:ff",
+      window_minutes: 60,
+      note: "Capture traffic related to this device",
+      status: "requested",
+      capture_reference: null,
+      created_at: new Date().toISOString(),
     });
   });
 
@@ -179,6 +199,48 @@ describe("DevicesPage", () => {
 
     expect(screen.getByTestId("location-search")).not.toHaveTextContent(
       "deviceMac",
+    );
+  });
+
+  it("creates a device capture request and opens the traffic capture drawer", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+        initialEntries={["/devices?deviceIp=192.168.1.10"]}
+      >
+        <DevicesPage />
+        <LocationSearchProbe />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Device drawer · Office laptop"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Capture device traffic",
+      }),
+    );
+
+    expect(api.createCaptureExportRequest).toHaveBeenCalledWith({
+      source: "device_detail",
+      interface_name: "wlo1",
+      entity_type: "device",
+      entity_key: "192.168.1.10",
+      device_ip_address: "192.168.1.10",
+      mac_address: "aa:bb:cc:dd:ee:ff",
+      window_minutes: 60,
+      note: "Capture traffic related to this device",
+    });
+
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "/traffic?captureRequestId=42",
     );
   });
 });

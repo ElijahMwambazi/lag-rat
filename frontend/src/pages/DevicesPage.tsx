@@ -1,16 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import QueryState from "../components/QueryState";
 import DeviceRow from "../components/devices/DeviceRow";
 import DeviceDetailDrawer from "../components/devices/DeviceDetailDrawer";
-import { api, type KnownDevice } from "../services/api";
+import { api, type Device, type KnownDevice } from "../services/api";
 
 type SortKey = "last_seen" | "name" | "confidence";
 
 const SHOW_LOW_CONFIDENCE_STORAGE_KEY = "lag-rat:devices:show-low-confidence";
 const DEVICE_IP_PARAM = "deviceIp";
 const DEVICE_MAC_PARAM = "deviceMac";
+const DEVICE_CAPTURE_INTERFACE = "wlo1";
 
 function confidenceRank(value: "high" | "medium" | "low") {
   if (value === "high") return 0;
@@ -26,6 +27,7 @@ export default function DevicesPage() {
   });
 
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const devices = devicesQuery.data ?? [];
 
@@ -162,6 +164,23 @@ export default function DevicesPage() {
           queryKey: ["device-history", savedDevice.ip_address],
         });
       }
+    },
+  });
+
+  const createDeviceCaptureMutation = useMutation({
+    mutationFn: (device: Device) =>
+      api.createCaptureExportRequest({
+        source: "device_detail",
+        interface_name: DEVICE_CAPTURE_INTERFACE,
+        entity_type: "device",
+        entity_key: device.ip_address,
+        device_ip_address: device.ip_address,
+        mac_address: device.mac_address,
+        window_minutes: 60,
+        note: "Capture traffic related to this device",
+      }),
+    onSuccess: (request) => {
+      navigate(`/traffic?captureRequestId=${request.id}`);
     },
   });
 
@@ -322,6 +341,18 @@ export default function DevicesPage() {
         />
       ) : null}
 
+      {createDeviceCaptureMutation.isError ? (
+        <QueryState
+          title="Capture request failed"
+          tone="error"
+          message={
+            createDeviceCaptureMutation.error instanceof Error
+              ? createDeviceCaptureMutation.error.message
+              : "Could not create a device capture request."
+          }
+        />
+      ) : null}
+
       <div className="rounded-t-2xl border border-zinc-800 border-b-0 bg-zinc-950/40 px-4 py-3 text-sm leading-6 text-zinc-400">
         Swipe horizontally to view all device columns. Tap a row to open full
         device details.
@@ -404,6 +435,14 @@ export default function DevicesPage() {
           open={selectedDevice !== null}
           onClose={closeDeviceDetails}
           onEdit={startEdit}
+          onCaptureTraffic={(device) => {
+            if (createDeviceCaptureMutation.isPending) {
+              return;
+            }
+
+            createDeviceCaptureMutation.mutate(device);
+          }}
+          capturePending={createDeviceCaptureMutation.isPending}
         />
       </div>
     </div>
