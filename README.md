@@ -9,11 +9,10 @@ Today, the first implemented module is network monitoring for:
 - DNS health
 - outages and alerts
 - local device activity
+- Wi-Fi room sampling
+- traffic summaries and top talkers
+- guarded local capture handoff workflows
 - reports and metrics
-- room-based Wi-Fi sampling, Wi-Fi alerting, and Wi-Fi room mapping
-- traffic summaries, top talkers, recent samples, and traffic drawers
-- backend-powered incident investigations
-- capture export request metadata, history, lifecycle controls, and guarded local cleanup
 
 The current product shape is:
 
@@ -35,29 +34,23 @@ Implemented:
 - alert history API and timeline UI
 - reports summary, trends, recent events, top incident targets, and snapshot export
 - metrics summary and metrics page
+- room-based Wi-Fi sampling, summaries, alerts, and dashboard flows
+- traffic summary, top talkers, recent samples, and traffic detail drawers
+- investigation workflows across reports, overview, and alerts
+- capture export request lifecycle, queueing, cancellation, deletion, and history
+- guarded local `tcpdump` execution with readiness checks and allowlisted interfaces
+- device-scoped capture requests using backend-generated safe IP/MAC filters
+- completed capture file guidance and copy-path workflow
 - shared drawer shell and drawer detail sections
 - backend integration coverage for major dashboard-facing APIs
-- Wi-Fi sample ingest and persistence
-- Wi-Fi signal alerting and stale-sample alerting
-- Wi-Fi summaries, location summaries, and recent-sample workflows
-- Wi-Fi page with room comparison, timelines, recoveries, and sample detail drawers
-- Wi-Fi room mapping summary / coverage workflow
-- traffic summary, top talker, and recent traffic sample workflows
-- traffic top talker and traffic sample detail drawers
-- backend investigation read model for incident targets
-- investigation drawer with related outages, alert events, devices, traffic, and Wi-Fi context
-- capture export request API
-- capture export request actions from traffic drawers
-- capture export request lifecycle state, Traffic page history, status chips, filters, compact mode, and detail drawer
-- guarded local capture execution through allowlisted `tcpdump` commands, disabled by default
-- capture request deletion with guarded local `.pcap` cleanup
+- frontend coverage for main dashboard and capture workflows
 
 ## Current focus
 
-- refining investigation entry points across Overview, Alerts, and Reports
-- refining capture export workflow visibility, lifecycle state, and operator handoff actions
-- documenting local capture execution requirements, cleanup behavior, and safe operating boundaries
-- preserving the collector/plugin boundary for future observability domains
+- keep docs aligned with implemented Wi-Fi, traffic, investigation, and capture workflows
+- polish capture output usability after real `.pcap` workflow testing
+- continue dashboard cohesion and operator-friendly wording
+- keep future module onboarding consistent with the collector/plugin boundary
 
 ## Platform model
 
@@ -83,72 +76,43 @@ The current primary module is **home network observability**:
 - internet
 - DNS
 - devices
+- Wi-Fi
+- traffic
+- capture handoff
 - outages
 - alerts
 - reports
 - metrics
-- Wi-Fi samples, room-level Wi-Fi health, and Wi-Fi room mapping
-- traffic summaries, top talkers, samples, and capture export handoffs
-- incident investigations
-- guarded local capture execution through allowlisted `tcpdump` commands, disabled by default
-- guarded local capture cleanup for request metadata and matching `.pcap` files
 
 ### Near-term additions
 
-- traffic observability hardening
-- investigation workflow refinement
-- clearer collector/plugin boundaries for future modules
-- capture history/detail UX polish
+- capture output usability follow-ups
+- dashboard polish after capture workflow testing
+- future module onboarding patterns
 
 ### Future modules
 
 - Bitcoin node observability
 - Lightning observability
 
-## Packet capture boundary
-
-Lag Rat records **capture export request metadata** as an operator handoff from traffic and investigation workflows.
-
-Lag Rat can optionally execute short, local, allowlisted `tcpdump` captures when explicitly enabled. It still does **not** inspect packet contents or become a Wireshark replacement. Packet-level analysis should remain external through tools such as `tcpdump` and Wireshark.
-
-Current capture workflow:
-
-```text
-Traffic drawer
-→ create capture export request
-→ request appears in capture history
-→ operator reviews status chips, filters, compact mode, or detail drawer
-→ operator queues or cancels the request
-→ capture worker runs preflight checks when execution is enabled
-→ guarded tcpdump runner writes a local .pcap file when permitted
-→ request is marked completed or failed
-→ operator inspects packet contents externally
-→ operator can delete request metadata and safely remove matching local .pcap files
-```
-
-Capture files are local sensitive artifacts. Lag Rat can delete capture request metadata and safely remove matching local `.pcap` files, but it does not parse packet contents or act as a Wireshark replacement.
-
 ## Current priorities
 
-- tighten overview as the main operator dashboard
+- keep README and docs aligned with the current implementation
 - keep technical detail in drawers while keeping list/table surfaces more human-friendly
-- refine investigation and capture handoff entry points
-- document local capture execution and cleanup behavior clearly
-- design the collector/plugin boundary for future modules
-- continue docs and repo polish
+- validate capture workflows on real local network setups
+- keep packet analysis outside Lag Rat while improving capture handoff clarity
+- continue repo polish and future module planning
 
 ## Testing
 
 Current strength:
 
-- backend integration coverage for alerts, outages, overview, reports, metrics, Wi-Fi, traffic, and capture endpoints
-- frontend coverage for dashboard surfaces including Wi-Fi flows, traffic flows, capture lifecycle actions, and drawer interactions
+- backend integration coverage for alerts, outages, overview, reports, metrics, Wi-Fi, traffic, investigation, and capture endpoints
+- frontend coverage for major dashboard, drawer, filter, and capture workflows
 
 Next major testing step:
 
-- continue operator-path verification for capture history/detail workflows
-- expand HTTP/API coverage for remaining module-specific surfaces
-- continue operator-path verification for future module additions
+- expand coverage around future module onboarding patterns and any new capture output usability follow-ups
 
 ## Stack
 
@@ -188,13 +152,13 @@ lag-rat/
 ├── docs/
 │   ├── architecture.md
 │   ├── api.md
-│   ├── capture-execution-plan.md
+│   ├── capture-troubleshooting.md
 │   ├── collector-plugin-boundary.md
 │   ├── database-schema.md
 │   ├── docs-index.md
 │   ├── experiments.md
-│   ├── lag-rat.md
-│   └── roadmap.md
+│   ├── roadmap.md
+│   └── lag-rat.md
 ├── backend/
 ├── frontend/
 └── scripts/

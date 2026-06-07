@@ -10,19 +10,20 @@ The current implemented module covers:
 - internet monitoring
 - DNS monitoring
 - devices
+- Wi-Fi sampling
+- traffic summaries and top talkers
+- capture export and guarded local capture handoff
+- investigations
 - outages
 - alerts
 - reports
 - metrics
-- room-based Wi-Fi sampling and alerting
-- traffic summaries and top talkers
-- backend-powered incident investigations
 
 Future platform expansion should leave room for:
 
-- room-based Wi-Fi sampling
-- traffic summaries / top talkers
-- optional packet capture export hooks
+- richer room-by-room Wi-Fi workflows
+- capture output usability follow-ups
+- Prometheus-compatible export
 - Bitcoin node observability
 - Lightning observability
 
@@ -41,31 +42,34 @@ Stable today:
 - shared detail drawer patterns
 - backend integration coverage for major dashboard APIs
 - Wi-Fi sample ingest, persistence, summaries, and alerting
-- Wi-Fi page room comparison, timelines, recoveries, and sample drawers
+- Wi-Fi room comparison, timelines, recoveries, and sample detail drawers
 - traffic summary, top talker, and recent sample API/client flows
-- investigation read model for incident targets
+- investigation read model and cross-page investigation workflows
+- capture export request lifecycle and Traffic page capture history
+- guarded local `tcpdump` execution with readiness checks
+- device-scoped capture filters and Device drawer capture action
+- completed capture file guidance and copy-path workflow
 
 ## In progress
 
-- responsive/mobile dashboard polish
-- overview cohesion
-- summary-surface wording cleanup
-- empty / loading / partial-failure UX polish
-- docs refresh
-- collector/plugin boundary definition
+- docs alignment with current Wi-Fi, traffic, investigation, and capture workflows
+- capture output usability follow-ups after real `.pcap` workflow testing
+- dashboard polish after capture workflow testing
+- future module onboarding patterns
 
 ## Current testing position
 
-Backend integration coverage is the strongest-tested area today.
+Backend integration coverage is strong across the main dashboard-facing API surface.
+
+Frontend coverage now includes major dashboard, drawer, query-param, filter, and capture workflows.
 
 Next major testing step:
 
-- expand frontend component/state coverage for reports, metrics, and dashboard-state handling
+- expand coverage around future module onboarding patterns and any new capture output usability follow-ups
 
 ## Immediate next steps
 
-- keep README aligned with implemented Wi-Fi, traffic, and investigation workflows
-- harden investigation drawer rendering around the backend read model
-- continue traffic observability productization
-- keep collector/plugin boundary docs aligned with implemented module patterns
-- prepare optional packet capture/export hook design without turning Lag Rat into a packet-analysis suite
+- align README and docs with the current implemented capture and traffic workflows
+- keep `docs/api.md`, `docs/database-schema.md`, and `docs/architecture.md` current as capture metadata and traffic workflows evolve
+- keep packet inspection outside Lag Rat while improving capture handoff clarity
+- continue future module planning through the collector/plugin boundary
