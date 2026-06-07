@@ -20,16 +20,8 @@ function confidenceRank(value: "high" | "medium" | "low") {
 }
 
 export default function DevicesPage() {
-  const devicesQuery = useQuery({
-    queryKey: ["devices"],
-    queryFn: api.getDevices,
-    refetchInterval: 60000,
-  });
-
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  const devices = devicesQuery.data ?? [];
 
   const [showLowConfidence, setShowLowConfidence] = useState<boolean>(() => {
     if (typeof window === "undefined") {
@@ -44,6 +36,17 @@ export default function DevicesPage() {
       return false;
     }
   });
+
+  const devicesQuery = useQuery({
+    queryKey: ["devices", { include_low_confidence: showLowConfidence }],
+    queryFn: () =>
+      api.getDevices({
+        include_low_confidence: showLowConfidence,
+      }),
+    refetchInterval: 60000,
+  });
+
+  const devices = devicesQuery.data ?? [];
 
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("last_seen");
@@ -293,7 +296,13 @@ export default function DevicesPage() {
               onChange={(e) => setShowLowConfidence(e.target.checked)}
               className="mt-0.5 lg:mt-0"
             />
-            <span>Include low-confidence devices</span>
+            <span>
+              Show low-confidence devices
+              <span className="mt-1 block text-xs text-zinc-500">
+                Low-confidence devices are usually incomplete ARP or neighbour
+                entries.
+              </span>
+            </span>
           </label>
         </div>
 

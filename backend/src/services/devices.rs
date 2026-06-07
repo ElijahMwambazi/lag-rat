@@ -85,6 +85,20 @@ pub async fn list_enriched(state: &AppState) -> anyhow::Result<Vec<EnrichedDevic
         .collect())
 }
 
+pub fn filter_by_confidence(
+    devices: Vec<EnrichedDevice>,
+    include_low_confidence: bool,
+) -> Vec<EnrichedDevice> {
+    if include_low_confidence {
+        return devices;
+    }
+
+    devices
+        .into_iter()
+        .filter(|device| device.confidence != "low")
+        .collect()
+}
+
 fn match_known_device<'a>(
     known_devices: &'a [KnownDevice],
     ip_address: Option<&str>,
@@ -143,5 +157,60 @@ fn local_ipv4_addrs() -> Vec<String> {
     #[cfg(not(target_os = "linux"))]
     {
         Vec::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    fn test_device(id: i64, confidence: &str) -> EnrichedDevice {
+        EnrichedDevice {
+            id,
+            ip_address: format!("192.168.1.{id}"),
+            mac_address: None,
+            hostname: None,
+            display_name: format!("Device {id}"),
+            label: None,
+            notes: None,
+            first_seen: Some(Utc::now()),
+            last_seen: Some(Utc::now()),
+            is_recent: true,
+            is_gateway: false,
+            is_this_device: false,
+            is_known: false,
+            confidence: confidence.to_string(),
+        }
+    }
+
+    #[test]
+    fn hides_low_confidence_devices_by_default() {
+        let devices = vec![
+            test_device(10, "high"),
+            test_device(11, "medium"),
+            test_device(12, "low"),
+        ];
+
+        let filtered = filter_by_confidence(devices, false);
+
+        assert_eq!(filtered.len(), 2);
+        assert!(filtered.iter().any(|device| device.confidence == "high"));
+        assert!(filtered.iter().any(|device| device.confidence == "medium"));
+        assert!(!filtered.iter().any(|device| device.confidence == "low"));
+    }
+
+    #[test]
+    fn includes_low_confidence_devices_when_requested() {
+        let devices = vec![
+            test_device(10, "high"),
+            test_device(11, "medium"),
+            test_device(12, "low"),
+        ];
+
+        let filtered = filter_by_confidence(devices, true);
+
+        assert_eq!(filtered.len(), 3);
+        assert!(filtered.iter().any(|device| device.confidence == "low"));
     }
 }

@@ -1431,7 +1431,12 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -1484,7 +1489,12 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -1550,7 +1560,12 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -1611,7 +1626,12 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -1668,7 +1688,12 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -1735,7 +1760,12 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -1792,7 +1822,13 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={["/traffic?captureRequestId=1"]}>
+      <MemoryRouter
+        initialEntries={["/traffic?captureRequestId=1"]}
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -1830,7 +1866,13 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={["/traffic?captureRequestId=1"]}>
+      <MemoryRouter
+        initialEntries={["/traffic?captureRequestId=1"]}
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -1897,7 +1939,12 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -1993,7 +2040,12 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -2056,7 +2108,12 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -2131,7 +2188,13 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={["/traffic?captureRequestId=1"]}>
+      <MemoryRouter
+        initialEntries={["/traffic?captureRequestId=1"]}
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -2174,7 +2237,13 @@ describe("TrafficPage", () => {
     ]);
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={["/traffic?captureRequestId=2"]}>
+      <MemoryRouter
+        initialEntries={["/traffic?captureRequestId=2"]}
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -2188,7 +2257,12 @@ describe("TrafficPage", () => {
 
   it("shows capture readiness when execution is disabled", async () => {
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -2219,7 +2293,12 @@ describe("TrafficPage", () => {
     const user = userEvent.setup();
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );
@@ -2266,7 +2345,12 @@ describe("TrafficPage", () => {
     });
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <TrafficPage />
       </MemoryRouter>,
     );

@@ -97,6 +97,11 @@ pub struct InvestigationResponse {
 }
 
 #[derive(Deserialize)]
+pub struct DevicesQuery {
+    pub include_low_confidence: Option<bool>,
+}
+
+#[derive(Deserialize)]
 pub struct WifiQuery {
     pub minutes: Option<u32>,
     pub location_label: Option<String>,
@@ -807,12 +812,18 @@ async fn get_outages(
 
 async fn get_devices(
     State(state): State<AppState>,
+    Query(query): Query<DevicesQuery>,
 ) -> Result<Json<Vec<EnrichedDevice>>, (StatusCode, Json<serde_json::Value>)> {
+    let include_low_confidence = query.include_low_confidence.unwrap_or(false);
+
     let devices = devices::list_enriched(&state)
         .await
         .map_err(internal_error)?;
 
-    Ok(Json(devices))
+    Ok(Json(devices::filter_by_confidence(
+        devices,
+        include_low_confidence,
+    )))
 }
 
 async fn save_known_device(

@@ -489,7 +489,17 @@ export const api = {
     getJson<IncidentTargetSummaryItem[]>(
       `/api/reports/incidents/top?hours=${hours}`,
     ),
-  getDevices: () => getJson<Device[]>("/api/devices"),
+  getDevices: (params?: { include_low_confidence?: boolean }) => {
+    const query = new URLSearchParams();
+
+    if (params?.include_low_confidence) {
+      query.set("include_low_confidence", "true");
+    }
+
+    const suffix = query.toString();
+
+    return getJson<Device[]>(`/api/devices${suffix ? `?${suffix}` : ""}`);
+  },
   getOutages: (params?: {
     status?: "active" | "resolved";
     outage_type?: string;

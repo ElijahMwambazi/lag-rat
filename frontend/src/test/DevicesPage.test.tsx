@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -109,12 +109,36 @@ const devices = [
     is_known: true,
     confidence: "high" as const,
   },
+  {
+    id: 3,
+    ip_address: "192.168.1.190",
+    mac_address: null,
+    hostname: null,
+    display_name: "192.168.1.190",
+    label: null,
+    notes: null,
+    first_seen: "2026-04-11T10:00:00Z",
+    last_seen: "2026-04-11T11:00:00Z",
+    is_recent: true,
+    is_gateway: false,
+    is_this_device: false,
+    is_known: false,
+    confidence: "low" as const,
+  },
 ];
 
 describe("DevicesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api.getDevices).mockResolvedValue(devices);
+    vi.mocked(api.getDevices).mockImplementation(
+      (params?: { include_low_confidence?: boolean }) => {
+        const visibleDevices = params?.include_low_confidence
+          ? devices
+          : devices.filter((device) => device.confidence !== "low");
+
+        return Promise.resolve(visibleDevices);
+      },
+    );
     vi.mocked(api.saveKnownDevice).mockResolvedValue({
       ip_address: "192.168.1.10",
       mac_address: "aa:bb:cc:dd:ee:ff",
@@ -167,6 +191,41 @@ describe("DevicesPage", () => {
     expect(screen.getByTestId("location-search")).toHaveTextContent(
       "deviceMac=aa%3Abb%3Acc%3Add%3Aee%3Aff",
     );
+  });
+
+  it("hides low-confidence devices by default and shows them when enabled", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        <DevicesPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Office laptop")).toBeInTheDocument();
+    expect(await screen.findByText("Living room TV")).toBeInTheDocument();
+    expect(screen.queryByText("192.168.1.190")).not.toBeInTheDocument();
+
+    expect(api.getDevices).toHaveBeenCalledWith({
+      include_low_confidence: false,
+    });
+
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: /show low-confidence devices/i,
+      }),
+    );
+
+    expect(await screen.findByText("192.168.1.190")).toBeInTheDocument();
+
+    expect(api.getDevices).toHaveBeenLastCalledWith({
+      include_low_confidence: true,
+    });
   });
 
   it("clears device query params when the drawer closes", async () => {
@@ -249,8 +308,10 @@ describe("DevicesPage", () => {
       note: "Capture traffic related to this device",
     });
 
-    expect(screen.getByTestId("location-search")).toHaveTextContent(
-      "/traffic?captureRequestId=42",
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search")).toHaveTextContent(
+        "/traffic?captureRequestId=42",
+      );
+    });
   });
 });
