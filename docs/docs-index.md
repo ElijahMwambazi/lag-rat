@@ -35,7 +35,7 @@ Lag Rat should be treated as a **local observability platform** with a current p
   - current system shape
   - platform responsibilities
   - module responsibilities
-  - near-term additions
+  - current network observability capabilities
   - future modules
 
 ### Collector / plugin boundary
@@ -51,17 +51,18 @@ Lag Rat should be treated as a **local observability platform** with a current p
 - `docs/api.md`
   - current local API contract
   - dashboard-facing endpoints
+  - capture request and readiness endpoints
   - current module scope
-  - capture request lifecycle and cleanup endpoints
   - future API direction
 
-  ### Capture troubleshooting
+### Capture troubleshooting
 
 - `docs/capture-troubleshooting.md`
   - capture readiness
   - execution setup
   - common failure reasons
   - local `tcpdump` permission notes
+  - device-scoped capture notes
 
 ### Database schema
 
@@ -69,24 +70,14 @@ Lag Rat should be treated as a **local observability platform** with a current p
   - current persistence model
   - shared platform primitives
   - current module tables
+  - capture/export metadata
   - planned schema extensions
-
-### Capture execution plan
-
-- `docs/capture-execution-plan.md`
-  - capture execution boundary
-  - guarded `tcpdump` runner behavior
-  - command allowlist
-  - local output directory behavior
-  - retention cleanup
-  - manual request deletion and `.pcap` cleanup behavior
-  - security and privacy guardrails
 
 ### Roadmap
 
 - `docs/roadmap.md`
   - implementation sequence
-  - current milestone
+  - completed milestones
   - near-term work
   - later enhancements
 
@@ -127,20 +118,18 @@ Read in this order:
 
 1. `README.md`
 2. `docs/api.md`
-3. `docs/roadmap.md`
-4. `docs/lag-rat.md`
-5. `docs/capture-execution-plan.md` when touching capture workflows
-6. `docs/capture-troubleshooting.md`
+3. `docs/capture-troubleshooting.md`
+4. `docs/roadmap.md`
+5. `docs/lag-rat.md`
 
-### If you are working on capture execution or cleanup
+### If you are working on capture workflows
 
 Read in this order:
 
-1. `docs/capture-execution-plan.md`
-2. `docs/api.md`
+1. `docs/api.md`
+2. `docs/capture-troubleshooting.md`
 3. `docs/database-schema.md`
-4. `docs/collector-plugin-boundary.md`
-5. `docs/roadmap.md`
+4. `docs/roadmap.md`
 
 ### If you are exploring future observability modules
 
@@ -181,6 +170,7 @@ Examples:
 - `lag-rat.md`
 - `database-schema.md`
 - `collector-plugin-boundary.md`
+- `capture-troubleshooting.md`
 
 Avoid mixing underscore and hyphen styles for documents that live in the same docs set unless there is a strong reason.
 

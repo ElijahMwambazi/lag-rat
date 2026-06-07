@@ -29,6 +29,7 @@ Prefer stable references over large link lists.
 - `docs/architecture.md` — system shape and platform direction
 - `docs/collector-plugin-boundary.md` — shared core vs module boundary
 - `docs/api.md` — dashboard-facing local API contract
+- `docs/capture-troubleshooting.md` — capture execution setup and failure guidance
 - `docs/database-schema.md` — persistence model
 - `docs/roadmap.md` — implementation sequence and priorities
 - `docs/experiments.md` — exploratory future work
@@ -43,6 +44,7 @@ Prefer stable references over large link lists.
 - `docs/architecture.md` — current architecture and platform direction
 - `docs/roadmap.md` — current priorities and sequencing
 - `docs/api.md` — current dashboard-facing API
+- `docs/capture-troubleshooting.md` — capture readiness and troubleshooting guide
 ```
 
 ### docs/architecture.md
@@ -54,6 +56,7 @@ Prefer stable references over large link lists.
 - `docs/collector-plugin-boundary.md` — shared core vs module boundary
 - `docs/api.md` — API shape built on top of the architecture
 - `docs/database-schema.md` — persistence model supporting the architecture
+- `docs/capture-troubleshooting.md` — capture execution boundary and operator guidance
 - `docs/roadmap.md` — current implementation priorities
 ```
 
@@ -65,6 +68,7 @@ Prefer stable references over large link lists.
 - `docs/architecture.md` — overall system shape
 - `docs/database-schema.md` — current storage model and shared primitives
 - `docs/api.md` — current API contract and likely future expansion shape
+- `docs/capture-troubleshooting.md` — capture workflow guardrails and handoff boundary
 - `docs/experiments.md` — possible future modules and exploratory directions
 - `docs/roadmap.md` — when boundary-related work becomes active build work
 ```
@@ -77,8 +81,20 @@ Prefer stable references over large link lists.
 - `README.md` — project identity and current status
 - `docs/architecture.md` — system structure behind the API
 - `docs/collector-plugin-boundary.md` — shared vs module-specific API shaping
+- `docs/capture-troubleshooting.md` — setup and failure guidance for capture workflows
 - `docs/database-schema.md` — storage model behind API summaries and histories
 - `docs/roadmap.md` — near-term API-adjacent priorities
+```
+
+### docs/capture-troubleshooting.md
+
+```md
+## See also
+
+- `docs/api.md` — capture request and readiness endpoint contract
+- `docs/architecture.md` — capture handoff boundary in the platform architecture
+- `docs/database-schema.md` — capture request persistence model
+- `docs/roadmap.md` — completed and planned capture workflow work
 ```
 
 ### docs/database-schema.md
@@ -89,6 +105,7 @@ Prefer stable references over large link lists.
 - `docs/architecture.md` — system structure and persistence role
 - `docs/collector-plugin-boundary.md` — shared primitives vs module-specific data
 - `docs/api.md` — current API built on top of the schema
+- `docs/capture-troubleshooting.md` — capture output and lifecycle behavior from an operator view
 - `docs/roadmap.md` — likely next schema-affecting work
 ```
 
@@ -101,6 +118,7 @@ Prefer stable references over large link lists.
 - `docs/lag-rat.md` — concise internal project brief
 - `docs/architecture.md` — architectural context for roadmap items
 - `docs/collector-plugin-boundary.md` — platform-shaping direction
+- `docs/capture-troubleshooting.md` — capture workflow setup and troubleshooting notes
 - `docs/experiments.md` — ideas that are not yet roadmap commitments
 ```
 
@@ -112,6 +130,7 @@ Prefer stable references over large link lists.
 - `docs/roadmap.md` — committed build priorities
 - `docs/collector-plugin-boundary.md` — boundary rules for future modules
 - `docs/architecture.md` — broader platform direction
+- `docs/capture-troubleshooting.md` — current capture handoff behavior before future packet experiments
 ```
 
 ---
