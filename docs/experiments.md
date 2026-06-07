@@ -47,7 +47,7 @@ These are exploratory directions, not committed roadmap items.
 
 ## Packet and tooling experiments
 
-- test optional packet capture export workflows
+- compare completed capture handoff workflows against external Wireshark/tcpdump inspection habits
 - compare summary-level traffic counters vs full captures for usefulness
 - evaluate how much packet-level detail belongs inside Lag Rat vs external tools
 
