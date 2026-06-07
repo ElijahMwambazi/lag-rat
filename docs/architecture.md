@@ -21,34 +21,35 @@ Lag Rat is built around three main layers:
 ## High-level architecture
 
 ```text
-[ Router / Internet / LAN Devices / Wi-Fi Environment ]
-                         |
-                         v
-               [ Rust Collector Service ]
-                         |
-           +-------------+-------------+
-           |                           |
-           v                           v
-   [ SQLite / Aggregation DB ]      [ Local API ]
-                                         |
-                                         v
-                            [ React + TypeScript Dashboard ]
+[ Router / Internet / LAN Devices ]
+                |
+                v
+        [ Rust Collector Service ]
+                |
+      +---------+----------+
+      |                    |
+      v                    v
+[ SQLite / Metrics DB ]   [ Local API ]
+                                |
+                                v
+                   [ React + TypeScript Dashboard ]
 ```
 
 ---
 
 ## Main runtime flow
 
-1. Scheduled monitors run connectivity, DNS, device, and Wi-Fi sampling checks.
+1. Scheduled monitors run connectivity, DNS, device, Wi-Fi, and traffic checks.
 2. Raw observations are persisted in SQLite.
 3. Derived lifecycle state is updated:
    - outages open and recover
    - alerts open, escalate, acknowledge, and resolve
    - device history records are appended
-   - Wi-Fi signal weakness and stale-sample alerts are evaluated
-4. Aggregation and read-model queries build status, metrics, report, Wi-Fi, traffic, investigation, and capture export request views.
+   - Wi-Fi alert conditions are evaluated
+   - capture request lifecycle state is advanced
+4. Aggregation queries build status, metrics, report, investigation, Wi-Fi, traffic, and capture views.
 5. Axum serves local REST endpoints.
-6. The React dashboard renders overview, alerts, reports, metrics, devices, Wi-Fi, and detail drawers.
+6. The React dashboard renders overview, alerts, reports, metrics, devices, Wi-Fi, traffic, and detail drawers.
 
 ---
 
@@ -67,8 +68,7 @@ The shared platform should own:
 - report aggregation
 - local API delivery
 - dashboard presentation patterns
-- investigation read models
-- capture/export handoff metadata
+- local operator handoff workflows such as capture request metadata and lifecycle state
 
 ### Module responsibilities
 
@@ -78,6 +78,7 @@ Each module should own:
 - module-specific targets and identifiers
 - module-specific summaries
 - module-specific drill-down details
+- module-specific capture or export triggers where useful
 
 ---
 
@@ -92,15 +93,13 @@ It currently covers:
 - internet HTTP reachability
 - DNS checks
 - device inventory/activity
+- room-based Wi-Fi sampling and alerting
+- traffic summaries and top talkers
+- backend-powered investigation context
+- capture export request lifecycle and guarded local `tcpdump` execution
+- device-scoped capture handoff using safe backend-generated filters
 - outages and alerts
 - reports and metrics summaries
-- room-based Wi-Fi sampling
-- room-level Wi-Fi health summaries and timelines
-- traffic summaries / top talkers
-- incident investigations
-- Wi-Fi room mapping summary / coverage workflow
-- traffic sample and top talker drawers
-- capture export request metadata and history
 
 ---
 
@@ -112,16 +111,16 @@ The backend currently owns:
 - connectivity checks
 - DNS checks
 - device discovery / ingestion
-- Wi-Fi sample ingest
+- Wi-Fi sampling ingestion and summaries
+- traffic sample persistence and top-talker read models
+- capture request persistence, readiness, execution, cleanup, and stale recovery
 - persistence
 - outage lifecycle updates
 - alert lifecycle updates
 - history/event recording
+- investigation read models
 - summary/report aggregation
 - local API delivery
-- traffic sample aggregation
-- investigation read-model composition
-- capture export request persistence and listing
 
 ### Current backend domains
 
@@ -143,40 +142,32 @@ The backend currently owns:
 - known device labeling
 - device history events
 - local host registration and inventory parsing
+- device-scoped capture request metadata
 
 #### Wi-Fi
 
-- Wi-Fi sample ingest and persistence
-- latest-sample lookup
-- windowed Wi-Fi summaries
-- per-location summary rollups
-- weak-signal alert evaluation
-- stale-sample freshness evaluation
+- room/location-labeled Wi-Fi samples
+- RSSI, frequency, and band metadata
+- location summaries
+- weak-signal and stale-sample alert evaluation
 
 #### Traffic
 
-- traffic summary aggregation
+- interface and device traffic samples
+- summary totals
 - top talker ranking
-- recent traffic sample retrieval
-- device/interface traffic context for investigations
+- query-param drill-in support through dashboard state
 
-#### Capture export requests
+#### Capture handoff
 
-- capture export request creation
-- capture export request history
-- source/interface/target/window metadata recording
-- status tracking for capture handoff workflows
-- packet-capture boundary enforcement by keeping packet inspection external
-
-#### Investigations
-
-- incident-target investigation read model
-- related outage lookup
-- related recent alert-event lookup
-- likely device candidate lookup
-- traffic context lookup
-- Wi-Fi context lookup
-- operator summary fields for investigation drawers
+- capture export request records
+- capture readiness checks
+- guarded local `tcpdump` execution
+- allowlisted interfaces
+- safe IP/MAC capture filters generated by the backend
+- retention cleanup
+- guarded `.pcap` deletion
+- stale running request recovery
 
 #### Incident state
 
@@ -193,6 +184,7 @@ The backend currently owns:
 - top incident targets
 - metrics summary
 - snapshot export payload
+- investigation context for incident targets
 
 ---
 
@@ -206,10 +198,8 @@ The frontend currently owns:
 - filtering and search
 - report/export workflows
 - incident drill-down drawers
+- capture handoff workflow surfaces
 - operator-friendly copy for primary surfaces
-- Wi-Fi room comparison, sample inspection, and room-specific incident flows
-- capture export actions from traffic drawers
-- capture export request history presentation
 
 ### Current dashboard surfaces
 
@@ -220,18 +210,17 @@ The frontend currently owns:
 - Devices
 - Wi-Fi
 - Traffic
-- Investigation drawers
-- Capture export request history
 
 ### Current UI patterns
 
 - shared `SideDrawer` shell
 - shared `DrawerDetailSection`
 - card-level loading / empty / error states
-- time-window controls for reports, metrics, and Wi-Fi
+- time-window controls for reports, metrics, Wi-Fi, and traffic
 - list/table surfaces with friendlier wording
 - drawers retaining raw technical detail
-- collapsible inspection sections for dense module-specific workflows
+- query-param deep links for detail drawers
+- capture request status chips, filters, readiness, and troubleshooting hints
 
 ---
 
@@ -248,9 +237,9 @@ SQLite is currently the system of record for:
 - device history
 - known devices
 - Wi-Fi samples
-- schema migration tracking
-- traffic samples or traffic observations
+- traffic samples
 - capture export requests
+- schema migration tracking
 
 The database supports both raw-event storage and higher-level dashboard aggregation.
 
@@ -267,8 +256,8 @@ Architectural emphasis is now on:
 - making the dashboard easier to trust
 - separating operator-friendly surface language from technical drawer detail
 - improving cohesion without redesigning from scratch
+- keeping packet capture as a bounded local handoff workflow rather than packet analysis inside Lag Rat
 - defining a clean collector/plugin boundary for future observability domains
-- using Wi-Fi as the first richer module workflow built on shared alert/report primitives
 
 ---
 
@@ -276,11 +265,10 @@ Architectural emphasis is now on:
 
 These are the most likely next architectural extensions:
 
-- traffic observability hardening
-- investigation workflow refinement
-- capture export workflow refinement
-- packet capture execution planning
-- clearer collector/plugin boundaries
+- capture output usability follow-ups
+- dashboard polish after capture workflow testing
+- documentation alignment with implemented Wi-Fi, traffic, investigation, and capture workflows
+- future module onboarding patterns
 
 ---
 
@@ -288,7 +276,6 @@ These are the most likely next architectural extensions:
 
 The architecture should leave room for future modules such as:
 
-- traffic summaries / top talkers
 - Bitcoin node observability
 - Lightning observability
 
@@ -305,13 +292,22 @@ These are not yet core architectural modules or completed platform capabilities:
 - richer notification channels
 - Bitcoin node observability
 - Lightning observability
-- packet capture execution
-- packet capture command allowlist
-- capture retention policy
 
 Recommended separation:
 
-- Lag Rat: operational observability and summaries
+- Lag Rat: operational observability, summaries, lifecycle state, and bounded local handoff workflows
 - discovery tools: inventory enrichment
-- packet capture tools: deep forensic analysis
+- packet capture tools: bounded local capture execution
 - Wireshark: external protocol-level drill-down
+
+---
+
+## Maintenance notes
+
+When updating this file:
+
+- keep **current implemented architecture** separate from **future platform direction**
+- document shared platform responsibilities before module-specific details
+- add new domains under **Current module** or **Future modules** as appropriate
+- treat near-term additions as likely next implementation work, not as already-built capabilities
+- prefer additive edits rather than reshaping the whole file

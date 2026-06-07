@@ -6,7 +6,7 @@ This document describes the current persistence model used by Lag Rat.
 
 Lag Rat uses SQLite as its local persistence layer.
 
-The current schema primarily supports the **home network observability** module while also establishing shared platform primitives for incidents, histories, reports, and metrics.
+The current schema primarily supports the **home network observability** module while also establishing shared platform primitives for incidents, histories, reports, metrics, investigations, and local capture handoff workflows.
 
 ---
 
@@ -18,24 +18,24 @@ The schema supports three layers of usage:
    - connectivity checks
    - DNS checks
    - Wi-Fi samples
-   - traffic samples / traffic observations
+   - traffic samples
 
 2. **derived incident state**
    - outages
    - alerts
    - alert history
    - device history
+   - capture export request lifecycle state
 
 3. **operator-facing summaries**
    - reports summary
    - report trends
    - metrics summary
+   - Wi-Fi summaries
+   - traffic summaries and top talkers
+   - investigation context
    - recent event panels
    - snapshot export
-   - Wi-Fi room summaries
-   - traffic summary and top-talker views
-   - investigation read models
-   - capture export request history
 
 ---
 
@@ -80,80 +80,6 @@ Notes:
 
 - feeds DNS history, summaries, alerts, outages, and metrics summaries
 
-### `wifi_samples`
-
-Stores Wi-Fi sampling observations.
-
-Fields:
-
-- `id`
-- `location_label`
-- `interface_name`
-- `ssid`
-- `bssid`
-- `rssi_dbm`
-- `frequency_mhz`
-- `band`
-- `sampled_at`
-
-Notes:
-
-- used for latest-sample lookups and recent-sample tables
-- powers Wi-Fi summary and per-location summary rollups
-- feeds weak-signal and stale-sample alert evaluation
-
-### `traffic_samples`
-
-Stores traffic counter observations.
-
-Fields may include:
-
-- `id`
-- `interface_name`
-- `entity_type`
-- `entity_key`
-- `device_ip_address`
-- `mac_address`
-- `bytes_rx`
-- `bytes_tx`
-- `packets_rx`
-- `packets_tx`
-- `sampled_at`
-
-Notes:
-
-- used to calculate traffic deltas over a selected time window
-- powers traffic summary, top talkers, and recent traffic sample views
-- provides traffic context for investigation read models
-- stores summary-level counters, not packet contents
-
-### `capture_export_requests`
-
-Stores metadata for operator-created packet-capture handoff requests.
-
-Fields may include:
-
-- `id`
-- `source`
-- `interface_name`
-- `entity_type`
-- `entity_key`
-- `device_ip_address`
-- `mac_address`
-- `window_minutes`
-- `note`
-- `status`
-- `capture_reference`
-- `created_at`
-
-Notes:
-
-- records capture/export intent and context
-- powers capture export request history on the Traffic page
-- supports future capture execution workflows
-- does not store packet contents
-- does not imply packet inspection inside Lag Rat
-
 ### `outages`
 
 Tracks outage lifecycle records.
@@ -173,7 +99,7 @@ Notes:
 
 - opened when a probe begins failing
 - closed when the probe recovers
-- used by reports, explorer tables, top incidents, and snapshot export
+- used by reports, explorer tables, top incidents, investigation drawers, and snapshot export
 
 ### `alerts`
 
@@ -197,7 +123,7 @@ Notes:
 - supports active/resolved views
 - severity may change over time
 - acknowledgment is tracked explicitly
-- includes Wi-Fi signal weakness and stale-sample lifecycle state
+- used across overview, alerts, reports, Wi-Fi, and investigation workflows
 
 ### `alert_history`
 
@@ -224,7 +150,6 @@ Notes:
 
 - powers alert timeline drawers
 - powers recent report alert events
-- includes Wi-Fi alert transitions and recovery history
 
 ### `devices`
 
@@ -243,6 +168,7 @@ Notes:
 
 - updated by device ingestion/upsert flow
 - used to build enriched device views
+- provides metadata for device-scoped capture requests
 
 ### `device_history`
 
@@ -291,6 +217,89 @@ Notes:
 - used to enrich device display names
 - includes seeded router label support
 
+### `wifi_samples`
+
+Stores room/location-labeled Wi-Fi observations.
+
+Fields:
+
+- `id`
+- `location_label`
+- `interface_name`
+- `ssid`
+- `bssid`
+- `rssi_dbm`
+- `frequency_mhz`
+- `band`
+- `sampled_at`
+
+Notes:
+
+- powers Wi-Fi latest sample, sample history, summaries, and per-location comparison
+- supports weak-signal and stale-sample alert workflows
+- keeps room/location labels as operator-controlled context
+
+### `traffic_samples`
+
+Stores traffic counter observations.
+
+Fields:
+
+- `id`
+- `interface_name`
+- `entity_type`
+- `entity_key`
+- `device_ip_address`
+- `mac_address`
+- `bytes_rx`
+- `bytes_tx`
+- `packets_rx`
+- `packets_tx`
+- `sampled_at`
+
+Notes:
+
+- powers traffic summary, top talkers, recent samples, and traffic detail drawers
+- supports interface-level and device-scoped traffic context
+- provides source metadata for capture export request workflows
+
+### `capture_export_requests`
+
+Stores capture export request metadata and lifecycle state.
+
+Fields:
+
+- `id`
+- `source`
+- `interface_name`
+- `entity_type`
+- `entity_key`
+- `device_ip_address`
+- `mac_address`
+- `window_minutes`
+- `note`
+- `status`
+- `capture_reference`
+- `created_at`
+- `queued_at`
+- `started_at`
+- `completed_at`
+- `failed_at`
+- `cancelled_at`
+- `failure_reason`
+- `duration_seconds`
+- `output_filename`
+- `file_size_bytes`
+
+Notes:
+
+- records capture handoff metadata, not packet contents
+- supports requested, queued, running, completed, failed, and cancelled lifecycle states
+- stores local `.pcap` references for completed captures
+- supports guarded cleanup of Lag Rat-owned capture files
+- supports stale running request recovery
+- supports device-scoped capture requests using safe backend-generated IP or MAC filters
+
 ### `schema_migrations`
 
 Tracks applied migrations.
@@ -312,6 +321,7 @@ These tables already behave like shared observability-platform primitives:
 - alerts
 - alert_history
 - device_history
+- capture_export_requests
 - schema_migrations
 
 ### Current network module data
@@ -324,9 +334,8 @@ These tables are currently specific to the first implemented module:
 - known_devices
 - wifi_samples
 - traffic_samples
-- capture_export_requests
 
-Future modules should reuse shared incident/reporting patterns where possible rather than inventing separate lifecycle models.
+Future modules should reuse shared incident/reporting/capture-handoff patterns where possible rather than inventing separate lifecycle models.
 
 ---
 
@@ -340,10 +349,69 @@ The schema is beyond initial draft stage and already supports:
 - alert history
 - known device labeling
 - device history
-- Wi-Fi sample persistence
-- Wi-Fi summary aggregation and per-location rollups
-- Wi-Fi alert evaluation inputs
+- Wi-Fi sample persistence and summaries
+- traffic sample persistence and top-talker read models
 - report and metrics aggregation queries
-- traffic sample storage and top-talker aggregation
-- investigation read-model inputs across outages, alerts, devices, traffic, and Wi-Fi
-- capture export request persistence and history
+- investigation context across incidents, alerts, devices, traffic, and Wi-Fi
+- capture export request persistence and lifecycle tracking
+- guarded local capture reference metadata and cleanup
+
+---
+
+## Planned schema extensions
+
+### Wi-Fi sampling tables
+
+Implemented as current module data.
+
+Current fields include:
+
+- location_label
+- interface_name
+- ssid
+- bssid
+- rssi_dbm
+- frequency_mhz
+- band
+- sampled_at
+
+### Traffic summary tables
+
+Implemented through traffic sample storage and read-model aggregation.
+
+Current fields include:
+
+- interface identifier
+- entity type and key
+- optional device IP or MAC
+- bytes sent/received
+- packets sent/received
+- sampled timestamp
+
+### Optional capture/export metadata
+
+Implemented as capture export request metadata and lifecycle state.
+
+Current fields include:
+
+- capture source
+- interface name
+- related entity or device
+- capture status
+- capture reference
+- output filename
+- file size
+- lifecycle timestamps
+- failure reason
+
+---
+
+## Maintenance notes
+
+When updating this file:
+
+- keep current implemented tables separate from planned extensions
+- treat shared incident/history/report/capture-handoff patterns as platform primitives
+- add new module-specific tables under planned extensions until they are implemented
+- prefer documenting current usage before speculative schema design
+- prefer additive edits over large restructuring
