@@ -701,6 +701,26 @@ pub async fn cleanup_expired_capture_files(config: &CaptureConfig) -> anyhow::Re
     Ok(removed_count)
 }
 
+pub async fn delete_all_capture_files(config: &CaptureConfig) -> anyhow::Result<u64> {
+    let output_dir = prepare_capture_output_dir(config).await?;
+
+    let mut deleted_count = 0;
+    let mut entries = tokio::fs::read_dir(&output_dir).await?;
+
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+
+        if !path.is_file() || !is_lag_rat_capture_file(&path) {
+            continue;
+        }
+
+        tokio::fs::remove_file(&path).await?;
+        deleted_count += 1;
+    }
+
+    Ok(deleted_count)
+}
+
 pub async fn run_capture_execution_preflight(
     config: &CaptureConfig,
 ) -> anyhow::Result<CaptureExecutionPreflight> {

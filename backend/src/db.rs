@@ -12,6 +12,18 @@ use crate::models::{
     TrafficTopTalkerItem, WifiSample,
 };
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ClearedObservationTable {
+    pub table: String,
+    pub deleted_rows: u64,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ClearObservationsResult {
+    pub tables: Vec<ClearedObservationTable>,
+    pub total_deleted_rows: u64,
+}
+
 pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
     sqlx::query("CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
         .execute(pool).await?;
@@ -52,6 +64,48 @@ pub async fn run_migrations(pool: &SqlitePool) -> anyhow::Result<()> {
         tx.commit().await?;
     }
     Ok(())
+}
+
+pub async fn clear_observations(pool: &SqlitePool) -> anyhow::Result<ClearObservationsResult> {
+    let mut tx = pool.begin().await?;
+
+    let table_names = [
+        "alert_history",
+        "alerts",
+        "outages",
+        "device_history",
+        "devices",
+        "wifi_samples",
+        "traffic_samples",
+        "capture_export_requests",
+        "dns_checks",
+        "connectivity_checks",
+    ];
+
+    let mut tables = Vec::new();
+    let mut total_deleted_rows = 0_u64;
+
+    for table_name in table_names {
+        let result = sqlx::query(&format!("DELETE FROM {table_name}"))
+            .execute(&mut *tx)
+            .await?;
+
+        let deleted_rows = result.rows_affected();
+
+        tables.push(ClearedObservationTable {
+            table: table_name.to_string(),
+            deleted_rows,
+        });
+
+        total_deleted_rows = total_deleted_rows.saturating_add(deleted_rows);
+    }
+
+    tx.commit().await?;
+
+    Ok(ClearObservationsResult {
+        tables,
+        total_deleted_rows,
+    })
 }
 
 pub async fn seed_default_known_devices(pool: &SqlitePool, router_ip: &str) -> anyhow::Result<()> {

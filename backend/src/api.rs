@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    routing::{delete, get, post},
+    routing::{get, post},
     Json, Router,
 };
 use chrono::Utc;
@@ -169,6 +169,21 @@ struct DeleteCaptureExportRequestResponse {
     file_deleted: bool,
 }
 
+const CLEAR_OBSERVATIONS_CONFIRMATION: &str = "CLEAR OBSERVATIONS";
+
+#[derive(Debug, Deserialize)]
+struct ClearObservationsRequest {
+    confirmation: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct ClearObservationsResponse {
+    cleared: bool,
+    tables: Vec<db::ClearedObservationTable>,
+    total_deleted_rows: u64,
+    capture_files_deleted: u64,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/status/overview", get(get_status_overview))
@@ -212,6 +227,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/traffic/summary", get(get_traffic_summary))
         .route("/api/traffic/top-talkers", get(get_traffic_top_talkers))
         .route("/api/traffic/samples", get(get_traffic_samples))
+        .route(
+            "/api/maintenance/clear-observations",
+            post(clear_observations),
+        )
         .route("/api/captures/readiness", get(get_capture_readiness))
         .route(
             "/api/captures/export-requests",
@@ -1299,5 +1318,34 @@ async fn delete_capture_export_request(
         id,
         deleted,
         file_deleted,
+    }))
+}
+
+async fn clear_observations(
+    State(state): State<AppState>,
+    Json(payload): Json<ClearObservationsRequest>,
+) -> Result<Json<ClearObservationsResponse>, (StatusCode, Json<serde_json::Value>)> {
+    if payload.confirmation.trim() != CLEAR_OBSERVATIONS_CONFIRMATION {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "confirmation must be CLEAR OBSERVATIONS"
+            })),
+        ));
+    }
+
+    let capture_files_deleted = captures::delete_all_capture_files(&state.config.capture)
+        .await
+        .map_err(internal_error)?;
+
+    let cleared = db::clear_observations(&state.db)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(Json(ClearObservationsResponse {
+        cleared: true,
+        tables: cleared.tables,
+        total_deleted_rows: cleared.total_deleted_rows,
+        capture_files_deleted,
     }))
 }
