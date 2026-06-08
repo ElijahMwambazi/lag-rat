@@ -2218,12 +2218,61 @@ pub async fn traffic_summary(
 ) -> anyhow::Result<(i64, i64, u32, Option<TrafficTopTalkerItem>)> {
     let row = sqlx::query(
         r#"
+        WITH windowed AS (
+            SELECT *
+            FROM traffic_samples
+            WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+        ),
+        ranked AS (
+            SELECT
+                interface_name,
+                entity_key,
+                bytes_rx,
+                bytes_tx,
+                ROW_NUMBER() OVER (
+                    PARTITION BY interface_name, entity_key
+                    ORDER BY datetime(sampled_at) ASC
+                ) AS rn_asc,
+                ROW_NUMBER() OVER (
+                    PARTITION BY interface_name, entity_key
+                    ORDER BY datetime(sampled_at) DESC
+                ) AS rn_desc
+            FROM windowed
+        ),
+        earliest AS (
+            SELECT
+                interface_name,
+                entity_key,
+                bytes_rx AS earliest_bytes_rx,
+                bytes_tx AS earliest_bytes_tx
+            FROM ranked
+            WHERE rn_asc = 1
+        ),
+        latest AS (
+            SELECT
+                interface_name,
+                entity_key,
+                bytes_rx AS latest_bytes_rx,
+                bytes_tx AS latest_bytes_tx
+            FROM ranked
+            WHERE rn_desc = 1
+        ),
+        deltas AS (
+            SELECT
+                latest.interface_name,
+                latest.entity_key,
+                MAX(latest.latest_bytes_rx - earliest.earliest_bytes_rx, 0) AS delta_bytes_rx,
+                MAX(latest.latest_bytes_tx - earliest.earliest_bytes_tx, 0) AS delta_bytes_tx
+            FROM latest
+            JOIN earliest
+              ON earliest.interface_name = latest.interface_name
+             AND earliest.entity_key = latest.entity_key
+        )
         SELECT
-            COALESCE(SUM(bytes_rx), 0) AS total_bytes_rx,
-            COALESCE(SUM(bytes_tx), 0) AS total_bytes_tx,
+            COALESCE(SUM(delta_bytes_rx), 0) AS total_bytes_rx,
+            COALESCE(SUM(delta_bytes_tx), 0) AS total_bytes_tx,
             COUNT(DISTINCT interface_name) AS interface_count
-        FROM traffic_samples
-        WHERE datetime(sampled_at) >= datetime('now', '-' || ?1 || ' minutes')
+        FROM deltas
         "#,
     )
     .bind(minutes)

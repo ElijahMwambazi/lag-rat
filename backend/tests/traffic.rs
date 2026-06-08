@@ -140,7 +140,113 @@ async fn traffic_summary_api_returns_summary() -> Result<()> {
 
     assert_eq!(json["window_minutes"].as_u64(), Some(60));
     assert_eq!(json["interface_count"].as_u64(), Some(1));
+    assert_eq!(json["total_bytes_rx"].as_u64(), Some(2_000));
+    assert_eq!(json["total_bytes_tx"].as_u64(), Some(2_000));
+    assert_eq!(json["total_bytes"].as_u64(), Some(4_000));
     assert!(json["top_talker"].is_object());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn traffic_summary_treats_single_sample_as_baseline() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_traffic_sample(
+        &harness.state.db,
+        "wlo1",
+        "interface",
+        "wlo1",
+        None,
+        None,
+        16_000_000_000,
+        10_000_000_000,
+        None,
+        None,
+        now - Duration::minutes(1),
+    )
+    .await?;
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/traffic/summary?minutes=60")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+
+    assert_eq!(json["interface_count"].as_u64(), Some(1));
+    assert_eq!(json["total_bytes_rx"].as_u64(), Some(0));
+    assert_eq!(json["total_bytes_tx"].as_u64(), Some(0));
+    assert_eq!(json["total_bytes"].as_u64(), Some(0));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn traffic_summary_clamps_counter_resets_to_zero() -> Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_traffic_sample(
+        &harness.state.db,
+        "wlo1",
+        "interface",
+        "wlo1",
+        None,
+        None,
+        16_000,
+        10_000,
+        None,
+        None,
+        now - Duration::minutes(5),
+    )
+    .await?;
+
+    db::insert_traffic_sample(
+        &harness.state.db,
+        "wlo1",
+        "interface",
+        "wlo1",
+        None,
+        None,
+        1_000,
+        2_000,
+        None,
+        None,
+        now - Duration::minutes(1),
+    )
+    .await?;
+
+    let app = api::router(harness.state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/traffic/summary?minutes=60")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let json: Value = serde_json::from_slice(&body)?;
+
+    assert_eq!(json["interface_count"].as_u64(), Some(1));
+    assert_eq!(json["total_bytes_rx"].as_u64(), Some(0));
+    assert_eq!(json["total_bytes_tx"].as_u64(), Some(0));
+    assert_eq!(json["total_bytes"].as_u64(), Some(0));
 
     Ok(())
 }
