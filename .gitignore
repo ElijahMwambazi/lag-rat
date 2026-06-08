@@ -13,11 +13,12 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 backend/target/
 backend/.sqlx/
-backend/*.db
-backend/*.db-shm
-backend/*.db-wal
 backend/*.sqlite
 backend/*.sqlite3
 frontend/node_modules/
