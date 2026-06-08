@@ -853,6 +853,50 @@ pub async fn latest_connectivity_check(
     .await?)
 }
 
+pub async fn latest_connectivity_checks_by_probe_kind(
+    pool: &SqlitePool,
+    probe_kind: &str,
+) -> anyhow::Result<Vec<ConnectivityCheck>> {
+    Ok(sqlx::query_as::<_, ConnectivityCheck>(
+        r#"
+        WITH ranked AS (
+            SELECT
+                id,
+                timestamp,
+                target,
+                target_type,
+                success,
+                latency_ms,
+                packet_loss_pct,
+                error_message,
+                probe_kind,
+                ROW_NUMBER() OVER (
+                    PARTITION BY target
+                    ORDER BY datetime(timestamp) DESC
+                ) AS row_number
+            FROM connectivity_checks
+            WHERE probe_kind = ?1
+        )
+        SELECT
+            id,
+            timestamp,
+            target,
+            target_type,
+            success,
+            latency_ms,
+            packet_loss_pct,
+            error_message,
+            probe_kind
+        FROM ranked
+        WHERE row_number = 1
+        ORDER BY datetime(timestamp) DESC
+        "#,
+    )
+    .bind(probe_kind)
+    .fetch_all(pool)
+    .await?)
+}
+
 pub async fn last_successful_connectivity_check(
     pool: &SqlitePool,
     probe_kind: &str,

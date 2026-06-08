@@ -9,6 +9,39 @@ use crate::{
     state::AppState,
 };
 
+#[derive(Debug, Clone)]
+struct ProbeGroupHealth {
+    success_count: usize,
+    failure_count: usize,
+    latest_error_message: Option<String>,
+}
+
+impl ProbeGroupHealth {
+    fn from_checks(checks: &[ConnectivityCheck]) -> Self {
+        let success_count = checks.iter().filter(|check| check.success).count();
+        let failure_count = checks.iter().filter(|check| !check.success).count();
+
+        let latest_error_message = checks
+            .iter()
+            .filter(|check| !check.success)
+            .find_map(|check| check.error_message.clone());
+
+        Self {
+            success_count,
+            failure_count,
+            latest_error_message,
+        }
+    }
+
+    fn has_success(&self) -> bool {
+        self.success_count > 0
+    }
+
+    fn has_failure(&self) -> bool {
+        self.failure_count > 0
+    }
+}
+
 fn map_service(
     latest: Option<ConnectivityCheck>,
     success: Option<ConnectivityCheck>,
@@ -40,6 +73,8 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
         db::active_outage_exists(&state.db, "router_tcp", &router_target).await?;
 
     let internet_tcp_latest = db::latest_connectivity_check(&state.db, "internet_tcp").await?;
+    let internet_tcp_latest_by_target =
+        db::latest_connectivity_checks_by_probe_kind(&state.db, "internet_tcp").await?;
     let internet_tcp_last_success =
         db::last_successful_connectivity_check(&state.db, "internet_tcp").await?;
     let internet_tcp_last_failure =
@@ -48,6 +83,8 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
         db::active_outage_exists(&state.db, "internet_tcp", &internet_tcp_target).await?;
 
     let internet_http_latest = db::latest_connectivity_check(&state.db, "internet_http").await?;
+    let internet_http_latest_by_target =
+        db::latest_connectivity_checks_by_probe_kind(&state.db, "internet_http").await?;
     let internet_http_last_success =
         db::last_successful_connectivity_check(&state.db, "internet_http").await?;
     let internet_http_last_failure =
@@ -88,14 +125,13 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
     .max()
     .unwrap_or_else(Utc::now);
 
-    let internet_summary_healthy = internet_tcp_latest
-        .as_ref()
-        .map(|r| r.success)
-        .unwrap_or(false)
-        && internet_http_latest
-            .as_ref()
-            .map(|r| r.success)
-            .unwrap_or(false);
+    let internet_tcp_group = ProbeGroupHealth::from_checks(&internet_tcp_latest_by_target);
+    let internet_http_group = ProbeGroupHealth::from_checks(&internet_http_latest_by_target);
+
+    let internet_summary_healthy =
+        internet_tcp_group.has_success() || internet_http_group.has_success();
+    let internet_summary_has_failure =
+        internet_tcp_group.has_failure() || internet_http_group.has_failure();
 
     let internet_summary = ServiceStatus {
         is_healthy: internet_summary_healthy,
@@ -108,14 +144,13 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
             .map(|row| row.timestamp)
             .or_else(|| internet_tcp_last_failure.as_ref().map(|row| row.timestamp)),
         latest_latency_ms: internet_http_latest.as_ref().and_then(|row| row.latency_ms),
-        latest_error_message: internet_http_latest
-            .as_ref()
-            .and_then(|row| row.error_message.clone())
-            .or_else(|| {
-                internet_tcp_latest
-                    .as_ref()
-                    .and_then(|row| row.error_message.clone())
-            }),
+        latest_error_message: if internet_summary_healthy && internet_summary_has_failure {
+            Some("Some internet probe targets are failing, but at least one internet path is reachable.".to_string())
+        } else {
+            internet_http_group
+                .latest_error_message
+                .or(internet_tcp_group.latest_error_message)
+        },
         active_outage: internet_tcp_active_outage || internet_http_active_outage,
     };
 

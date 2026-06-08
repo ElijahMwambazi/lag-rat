@@ -72,12 +72,110 @@ async fn overview_aggregates_latest_health_devices_and_outages() -> anyhow::Resu
     assert!(overview.internet_tcp.is_healthy);
     assert!(!overview.internet_http.is_healthy);
 
-    assert!(!overview.internet.is_healthy);
+    assert!(overview.internet.is_healthy);
     assert!(overview.internet.active_outage);
 
     assert!(overview.dns.is_healthy);
     assert_eq!(overview.devices.active_count_24h, 1);
     assert_eq!(overview.outages.active_count, 1);
+    assert!(overview.internet.latest_error_message.is_some());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn overview_keeps_internet_reachable_when_one_probe_target_fails() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_connectivity_check(
+        &harness.state.db,
+        now - Duration::minutes(3),
+        "1.1.1.1:443",
+        "internet",
+        "internet_tcp",
+        false,
+        None,
+        Some("timeout"),
+    )
+    .await?;
+
+    db::insert_connectivity_check(
+        &harness.state.db,
+        now - Duration::minutes(2),
+        "8.8.8.8:443",
+        "internet",
+        "internet_tcp",
+        true,
+        Some(20.0),
+        None,
+    )
+    .await?;
+
+    db::insert_connectivity_check(
+        &harness.state.db,
+        now - Duration::minutes(1),
+        "https://www.google.com/generate_204",
+        "internet",
+        "internet_http",
+        true,
+        Some(40.0),
+        None,
+    )
+    .await?;
+
+    let overview = services::status_overview::build(&harness.state).await?;
+
+    assert!(overview.internet.is_healthy);
+    assert!(overview.internet.latest_error_message.is_some());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn overview_marks_internet_unhealthy_when_all_probe_targets_fail() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_connectivity_check(
+        &harness.state.db,
+        now - Duration::minutes(3),
+        "1.1.1.1:443",
+        "internet",
+        "internet_tcp",
+        false,
+        None,
+        Some("timeout"),
+    )
+    .await?;
+
+    db::insert_connectivity_check(
+        &harness.state.db,
+        now - Duration::minutes(2),
+        "8.8.8.8:443",
+        "internet",
+        "internet_tcp",
+        false,
+        None,
+        Some("connection refused"),
+    )
+    .await?;
+
+    db::insert_connectivity_check(
+        &harness.state.db,
+        now - Duration::minutes(1),
+        "https://www.google.com/generate_204",
+        "internet",
+        "internet_http",
+        false,
+        None,
+        Some("http timeout"),
+    )
+    .await?;
+
+    let overview = services::status_overview::build(&harness.state).await?;
+
+    assert!(!overview.internet.is_healthy);
     assert!(overview.internet.latest_error_message.is_some());
 
     Ok(())
