@@ -141,6 +141,18 @@ function seedReportsSuccessState() {
     },
   ]);
 
+  vi.mocked(api.clearObservations).mockResolvedValue({
+    cleared: true,
+    tables: [
+      {
+        table: "connectivity_checks",
+        deleted_rows: 3,
+      },
+    ],
+    total_deleted_rows: 3,
+    capture_files_deleted: 1,
+  });
+
   seedInvestigationSuccessState();
 }
 
@@ -210,6 +222,7 @@ vi.mock("../services/api", () => ({
     getTrafficTopTalkers: vi.fn(),
     getWifiLocationSummaries: vi.fn(),
     getInvestigation: vi.fn(),
+    clearObservations: vi.fn(),
   },
 }));
 
@@ -559,4 +572,70 @@ it("passes search and filter params to outages query", async () => {
       }),
     );
   });
+});
+
+it("clears local observations after typed confirmation", async () => {
+  const user = userEvent.setup();
+  seedReportsSuccessState();
+
+  renderReportsPage();
+
+  expect(await screen.findByText("Maintenance")).toBeInTheDocument();
+  expect(screen.getByText("Clear local observations")).toBeInTheDocument();
+
+  const clearButton = screen.getByRole("button", {
+    name: "Clear observations",
+  });
+
+  expect(clearButton).toBeDisabled();
+
+  await user.type(
+    screen.getByLabelText("Clear observations confirmation"),
+    "CLEAR OBSERVATIONS",
+  );
+
+  expect(clearButton).toBeEnabled();
+
+  await user.click(clearButton);
+
+  expect(api.clearObservations).toHaveBeenCalledWith("CLEAR OBSERVATIONS");
+
+  expect(
+    await screen.findByText(
+      "Observations cleared. 3 rows and 1 capture file removed. Known device labels were kept.",
+    ),
+  ).toBeInTheDocument();
+});
+
+it("clears local observations after typed confirmation", async () => {
+  const user = userEvent.setup();
+  seedReportsSuccessState();
+
+  renderReportsPage();
+
+  expect(await screen.findByText("Maintenance")).toBeInTheDocument();
+  expect(screen.getByText("Clear local observations")).toBeInTheDocument();
+
+  const clearButton = screen.getByRole("button", {
+    name: "Clear observations",
+  });
+
+  expect(clearButton).toBeDisabled();
+
+  await user.type(
+    screen.getByLabelText("Clear observations confirmation"),
+    "CLEAR OBSERVATIONS",
+  );
+
+  expect(clearButton).toBeEnabled();
+
+  await user.click(clearButton);
+
+  expect(api.clearObservations).toHaveBeenCalledWith("CLEAR OBSERVATIONS");
+
+  expect(
+    await screen.findByText(
+      "Observations cleared. 3 rows and 1 capture file removed. Known device labels were kept.",
+    ),
+  ).toBeInTheDocument();
 });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import QueryState from "../components/QueryState";
 import {
@@ -238,6 +238,7 @@ function outageStartsWithinWindow(startedAt: string, windowHours: 24 | 168) {
 
 export default function ReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
   const initialInvestigationWindow = parseReportWindow(
     searchParams.get("investigateWindow"),
@@ -255,6 +256,10 @@ export default function ReportsPage() {
   const [sortBy, setSortBy] = useState<SortKey>("started_desc");
 
   const [isExportingSnapshot, setIsExportingSnapshot] = useState(false);
+  const [clearConfirmation, setClearConfirmation] = useState("");
+  const [clearSuccessMessage, setClearSuccessMessage] = useState<string | null>(
+    null,
+  );
   const [showTopIncidentTargets, setShowTopIncidentTargets] = useState(true);
   const [showOutageExplorer, setShowOutageExplorer] = useState(false);
 
@@ -323,6 +328,18 @@ export default function ReportsPage() {
         limit: 200,
       }),
     refetchInterval: 60000,
+  });
+
+  const clearObservationsMutation = useMutation({
+    mutationFn: () => api.clearObservations(clearConfirmation),
+    onSuccess: (result) => {
+      setClearConfirmation("");
+      setClearSuccessMessage(
+        `Observations cleared. ${result.total_deleted_rows} rows and ${result.capture_files_deleted} capture file${result.capture_files_deleted === 1 ? "" : "s"} removed. Known device labels were kept.`,
+      );
+
+      void queryClient.invalidateQueries();
+    },
   });
 
   const outages = outagesQuery.data ?? [];
@@ -518,6 +535,11 @@ export default function ReportsPage() {
   const topIncidentTargetsPanelClass = showTopIncidentTargets
     ? inspectionPanelBodyClass
     : "";
+
+  function handleClearObservations() {
+    setClearSuccessMessage(null);
+    clearObservationsMutation.mutate();
+  }
 
   async function copySummaryToClipboard() {
     if (!reportNarrative) return;
@@ -1324,6 +1346,68 @@ export default function ReportsPage() {
           </DataTableCard>
         </>
       </CollapsibleInspectionSection>
+
+      <section className="rounded-2xl border border-red-950 bg-red-950/20 p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-xs font-medium uppercase tracking-wide text-red-300">
+              Maintenance
+            </p>
+            <h3 className="mt-2 text-lg font-medium text-red-100">
+              Clear local observations
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-red-100/80">
+              Deletes runtime observations, alerts, outages, discovered device
+              history, Wi-Fi samples, traffic samples, capture request history,
+              and guarded Lag Rat capture files. Known device labels and schema
+              migrations are kept.
+            </p>
+            <p className="mt-2 text-sm leading-6 text-red-100/70">
+              Type{" "}
+              <span className="font-mono text-red-100">CLEAR OBSERVATIONS</span>{" "}
+              to continue.
+            </p>
+          </div>
+
+          <div className="w-full max-w-md space-y-3">
+            <input
+              value={clearConfirmation}
+              onChange={(event) => setClearConfirmation(event.target.value)}
+              placeholder="CLEAR OBSERVATIONS"
+              aria-label="Clear observations confirmation"
+              className="w-full rounded-xl border border-red-900 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-red-200/40"
+            />
+
+            <button
+              type="button"
+              onClick={handleClearObservations}
+              disabled={
+                clearConfirmation.trim() !== "CLEAR OBSERVATIONS" ||
+                clearObservationsMutation.isPending
+              }
+              className="w-full rounded-xl border border-red-800 bg-red-950 px-4 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {clearObservationsMutation.isPending
+                ? "Clearing observations..."
+                : "Clear observations"}
+            </button>
+
+            {clearObservationsMutation.isError ? (
+              <p className="text-sm leading-6 text-red-200">
+                {clearObservationsMutation.error instanceof Error
+                  ? clearObservationsMutation.error.message
+                  : "Could not clear local observations."}
+              </p>
+            ) : null}
+
+            {clearSuccessMessage ? (
+              <p className="text-sm leading-6 text-emerald-300">
+                {clearSuccessMessage}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

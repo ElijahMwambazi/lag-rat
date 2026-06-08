@@ -17,6 +17,16 @@ export type ReportSummaryResponse = {
   active_unacknowledged_alert_count: number;
 };
 
+export type ClearObservationsResponse = {
+  cleared: boolean;
+  tables: Array<{
+    table: string;
+    deleted_rows: number;
+  }>;
+  total_deleted_rows: number;
+  capture_files_deleted: number;
+};
+
 export type TimeseriesPoint = {
   timestamp: string;
   value: number;
@@ -637,5 +647,10 @@ export const api = {
     postJson<CaptureExportRequest, Record<string, never>>(
       `/api/captures/export-requests/${id}/cancel`,
       {},
+    ),
+  clearObservations: (confirmation: string) =>
+    postJson<ClearObservationsResponse, { confirmation: string }>(
+      "/api/maintenance/clear-observations",
+      { confirmation },
     ),
 };
