@@ -170,6 +170,7 @@ Completed:
 - clearer capture reference, file size, duration, and output filename presentation
 - copy-path action for completed capture references
 - low-confidence device filtering across backend API and Devices page
+- maintenance clear-observations endpoint for local runtime data reset
 
 ---
 

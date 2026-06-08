@@ -26,6 +26,7 @@ The schema supports three layers of usage:
    - alert history
    - device history
    - capture export request lifecycle state
+   - maintenance reset workflows for runtime observations
 
 3. **operator-facing summaries**
    - reports summary
@@ -308,6 +309,36 @@ Fields:
 
 - `version`
 - `applied_at`
+
+---
+
+## Maintenance reset behavior
+
+Lag Rat supports clearing runtime observation data without resetting the whole local database.
+
+The clear-observations workflow removes data from runtime/observation tables such as:
+
+- connectivity checks
+- DNS checks
+- outages
+- alerts
+- alert history
+- discovered devices
+- device history
+- Wi-Fi samples
+- traffic samples
+- capture export requests
+
+The workflow intentionally preserves:
+
+- `known_devices`
+- `schema_migrations`
+
+Known devices are preserved because user-defined labels and notes behave more like local configuration than raw observations.
+
+Schema migrations are preserved because they represent database structure state and should not be removed by operator cleanup workflows.
+
+Capture files are not stored in SQLite, but clear-observations also attempts guarded cleanup of Lag Rat-owned `.pcap` files under `CAPTURE_OUTPUT_DIR`.
 
 ---
 

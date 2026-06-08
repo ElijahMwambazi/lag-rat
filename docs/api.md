@@ -387,6 +387,76 @@ The dashboard remains a metadata and handoff surface. Packet-content inspection 
 
 ---
 
+## Maintenance
+
+### `POST /api/maintenance/clear-observations`
+
+Clears local runtime observation data while preserving user-defined configuration-like data.
+
+This endpoint is intended for local operator reset workflows during testing, demos, or cleanup after long-running observation sessions.
+
+Request body:
+
+```json
+{
+  "confirmation": "CLEAR OBSERVATIONS"
+}
+```
+
+The confirmation phrase is required. Requests with any other confirmation value are rejected.
+
+Cleared runtime data includes:
+
+- connectivity checks
+- DNS checks
+- outages
+- alerts
+- alert history
+- discovered devices
+- device history
+- Wi-Fi samples
+- traffic samples
+- capture export requests
+
+Preserved data includes:
+
+- known device labels and notes
+- schema migrations
+
+Capture file cleanup:
+
+- Lag Rat attempts to delete guarded local capture files under CAPTURE_OUTPUT_DIR
+- only Lag Rat-owned capture files matching the capture filename pattern are removed
+- arbitrary files and paths are not deleted
+
+Example response:
+
+```json
+{
+  "cleared": true,
+  "tables": [
+    {
+      "table": "connectivity_checks",
+      "deleted_rows": 120
+    },
+    {
+      "table": "dns_checks",
+      "deleted_rows": 60
+    }
+  ],
+  "total_deleted_rows": 180,
+  "capture_files_deleted": 2
+}
+```
+
+Possible responses:
+
+- 200 OK — observations cleared
+- 400 Bad Request — confirmation phrase is missing or incorrect
+- 500 Internal Server Error — database cleanup or guarded capture file cleanup failed unexpectedly
+
+---
+
 ## Current module scope
 
 Today, this API is primarily the API contract for the **home network observability** module.
@@ -448,3 +518,11 @@ When updating this file:
 - document current implemented behavior first
 - place speculative or future endpoints only in **Future API direction**
 - prefer small edits over large rewrites
+
+```
+
+```
+
+```
+
+```
