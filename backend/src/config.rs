@@ -14,6 +14,12 @@ pub struct CaptureConfig {
 }
 
 #[derive(Clone, Debug)]
+pub struct TcpProbeTarget {
+    pub host: String,
+    pub port: u16,
+}
+
+#[derive(Clone, Debug)]
 pub struct AppConfig {
     pub app_port: u16,
     pub database_url: String,
@@ -23,10 +29,13 @@ pub struct AppConfig {
     pub dns_interval_seconds: u64,
     pub device_interval_seconds: u64,
     pub dns_test_domain: String,
+    pub dns_test_domains: Vec<String>,
     pub dns_resolver: String,
     pub public_probe_url: String,
+    pub public_probe_urls: Vec<String>,
     pub internet_tcp_host: String,
     pub internet_tcp_port: u16,
+    pub internet_tcp_targets: Vec<TcpProbeTarget>,
     pub request_timeout_ms: u64,
     pub arp_table_path: String,
     pub local_subnet_cidr: String,
@@ -56,12 +65,22 @@ impl AppConfig {
                 .parse()
                 .context("invalid DEVICE_INTERVAL_SECONDS")?,
             dns_test_domain: env("DNS_TEST_DOMAIN")?,
+            dns_test_domains: parse_csv_env_with_fallback("DNS_TEST_DOMAINS", "DNS_TEST_DOMAIN")?,
             dns_resolver: env("DNS_RESOLVER")?,
             public_probe_url: env("PUBLIC_PROBE_URL")?,
+            public_probe_urls: parse_csv_env_with_fallback(
+                "PUBLIC_PROBE_URLS",
+                "PUBLIC_PROBE_URL",
+            )?,
             internet_tcp_host: env("INTERNET_TCP_HOST")?,
             internet_tcp_port: env("INTERNET_TCP_PORT")?
                 .parse()
                 .context("invalid INTERNET_TCP_PORT")?,
+            internet_tcp_targets: parse_tcp_targets_with_fallback(
+                "INTERNET_TCP_TARGETS",
+                "INTERNET_TCP_HOST",
+                "INTERNET_TCP_PORT",
+            )?,
             request_timeout_ms: env("REQUEST_TIMEOUT_MS")?
                 .parse()
                 .context("invalid REQUEST_TIMEOUT_MS")?,
@@ -123,4 +142,85 @@ fn parse_csv_env(key: &str) -> Result<Vec<String>> {
         .filter(|item| !item.is_empty())
         .map(ToOwned::to_owned)
         .collect())
+}
+
+fn parse_csv_env_with_fallback(list_key: &str, fallback_key: &str) -> Result<Vec<String>> {
+    match std::env::var(list_key) {
+        Ok(value) => {
+            let items = parse_csv_value(&value);
+
+            if items.is_empty() {
+                parse_csv_env(fallback_key)
+            } else {
+                Ok(items)
+            }
+        }
+        Err(_) => parse_csv_env(fallback_key),
+    }
+}
+
+fn parse_csv_value(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn parse_tcp_targets_with_fallback(
+    list_key: &str,
+    fallback_host_key: &str,
+    fallback_port_key: &str,
+) -> Result<Vec<TcpProbeTarget>> {
+    match std::env::var(list_key) {
+        Ok(value) => {
+            let targets = parse_tcp_targets_value(&value)?;
+
+            if targets.is_empty() {
+                parse_fallback_tcp_target(fallback_host_key, fallback_port_key)
+            } else {
+                Ok(targets)
+            }
+        }
+        Err(_) => parse_fallback_tcp_target(fallback_host_key, fallback_port_key),
+    }
+}
+
+fn parse_fallback_tcp_target(host_key: &str, port_key: &str) -> Result<Vec<TcpProbeTarget>> {
+    Ok(vec![TcpProbeTarget {
+        host: env(host_key)?,
+        port: env(port_key)?
+            .parse()
+            .context("invalid INTERNET_TCP_PORT")?,
+    }])
+}
+
+fn parse_tcp_targets_value(value: &str) -> Result<Vec<TcpProbeTarget>> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(parse_tcp_target)
+        .collect()
+}
+
+fn parse_tcp_target(value: &str) -> Result<TcpProbeTarget> {
+    let (host, port) = value
+        .rsplit_once(':')
+        .with_context(|| format!("invalid TCP probe target: {value}"))?;
+
+    let host = host.trim();
+    let port = port.trim();
+
+    if host.is_empty() {
+        anyhow::bail!("TCP probe target host is required");
+    }
+
+    Ok(TcpProbeTarget {
+        host: host.to_string(),
+        port: port
+            .parse()
+            .with_context(|| format!("invalid TCP probe target port: {value}"))?,
+    })
 }

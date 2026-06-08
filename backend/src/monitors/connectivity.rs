@@ -38,49 +38,50 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
     )
     .await?;
 
-    let internet_tcp_target = format!(
-        "{}:{}",
-        state.config.internet_tcp_host, state.config.internet_tcp_port
-    );
-    let internet_tcp_probe = tcp_probe(&internet_tcp_target, state.config.request_timeout_ms).await;
-    collector_ingest::ingest(
-        state,
-        CollectorObservation::Connectivity(ServiceObservation {
-            module: "home_network".to_string(),
-            collector_type: "internet_tcp".to_string(),
-            target: internet_tcp_target.clone(),
-            target_type: "internet".to_string(),
-            entity_type: "internet_tcp".to_string(),
-            entity_key: internet_tcp_target,
-            observed_at: now,
-            success: internet_tcp_probe.success,
-            latency_ms: internet_tcp_probe.latency_ms,
-            error_message: internet_tcp_probe.error_message,
-        }),
-    )
-    .await?;
+    for target in &state.config.internet_tcp_targets {
+        let internet_tcp_target = format!("{}:{}", target.host, target.port);
+        let internet_tcp_probe =
+            tcp_probe(&internet_tcp_target, state.config.request_timeout_ms).await;
 
-    let internet_http_probe = http_probe(
-        &state.config.public_probe_url,
-        state.config.request_timeout_ms,
-    )
-    .await;
-    collector_ingest::ingest(
-        state,
-        CollectorObservation::Connectivity(ServiceObservation {
-            module: "home_network".to_string(),
-            collector_type: "internet_http".to_string(),
-            target: state.config.public_probe_url.clone(),
-            target_type: "internet".to_string(),
-            entity_type: "internet_http".to_string(),
-            entity_key: state.config.public_probe_url.clone(),
-            observed_at: now,
-            success: internet_http_probe.success,
-            latency_ms: internet_http_probe.latency_ms,
-            error_message: internet_http_probe.error_message,
-        }),
-    )
-    .await?;
+        collector_ingest::ingest(
+            state,
+            CollectorObservation::Connectivity(ServiceObservation {
+                module: "home_network".to_string(),
+                collector_type: "internet_tcp".to_string(),
+                target: internet_tcp_target.clone(),
+                target_type: "internet".to_string(),
+                entity_type: "internet_tcp".to_string(),
+                entity_key: internet_tcp_target,
+                observed_at: now,
+                success: internet_tcp_probe.success,
+                latency_ms: internet_tcp_probe.latency_ms,
+                error_message: internet_tcp_probe.error_message,
+            }),
+        )
+        .await?;
+    }
+
+    for public_probe_url in &state.config.public_probe_urls {
+        let internet_http_probe =
+            http_probe(public_probe_url, state.config.request_timeout_ms).await;
+
+        collector_ingest::ingest(
+            state,
+            CollectorObservation::Connectivity(ServiceObservation {
+                module: "home_network".to_string(),
+                collector_type: "internet_http".to_string(),
+                target: public_probe_url.clone(),
+                target_type: "internet".to_string(),
+                entity_type: "internet_http".to_string(),
+                entity_key: public_probe_url.clone(),
+                observed_at: now,
+                success: internet_http_probe.success,
+                latency_ms: internet_http_probe.latency_ms,
+                error_message: internet_http_probe.error_message,
+            }),
+        )
+        .await?;
+    }
 
     Ok(())
 }
