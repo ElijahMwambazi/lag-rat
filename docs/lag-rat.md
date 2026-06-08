@@ -49,6 +49,7 @@ Stable today:
 - guarded local `tcpdump` execution with readiness checks
 - device-scoped capture filters and Device drawer capture action
 - completed capture file guidance and copy-path workflow
+- device inventory with history, labels, confidence scoring, and low-confidence filtering
 
 ## In progress
 

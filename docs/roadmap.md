@@ -169,6 +169,7 @@ Completed:
 - completed capture file guidance in the Traffic capture drawer
 - clearer capture reference, file size, duration, and output filename presentation
 - copy-path action for completed capture references
+- low-confidence device filtering across backend API and Devices page
 
 ---
 

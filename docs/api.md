@@ -142,6 +142,14 @@ Returned items include:
 
 Returns enriched devices for the dashboard, including label and confidence information.
 
+By default, low-confidence devices are hidden from the API response to keep the device list focused on stronger observations.
+
+Supported query params:
+
+- `include_low_confidence=true`
+
+When `include_low_confidence=true` is provided, the API includes low-confidence devices such as incomplete ARP/neighbour entries or weakly identified observations.
+
 ### `POST /api/devices/known`
 
 Creates or updates a known device label record.
