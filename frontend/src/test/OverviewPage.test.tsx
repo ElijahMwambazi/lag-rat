@@ -111,6 +111,7 @@ describe("OverviewPage", () => {
       checked_at: "2026-04-11T12:00:00Z",
       router: {
         is_healthy: true,
+        status: "healthy",
         last_success_at: "2026-04-11T11:59:00Z",
         last_failure_at: null,
         latest_latency_ms: 3,
@@ -119,6 +120,7 @@ describe("OverviewPage", () => {
       },
       internet: {
         is_healthy: false,
+        status: "down",
         last_success_at: "2026-04-11T11:30:00Z",
         last_failure_at: "2026-04-11T11:58:00Z",
         latest_latency_ms: null,
@@ -127,6 +129,7 @@ describe("OverviewPage", () => {
       },
       internet_tcp: {
         is_healthy: false,
+        status: "down",
         last_success_at: null,
         last_failure_at: "2026-04-11T11:58:00Z",
         latest_latency_ms: null,
@@ -135,6 +138,7 @@ describe("OverviewPage", () => {
       },
       internet_http: {
         is_healthy: false,
+        status: "down",
         last_success_at: null,
         last_failure_at: "2026-04-11T11:58:00Z",
         latest_latency_ms: null,
@@ -617,6 +621,192 @@ describe("OverviewPage", () => {
       await screen.findByRole("button", {
         name: "Open Wi-Fi page",
       }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows degraded internet state when some internet probes are failing", async () => {
+    vi.mocked(api.getStatusOverview).mockResolvedValue({
+      checked_at: "2026-04-11T12:00:00Z",
+      router: {
+        is_healthy: true,
+        status: "healthy",
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: null,
+        latest_latency_ms: 3,
+        latest_error_message: null,
+        active_outage: false,
+      },
+      internet: {
+        is_healthy: true,
+        status: "degraded",
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: "2026-04-11T11:58:00Z",
+        latest_latency_ms: 20,
+        latest_error_message:
+          "Some internet probe targets are failing, but at least one internet path is reachable.",
+        active_outage: true,
+      },
+      internet_tcp: {
+        is_healthy: true,
+        status: "degraded",
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: "2026-04-11T11:58:00Z",
+        latest_latency_ms: 20,
+        latest_error_message: "timeout",
+        active_outage: true,
+      },
+      internet_http: {
+        is_healthy: true,
+        status: "healthy",
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: null,
+        latest_latency_ms: 40,
+        latest_error_message: null,
+        active_outage: false,
+      },
+      dns: {
+        is_healthy: true,
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: null,
+        latest_response_time_ms: 18,
+        latest_error_message: null,
+        active_outage: false,
+      },
+      devices: {
+        active_count_24h: 2,
+        most_recent_seen_at: "2026-04-11T11:58:00Z",
+      },
+      outages: {
+        active_count: 1,
+        last_24h_count: 1,
+      },
+      alerts: {
+        active_count: 0,
+        active_critical_count: 0,
+        active_unacknowledged_count: 0,
+        active_unacknowledged_critical_count: 0,
+        most_recent_created_at: null,
+      },
+    });
+
+    vi.mocked(api.getSummary).mockResolvedValue({
+      uptime_pct_24h: 99.9,
+      avg_latency_ms_24h: 18,
+      outage_count_24h: 1,
+    });
+
+    vi.mocked(api.getAlerts).mockResolvedValue([]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        <OverviewPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Internet degraded")).toBeInTheDocument();
+    expect(await screen.findAllByText("Degraded")).not.toHaveLength(0);
+    expect(
+      await screen.findByText(
+        /Some internet probe targets are failing, but at least one internet path is reachable/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows degraded internet state when some internet probes are failing", async () => {
+    vi.mocked(api.getStatusOverview).mockResolvedValue({
+      checked_at: "2026-04-11T12:00:00Z",
+      router: {
+        is_healthy: true,
+        status: "healthy",
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: null,
+        latest_latency_ms: 3,
+        latest_error_message: null,
+        active_outage: false,
+      },
+      internet: {
+        is_healthy: true,
+        status: "degraded",
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: "2026-04-11T11:58:00Z",
+        latest_latency_ms: 20,
+        latest_error_message:
+          "Some internet probe targets are failing, but at least one internet path is reachable.",
+        active_outage: true,
+      },
+      internet_tcp: {
+        is_healthy: true,
+        status: "degraded",
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: "2026-04-11T11:58:00Z",
+        latest_latency_ms: 20,
+        latest_error_message: "timeout",
+        active_outage: true,
+      },
+      internet_http: {
+        is_healthy: true,
+        status: "healthy",
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: null,
+        latest_latency_ms: 40,
+        latest_error_message: null,
+        active_outage: false,
+      },
+      dns: {
+        is_healthy: true,
+        last_success_at: "2026-04-11T11:59:00Z",
+        last_failure_at: null,
+        latest_response_time_ms: 18,
+        latest_error_message: null,
+        active_outage: false,
+      },
+      devices: {
+        active_count_24h: 2,
+        most_recent_seen_at: "2026-04-11T11:58:00Z",
+      },
+      outages: {
+        active_count: 1,
+        last_24h_count: 1,
+      },
+      alerts: {
+        active_count: 0,
+        active_critical_count: 0,
+        active_unacknowledged_count: 0,
+        active_unacknowledged_critical_count: 0,
+        most_recent_created_at: null,
+      },
+    });
+
+    vi.mocked(api.getSummary).mockResolvedValue({
+      uptime_pct_24h: 99.9,
+      avg_latency_ms_24h: 18,
+      outage_count_24h: 1,
+    });
+
+    vi.mocked(api.getAlerts).mockResolvedValue([]);
+
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        <OverviewPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Internet degraded")).toBeInTheDocument();
+    expect(await screen.findAllByText("Degraded")).not.toHaveLength(0);
+    expect(
+      await screen.findByText(
+        /Some internet probe targets are failing, but at least one internet path is reachable/i,
+      ),
     ).toBeInTheDocument();
   });
 });

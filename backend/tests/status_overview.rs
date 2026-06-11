@@ -127,6 +127,7 @@ async fn overview_keeps_internet_reachable_when_one_probe_target_fails() -> anyh
     let overview = services::status_overview::build(&harness.state).await?;
 
     assert!(overview.internet.is_healthy);
+    assert_eq!(overview.internet.status, "degraded");
     assert!(overview.internet.latest_error_message.is_some());
 
     Ok(())
@@ -176,6 +177,7 @@ async fn overview_marks_internet_unhealthy_when_all_probe_targets_fail() -> anyh
     let overview = services::status_overview::build(&harness.state).await?;
 
     assert!(!overview.internet.is_healthy);
+    assert_eq!(overview.internet.status, "down");
     assert!(overview.internet.latest_error_message.is_some());
 
     Ok(())
@@ -255,6 +257,44 @@ async fn overview_includes_alert_summary_counts() -> anyhow::Result<()> {
     assert_eq!(overview.alerts.active_unacknowledged_count, 1);
     assert_eq!(overview.alerts.active_unacknowledged_critical_count, 1);
     assert!(overview.alerts.most_recent_created_at.is_some());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn overview_marks_internet_healthy_when_all_probe_targets_pass() -> anyhow::Result<()> {
+    let harness = TestHarness::new().await?;
+    let now = Utc::now();
+
+    db::insert_connectivity_check(
+        &harness.state.db,
+        now - Duration::minutes(3),
+        "8.8.8.8:443",
+        "internet",
+        "internet_tcp",
+        true,
+        Some(20.0),
+        None,
+    )
+    .await?;
+
+    db::insert_connectivity_check(
+        &harness.state.db,
+        now - Duration::minutes(1),
+        "https://www.google.com/generate_204",
+        "internet",
+        "internet_http",
+        true,
+        Some(40.0),
+        None,
+    )
+    .await?;
+
+    let overview = services::status_overview::build(&harness.state).await?;
+
+    assert!(overview.internet.is_healthy);
+    assert_eq!(overview.internet.status, "healthy");
+    assert!(overview.internet.latest_error_message.is_none());
 
     Ok(())
 }

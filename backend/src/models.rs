@@ -77,6 +77,7 @@ pub struct ReportSnapshotResponse {
 #[derive(Debug, Serialize)]
 pub struct ServiceStatus {
     pub is_healthy: bool,
+    pub status: String,
     pub last_success_at: Option<DateTime<Utc>>,
     pub last_failure_at: Option<DateTime<Utc>>,
     pub latest_latency_ms: Option<f64>,

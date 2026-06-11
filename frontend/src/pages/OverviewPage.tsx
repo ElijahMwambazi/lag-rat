@@ -32,6 +32,62 @@ function formatMs(value?: number | null) {
   return `${value.toFixed(1)} ms`;
 }
 
+function getServiceHealthStatus(service?: {
+  is_healthy: boolean;
+  status?: "healthy" | "degraded" | "down" | "unknown";
+}) {
+  if (!service) return "unknown";
+  return service.status ?? (service.is_healthy ? "healthy" : "down");
+}
+
+function getInternetStatusLabel(service?: {
+  is_healthy: boolean;
+  status?: "healthy" | "degraded" | "down" | "unknown";
+}) {
+  const status = getServiceHealthStatus(service);
+
+  if (status === "healthy") return "Online";
+  if (status === "degraded") return "Degraded";
+  if (status === "down") return "Offline";
+  return "Unknown";
+}
+
+function getServiceBadgeText(service?: {
+  is_healthy: boolean;
+  status?: "healthy" | "degraded" | "down" | "unknown";
+  active_outage?: boolean;
+}) {
+  const status = getServiceHealthStatus(service);
+
+  if (status === "degraded") return "Degraded";
+  if (status === "healthy")
+    return service?.active_outage ? "Recovered" : "Healthy";
+  if (status === "down") return service?.active_outage ? "Outage" : "Down";
+  return "Unknown";
+}
+
+function getServiceBadgeClassName(service?: {
+  is_healthy: boolean;
+  status?: "healthy" | "degraded" | "down" | "unknown";
+  active_outage?: boolean;
+}) {
+  const status = getServiceHealthStatus(service);
+
+  if (status === "degraded") {
+    return "border-amber-800 bg-amber-950 text-amber-200";
+  }
+
+  if (status === "healthy") {
+    return "border-emerald-800 bg-emerald-950 text-emerald-200";
+  }
+
+  if (status === "down") {
+    return "border-red-800 bg-red-950 text-red-200";
+  }
+
+  return "border-zinc-800 bg-zinc-950 text-zinc-300";
+}
+
 function formatRssi(value?: number | null) {
   if (value === null || value === undefined) return "—";
   return `${value} dBm`;
@@ -247,12 +303,20 @@ export default function OverviewPage() {
         "Router reachability is failing.",
     });
   }
-  if (overview && !overview.internet.is_healthy) {
+  if (
+    overview &&
+    (!overview.internet.is_healthy || overview.internet.status === "degraded")
+  ) {
     issues.push({
-      title: "Internet issue detected",
+      title:
+        overview.internet.status === "degraded"
+          ? "Internet degraded"
+          : "Internet issue detected",
       detail:
         overview.internet.latest_error_message ??
-        "Internet connectivity is failing.",
+        (overview.internet.status === "degraded"
+          ? "Some internet probe targets are failing, but at least one internet path is reachable."
+          : "Internet connectivity is failing."),
     });
   }
   if (overview && !overview.dns.is_healthy) {
@@ -497,9 +561,7 @@ export default function OverviewPage() {
             label="Internet"
             value={
               overview
-                ? overview.internet.is_healthy
-                  ? "Online"
-                  : "Offline"
+                ? getInternetStatusLabel(overview.internet)
                 : overviewQuery.isLoading
                   ? "Loading"
                   : "—"
@@ -714,14 +776,24 @@ export default function OverviewPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Internet</h3>
               {overview ? (
-                <StatusBadge
-                  ok={overview.internet.is_healthy}
-                  activeOutage={overview.internet.active_outage}
-                />
+                <span
+                  className={[
+                    "rounded-full border px-3 py-1 text-xs font-medium",
+                    getServiceBadgeClassName(overview.internet),
+                  ].join(" ")}
+                >
+                  {getServiceBadgeText(overview.internet)}
+                </span>
               ) : null}
             </div>
 
             <div className="mt-4 space-y-2 text-sm text-zinc-300">
+              <p>
+                Status:{" "}
+                <span className="text-zinc-400">
+                  {getInternetStatusLabel(overview?.internet)}
+                </span>
+              </p>
               <p>
                 Last success:{" "}
                 <span className="text-zinc-400">

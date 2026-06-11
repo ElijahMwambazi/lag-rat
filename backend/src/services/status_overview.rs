@@ -16,6 +16,14 @@ struct ProbeGroupHealth {
     latest_error_message: Option<String>,
 }
 
+fn simple_service_status(latest: Option<&ConnectivityCheck>) -> String {
+    match latest {
+        Some(row) if row.success => "healthy".to_string(),
+        Some(_) => "down".to_string(),
+        None => "unknown".to_string(),
+    }
+}
+
 impl ProbeGroupHealth {
     fn from_checks(checks: &[ConnectivityCheck]) -> Self {
         let success_count = checks.iter().filter(|check| check.success).count();
@@ -40,6 +48,15 @@ impl ProbeGroupHealth {
     fn has_failure(&self) -> bool {
         self.failure_count > 0
     }
+
+    fn status(&self) -> String {
+        match (self.success_count, self.failure_count) {
+            (0, 0) => "unknown".to_string(),
+            (0, _) => "down".to_string(),
+            (_, 0) => "healthy".to_string(),
+            (_, _) => "degraded".to_string(),
+        }
+    }
 }
 
 fn map_service(
@@ -50,6 +67,7 @@ fn map_service(
 ) -> ServiceStatus {
     ServiceStatus {
         is_healthy: latest.as_ref().map(|row| row.success).unwrap_or(false),
+        status: simple_service_status(latest.as_ref()),
         last_success_at: success.map(|row| row.timestamp),
         last_failure_at: failure.map(|row| row.timestamp),
         latest_latency_ms: latest.as_ref().and_then(|row| row.latency_ms),
@@ -133,8 +151,19 @@ pub async fn build(state: &AppState) -> anyhow::Result<StatusOverviewResponse> {
     let internet_summary_has_failure =
         internet_tcp_group.has_failure() || internet_http_group.has_failure();
 
+    let internet_summary_status = match (
+        internet_tcp_group.success_count + internet_http_group.success_count,
+        internet_tcp_group.failure_count + internet_http_group.failure_count,
+    ) {
+        (0, 0) => "unknown".to_string(),
+        (0, _) => "down".to_string(),
+        (_, 0) => "healthy".to_string(),
+        (_, _) => "degraded".to_string(),
+    };
+
     let internet_summary = ServiceStatus {
         is_healthy: internet_summary_healthy,
+        status: internet_summary_status,
         last_success_at: internet_http_last_success
             .as_ref()
             .map(|row| row.timestamp)

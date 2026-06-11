@@ -45,8 +45,11 @@ export type Alert = {
   acknowledged_at?: string | null;
 };
 
+export type ServiceHealthStatus = "healthy" | "degraded" | "down" | "unknown";
+
 export type ServiceStatus = {
   is_healthy: boolean;
+  status?: ServiceHealthStatus;
   last_success_at?: string | null;
   last_failure_at?: string | null;
   latest_latency_ms?: number | null;
