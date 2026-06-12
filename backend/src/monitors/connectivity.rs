@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    process::Command,
+    time::{Duration, Instant},
+};
 
 use chrono::Utc;
 use tokio::{net::TcpStream, time::timeout};
@@ -19,7 +22,8 @@ pub struct ProbeResult {
 pub async fn run(state: &AppState) -> anyhow::Result<()> {
     let now = Utc::now();
 
-    let router_target = format!("{}:{}", state.config.router_ip, state.config.router_port);
+    let router_ip = resolve_router_ip(&state.config.router_ip);
+    let router_target = format!("{}:{}", router_ip, state.config.router_port);
     let router_probe = tcp_probe(&router_target, state.config.request_timeout_ms).await;
     collector_ingest::ingest(
         state,
@@ -84,6 +88,47 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn resolve_router_ip(configured_router_ip: &str) -> String {
+    if configured_router_ip.trim().eq_ignore_ascii_case("auto") {
+        return default_gateway_ip().unwrap_or_else(|| configured_router_ip.to_string());
+    }
+
+    configured_router_ip.to_string()
+}
+
+fn default_gateway_ip() -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        let output = Command::new("ip")
+            .args(["route", "show", "default"])
+            .output()
+            .ok()?;
+
+        if !output.status.success() {
+            return None;
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        for line in stdout.lines() {
+            let mut parts = line.split_whitespace();
+
+            while let Some(part) = parts.next() {
+                if part == "via" {
+                    return parts.next().map(ToOwned::to_owned);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
 }
 
 async fn tcp_probe(addr: &str, timeout_ms: u64) -> ProbeResult {

@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use chrono::Utc;
 
 use crate::{
@@ -26,7 +28,8 @@ pub async fn list_enriched(state: &AppState) -> anyhow::Result<Vec<EnrichedDevic
                 .map(|ts| (Utc::now() - ts).num_hours() < 24)
                 .unwrap_or(false);
 
-            let is_gateway = device.ip_address == state.config.router_ip;
+            let router_ip = resolve_router_ip(&state.config.router_ip);
+            let is_gateway = device.ip_address == router_ip;
 
             let matches_local_ip =
                 !is_gateway && local_ips.iter().any(|ip| ip == &device.ip_address);
@@ -108,6 +111,47 @@ fn match_known_device<'a>(
         (ip_address.is_some() && known.ip_address.as_deref() == ip_address)
             || (mac_address.is_some() && known.mac_address.as_deref() == mac_address)
     })
+}
+
+fn resolve_router_ip(configured_router_ip: &str) -> String {
+    if configured_router_ip.trim().eq_ignore_ascii_case("auto") {
+        return default_gateway_ip().unwrap_or_else(|| configured_router_ip.to_string());
+    }
+
+    configured_router_ip.to_string()
+}
+
+fn default_gateway_ip() -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        let output = Command::new("ip")
+            .args(["route", "show", "default"])
+            .output()
+            .ok()?;
+
+        if !output.status.success() {
+            return None;
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        for line in stdout.lines() {
+            let mut parts = line.split_whitespace();
+
+            while let Some(part) = parts.next() {
+                if part == "via" {
+                    return parts.next().map(ToOwned::to_owned);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
 }
 
 fn local_hostname() -> Option<String> {
