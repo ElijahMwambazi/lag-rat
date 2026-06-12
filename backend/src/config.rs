@@ -25,6 +25,7 @@ pub struct AppConfig {
     pub database_url: String,
     pub router_ip: String,
     pub router_port: u16,
+    pub router_probe_mode: String,
     pub connectivity_interval_seconds: u64,
     pub dns_interval_seconds: u64,
     pub device_interval_seconds: u64,
@@ -55,6 +56,7 @@ impl AppConfig {
             database_url: env("DATABASE_URL")?,
             router_ip: env("ROUTER_IP")?,
             router_port: env("ROUTER_PORT")?.parse().context("invalid ROUTER_PORT")?,
+            router_probe_mode: env("ROUTER_PROBE_MODE").unwrap_or_else(|_| "tcp".to_string()),
             connectivity_interval_seconds: env("CONNECTIVITY_INTERVAL_SECONDS")?
                 .parse()
                 .context("invalid CONNECTIVITY_INTERVAL_SECONDS")?,

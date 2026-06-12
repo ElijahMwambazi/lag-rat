@@ -23,8 +23,22 @@ pub async fn run(state: &AppState) -> anyhow::Result<()> {
     let now = Utc::now();
 
     let router_ip = resolve_router_ip(&state.config.router_ip);
-    let router_target = format!("{}:{}", router_ip, state.config.router_port);
-    let router_probe = tcp_probe(&router_target, state.config.request_timeout_ms).await;
+    let router_probe_mode = state.config.router_probe_mode.trim().to_ascii_lowercase();
+
+    let (router_target, router_probe) = if router_probe_mode == "ping" {
+        (
+            router_ip.clone(),
+            ping_probe(&router_ip, state.config.request_timeout_ms).await,
+        )
+    } else {
+        let router_target = format!("{}:{}", router_ip, state.config.router_port);
+
+        (
+            router_target.clone(),
+            tcp_probe(&router_target, state.config.request_timeout_ms).await,
+        )
+    };
+
     collector_ingest::ingest(
         state,
         CollectorObservation::Connectivity(ServiceObservation {
@@ -128,6 +142,54 @@ fn default_gateway_ip() -> Option<String> {
     #[cfg(not(target_os = "linux"))]
     {
         None
+    }
+}
+
+async fn ping_probe(host: &str, timeout_ms: u64) -> ProbeResult {
+    let start = Instant::now();
+
+    let timeout_seconds = ((timeout_ms + 999) / 1000).max(1).to_string();
+
+    let result = timeout(
+        Duration::from_millis(timeout_ms.saturating_add(1000)),
+        tokio::process::Command::new("ping")
+            .args(["-c", "1", "-W", &timeout_seconds, host])
+            .output(),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(output)) if output.status.success() => ProbeResult {
+            success: true,
+            latency_ms: Some(start.elapsed().as_secs_f64() * 1000.0),
+            error_message: None,
+        },
+        Ok(Ok(output)) => {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+            ProbeResult {
+                success: false,
+                latency_ms: None,
+                error_message: Some(if !stderr.is_empty() {
+                    stderr
+                } else if !stdout.is_empty() {
+                    stdout
+                } else {
+                    "router ping probe failed".to_string()
+                }),
+            }
+        }
+        Ok(Err(err)) => ProbeResult {
+            success: false,
+            latency_ms: None,
+            error_message: Some(err.to_string()),
+        },
+        Err(_) => ProbeResult {
+            success: false,
+            latency_ms: None,
+            error_message: Some("router ping probe timed out".to_string()),
+        },
     }
 }
 

@@ -67,6 +67,7 @@ impl TestHarness {
             database_url: db_url,
             router_ip: "192.168.1.1".to_string(),
             router_port: 80,
+            router_probe_mode: "tcp".to_string(),
             connectivity_interval_seconds: 30,
             dns_interval_seconds: 60,
             device_interval_seconds: 120,
